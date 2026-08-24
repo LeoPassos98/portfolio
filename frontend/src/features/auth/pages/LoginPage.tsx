@@ -29,9 +29,17 @@ function LoginPage() {
             <Label className="block" htmlFor="email">
               E-mail
             </Label>
-            <Input id="email" type="email" {...register('email')} />
+            <Input
+              id="email"
+              type="email"
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? 'email-error' : undefined}
+              {...register('email')}
+            />
             {errors.email?.message && (
-              <p className="text-error text-sm">{errors.email.message}</p>
+              <p id="email-error" className="text-error text-sm">
+                {errors.email.message}
+              </p>
             )}
           </div>
 
@@ -39,9 +47,17 @@ function LoginPage() {
             <Label className="block" htmlFor="password">
               Senha
             </Label>
-            <Input id="password" type="password" {...register('password')} />
+            <Input
+              id="password"
+              type="password"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? 'password-error' : undefined}
+              {...register('password')}
+            />
             {errors.password?.message && (
-              <p className="text-error text-sm">{errors.password.message}</p>
+              <p id="password-error" className="text-error text-sm">
+                {errors.password.message}
+              </p>
             )}
           </div>
 
