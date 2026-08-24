@@ -1,5 +1,11 @@
+import { AuthLayout } from '../components/AuthLayout'
+
 function LoginPage() {
-  return <h1>Login</h1>
+  return (
+    <AuthLayout>
+      <h1>Login</h1>
+    </AuthLayout>
+  )
 }
 
 export { LoginPage }
