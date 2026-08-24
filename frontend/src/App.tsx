@@ -6,7 +6,7 @@ function App() {
       </h1>
       <p className="mt-4 text-base">Frontend inicial do projeto</p>
       <button
-        className="bg-primary hover:bg-primary-hover mt-6 rounded px-4 py-2 text-white"
+        className="bg-primary hover:bg-primary-hover mt-6 rounded-ui px-4 py-2 text-white"
         type="button"
       >
         Nova ordem de serviço

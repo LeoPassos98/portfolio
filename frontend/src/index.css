@@ -2,6 +2,7 @@
 
 @theme {
   --font-sans: "IBM Plex Sans Variable", sans-serif;
+  --radius-ui: 0.5rem;
 
   --color-primary: #4F46E5;
   --color-primary-hover: #4338CA;
