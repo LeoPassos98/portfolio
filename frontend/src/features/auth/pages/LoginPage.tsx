@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useNavigate } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
@@ -9,6 +10,7 @@ import { loginSchema, type LoginFormData } from '../schemas/loginSchema'
 
 function LoginPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const navigate = useNavigate()
 
   const {
     register,
@@ -18,8 +20,8 @@ function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
-  function onSubmit(data: LoginFormData) {
-    console.log(data)
+  function onSubmit() {
+    navigate('/dashboard')
   }
 
   return (
