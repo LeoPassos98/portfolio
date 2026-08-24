@@ -35,3 +35,11 @@ O build foi executado para confirmar que a base do frontend compila corretamente
 ```bash
 npm run build
 ```
+
+## Tailwind CSS
+
+O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.
+
+```bash
+npm install tailwindcss @tailwindcss/vite
+```
