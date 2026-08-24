@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -7,6 +8,8 @@ import { AuthLayout } from '../components/AuthLayout'
 import { loginSchema, type LoginFormData } from '../schemas/loginSchema'
 
 function LoginPage() {
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+
   const {
     register,
     handleSubmit,
@@ -47,13 +50,26 @@ function LoginPage() {
             <Label className="block" htmlFor="password">
               Senha
             </Label>
-            <Input
-              id="password"
-              type="password"
-              aria-invalid={Boolean(errors.password)}
-              aria-describedby={errors.password ? 'password-error' : undefined}
-              {...register('password')}
-            />
+            <div className="relative">
+              <Input
+                className="pr-20"
+                id="password"
+                type={isPasswordVisible ? 'text' : 'password'}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={
+                  errors.password ? 'password-error' : undefined
+                }
+                {...register('password')}
+              />
+              <button
+                className="text-primary focus-visible:ring-primary absolute inset-y-0 right-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-2"
+                type="button"
+                aria-pressed={isPasswordVisible}
+                onClick={() => setIsPasswordVisible((visible) => !visible)}
+              >
+                {isPasswordVisible ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
             {errors.password?.message && (
               <p id="password-error" className="text-error text-sm">
                 {errors.password.message}
