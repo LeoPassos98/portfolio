@@ -23,3 +23,30 @@ Não registrar comandos de inspeção ou verificação temporária.
 - Antes de criar um commit, revisar as alterações que serão incluídas.
 - Não criar commits automaticamente, a menos que isso tenha sido explicitamente solicitado.
 - Não fazer push automaticamente, a menos que isso tenha sido explicitamente solicitado.
+
+## Estilo com Tailwind
+
+Ao montar `className` através de arrays:
+
+- cada classe utilitária do Tailwind deve ficar em uma string separada;
+- cada item deve ficar em sua própria linha;
+- não agrupar várias classes Tailwind dentro da mesma string.
+
+Essa regra existe para melhorar leitura, revisão e manutenção.
+
+```tsx
+const classes = [
+  'bg-primary',
+  'hover:bg-primary-hover',
+  'focus-visible:ring-primary',
+  'mt-6',
+  'rounded-ui',
+  'px-4',
+  'py-2',
+  'text-white',
+  'focus-visible:ring-2',
+  'focus-visible:ring-offset-2',
+  'focus-visible:outline-none',
+  className,
+]
+```
