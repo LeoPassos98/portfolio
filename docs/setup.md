@@ -51,3 +51,11 @@ A fonte variável IBM Plex Sans foi adicionada de forma self-hosted para ser emp
 ```bash
 npm install @fontsource-variable/ibm-plex-sans
 ```
+
+## Navegação
+
+O React Router será responsável pela navegação client-side da SPA, usando Declarative Mode para definir a estrutura de rotas com componentes React.
+
+```bash
+npm install react-router
+```
