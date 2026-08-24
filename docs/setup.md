@@ -59,3 +59,11 @@ O React Router será responsável pela navegação client-side da SPA, usando De
 ```bash
 npm install react-router
 ```
+
+## Formulários
+
+O React Hook Form foi adicionado para gerenciar o estado e a submissão dos formulários da aplicação.
+
+```bash
+npm install react-hook-form
+```
