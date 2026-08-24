@@ -43,3 +43,11 @@ O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface
 ```bash
 npm install tailwindcss @tailwindcss/vite
 ```
+
+## Tipografia
+
+A fonte variável IBM Plex Sans foi adicionada de forma self-hosted para ser empacotada com a aplicação, sem depender de uma requisição externa em runtime.
+
+```bash
+npm install @fontsource-variable/ibm-plex-sans
+```

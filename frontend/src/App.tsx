@@ -1,6 +1,6 @@
 function App() {
   return (
-    <main className="bg-background text-foreground flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <main className="bg-background text-foreground flex min-h-screen flex-col items-center justify-center px-6 text-center font-sans">
       <h1 className="text-3xl font-bold">
         Sistema de Gestão de Ordens de Serviço
       </h1>
