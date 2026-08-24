@@ -67,3 +67,11 @@ O React Hook Form foi adicionado para gerenciar o estado e a submissão dos form
 ```bash
 npm install react-hook-form
 ```
+
+## Validação
+
+O Zod foi adicionado para definir os schemas de validação, enquanto `@hookform/resolvers` integra esses schemas ao React Hook Form.
+
+```bash
+npm install zod @hookform/resolvers
+```

@@ -1,16 +1,19 @@
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { AuthLayout } from '../components/AuthLayout'
-
-type LoginFormData = {
-  email: string
-  password: string
-}
+import { loginSchema, type LoginFormData } from '../schemas/loginSchema'
 
 function LoginPage() {
-  const { register, handleSubmit } = useForm<LoginFormData>()
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  })
 
   function onSubmit(data: LoginFormData) {
     console.log(data)
@@ -27,6 +30,9 @@ function LoginPage() {
               E-mail
             </Label>
             <Input id="email" type="email" {...register('email')} />
+            {errors.email?.message && (
+              <p className="text-error text-sm">{errors.email.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -34,6 +40,9 @@ function LoginPage() {
               Senha
             </Label>
             <Input id="password" type="password" {...register('password')} />
+            {errors.password?.message && (
+              <p className="text-error text-sm">{errors.password.message}</p>
+            )}
           </div>
 
           <Button className="w-full" type="submit">
