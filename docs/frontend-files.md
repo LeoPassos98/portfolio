@@ -114,7 +114,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros e paginação sincronizados com a URL, dados mockados responsivos com `StatusBadge` e um estado vazio quando nenhum resultado corresponde à busca e ao status.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros e paginação sincronizados com a URL, dados mockados responsivos com `StatusBadge`, links para os detalhes e um estado vazio quando não há resultados.
 
 ### `frontend/src/features/orders/types/`
 
@@ -131,6 +131,10 @@ Reúne dados simulados usados durante o desenvolvimento da feature de ordens de 
 ### `frontend/src/features/orders/mocks/orders.ts`
 
 Exporta a lista de ordens mockadas tipada como `Order[]`, mantendo os dados de protótipo separados da página que os apresenta.
+
+### `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
+
+Página de detalhes de uma ordem. Obtém o identificador pela rota, localiza a ordem nos mocks, exibe seus dados dentro de `AppLayout` e apresenta `EmptyState` quando o registro não existe.
 
 ## Clientes
 

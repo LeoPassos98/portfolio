@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -146,7 +146,12 @@ function OrdersPage() {
                 className="bg-surface rounded-ui border border-neutral-bg p-4"
               >
                 <div className="flex items-center justify-between gap-4">
-                  <p className="text-foreground font-medium">{order.number}</p>
+                  <Link
+                    to={`/orders/${order.id}`}
+                    className="text-primary font-medium hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  >
+                    {order.number}
+                  </Link>
                   <StatusBadge variant={statusDetail.variant}>
                     {statusDetail.label}
                   </StatusBadge>
@@ -199,7 +204,12 @@ function OrdersPage() {
                 return (
                   <tr key={order.id}>
                     <td className="text-foreground px-4 py-3 font-medium">
-                      {order.number}
+                      <Link
+                        to={`/orders/${order.id}`}
+                        className="text-primary hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      >
+                        {order.number}
+                      </Link>
                     </td>
                     <td className="text-neutral px-4 py-3">
                       {order.clientName}
