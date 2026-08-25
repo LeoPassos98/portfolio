@@ -104,7 +104,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta ao atualizar o filtro.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` um seletor sincronizado com a URL e uma tabela desktop de dados mockados, filtrada por status e identificada visualmente com `StatusBadge`.
 
 ## Clientes
 
