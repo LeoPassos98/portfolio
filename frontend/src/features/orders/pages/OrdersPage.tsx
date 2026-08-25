@@ -76,7 +76,15 @@ function OrdersPage() {
 
   return (
     <AppLayout>
-      <h1>Ordens de Serviço</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1>Ordens de Serviço</h1>
+        <Link
+          to="/orders/new"
+          className="bg-primary inline-flex rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Nova ordem de serviço
+        </Link>
+      </div>
 
       <div className="mt-6 max-w-xs space-y-2">
         <Label htmlFor="order-status">Status</Label>

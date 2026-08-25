@@ -114,7 +114,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros e paginação sincronizados com a URL, dados mockados responsivos com `StatusBadge`, links para os detalhes e um estado vazio quando não há resultados.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` a ação de criar uma ordem, filtros e paginação sincronizados com a URL, dados mockados responsivos e links para os detalhes.
 
 ### `frontend/src/features/orders/types/`
 
@@ -139,6 +139,10 @@ Página de detalhes de uma ordem. Obtém o identificador pela rota, localiza a o
 ### `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
 Página de edição visual de uma ordem. Mantém número e cliente somente para leitura, preenche responsável e status nos controles reutilizáveis e estrutura ações de salvar e cancelar sem submissão ou persistência nesta etapa.
+
+### `frontend/src/features/orders/pages/OrderCreatePage.tsx`
+
+Página de criação visual de uma ordem. Usa opções mockadas locais para cliente e responsável, apresenta o status inicial como aguardando e estrutura ações de criar e cancelar sem submissão ou numeração manual.
 
 ## Clientes
 
