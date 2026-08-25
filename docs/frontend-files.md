@@ -110,7 +110,7 @@ Agrupa a página e futuras responsabilidades relacionadas aos clientes.
 
 ### `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Página inicial de clientes. Exibe dentro de `AppLayout` o título e o filtro `status` recebido pela URL, usando `todos` quando o parâmetro não existe.
+Página inicial de clientes. Exibe dentro de `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta ao atualizar o filtro.
 
 ## Funcionários
 
@@ -120,4 +120,4 @@ Agrupa a página e futuras responsabilidades relacionadas aos funcionários.
 
 ### `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Página inicial de funcionários. Exibe dentro de `AppLayout` o título e o filtro `status` recebido pela URL, usando `todos` quando o parâmetro não existe.
+Página inicial de funcionários. Exibe dentro de `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta ao atualizar o filtro.
