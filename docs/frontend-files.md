@@ -54,7 +54,7 @@ Reúne layouts compartilhados por diferentes áreas da aplicação, sem vinculá
 
 ### `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura compartilhada das telas internas. Renderiza a sidebar com a navegação principal, destaca a rota ativa e exibe o conteúdo de cada página na área principal.
+Estrutura responsiva compartilhada das telas internas. Renderiza uma sidebar permanente no desktop, oferece navegação recolhível no mobile, destaca a rota ativa e exibe o conteúdo de cada página na área principal.
 
 ## Autenticação
 
