@@ -46,6 +46,10 @@ Rótulo reutilizável baseado em `<label>`. Padroniza a tipografia dos campos e 
 
 Seletor reutilizável tipado com as propriedades nativas de `<select>`. Padroniza dimensões, foco e aparência do estado inválido acionado por `aria-invalid`.
 
+### `frontend/src/components/ui/StatusBadge.tsx`
+
+Indicador textual compacto e reutilizável para estados semânticos. A variante seleciona os tokens de fundo e texto de warning, info, success, neutral ou error sem depender de uma feature específica.
+
 ## Layouts
 
 ### `frontend/src/features/auth/components/AuthLayout.tsx`
