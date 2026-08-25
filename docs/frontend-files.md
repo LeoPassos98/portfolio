@@ -114,6 +114,14 @@ Reúne os tipos de domínio usados pela feature de ordens de serviço.
 
 Define `Order` e os status aceitos por uma ordem. Tipifica os mocks atuais e estabelece o formato esperado para futuros dados recebidos da API.
 
+### `frontend/src/features/orders/mocks/`
+
+Reúne dados simulados usados durante o desenvolvimento da feature de ordens de serviço.
+
+### `frontend/src/features/orders/mocks/orders.ts`
+
+Exporta a lista de ordens mockadas tipada como `Order[]`, mantendo os dados de protótipo separados da página que os apresenta.
+
 ## Clientes
 
 ### `frontend/src/features/clients/`
