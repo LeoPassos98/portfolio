@@ -96,7 +96,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Atualmente renderiza apenas seu título dentro de `AppLayout`.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` o título e o filtro `status` recebido pela URL, usando `todos` quando o parâmetro não existe.
 
 ## Clientes
 
@@ -106,7 +106,7 @@ Agrupa a página e futuras responsabilidades relacionadas aos clientes.
 
 ### `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Página inicial de clientes. Atualmente renderiza apenas seu título dentro de `AppLayout`.
+Página inicial de clientes. Exibe dentro de `AppLayout` o título e o filtro `status` recebido pela URL, usando `todos` quando o parâmetro não existe.
 
 ## Funcionários
 
@@ -116,4 +116,4 @@ Agrupa a página e futuras responsabilidades relacionadas aos funcionários.
 
 ### `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Página inicial de funcionários. Atualmente renderiza apenas seu título dentro de `AppLayout`.
+Página inicial de funcionários. Exibe dentro de `AppLayout` o título e o filtro `status` recebido pela URL, usando `todos` quando o parâmetro não existe.
