@@ -1,165 +1,209 @@
-# Mapa de arquivos do frontend
+# Mapa da Estrutura Frontend
 
-Este documento organiza os elementos autorais relevantes do frontend por família. Dentro de cada família, as entradas seguem a ordem de criação; elementos do mesmo commit usam uma ordem de leitura estrutural, pois o Git não registra uma sequência interna entre arquivos criados juntos.
+Este documento organiza os arquivos autorais relevantes do frontend por famílias funcionais e estruturais. Dentro de cada família, os arquivos seguem a ordem de criação; quando surgiram no mesmo commit, a ordem é estrutural, pois o Git não registra uma sequência interna.
 
-As descrições representam a responsabilidade atual de cada elemento. Alterações futuras devem atualizar a entrada existente, sem criar um histórico paralelo ao Git.
+As descrições representam a responsabilidade atual de cada arquivo. Este mapa não substitui o histórico do Git.
 
-## Configuração e entrada do frontend
+## Visão rápida
 
-### `frontend/src/main.tsx`
+| Área | Responsabilidade | Arquivos |
+| --- | --- | ---: |
+| Configuração e entrada | Inicialização, rotas e build do frontend | 3 |
+| Estilos e tema | Estilos globais e tokens visuais | 1 |
+| Componentes UI | Elementos reutilizáveis da interface | 5 |
+| Componentes de feedback | Comunicação de estados da interface | 1 |
+| Layouts | Estruturas compartilhadas de páginas | 2 |
+| Autenticação | Login e validação | 2 |
+| Dashboard | Métricas e navegação | 2 |
+| Ordens de Serviço | Listagem, detalhes, criação, edição, tipos e mocks | 6 |
+| Clientes | Filtro de clientes | 1 |
+| Funcionários | Filtro de funcionários | 1 |
 
-Ponto de entrada da aplicação React. Carrega a fonte e os estilos globais, monta `App` no DOM e fornece o contexto de navegação por meio de `BrowserRouter`.
+## Sumário
 
-### `frontend/src/App.tsx`
+- [Configuração e entrada](#configuração-e-entrada)
+- [Estilos e tema](#estilos-e-tema)
+- [Componentes UI](#componentes-ui)
+- [Componentes de feedback](#componentes-de-feedback)
+- [Layouts](#layouts)
+- [Autenticação](#autenticação)
+- [Dashboard](#dashboard)
+- [Ordens de Serviço](#ordens-de-serviço)
+- [Clientes](#clientes)
+- [Funcionários](#funcionários)
 
-Declara as rotas da SPA e associa cada caminho à página correspondente. Também redireciona a raiz para o login.
+---
 
-### `frontend/vite.config.ts`
+## Configuração e entrada
 
-Configura o build e o ambiente de desenvolvimento do frontend com os plugins de React e Tailwind CSS.
+Inicializa a aplicação, declara suas rotas e configura o ambiente de desenvolvimento e build.
+
+Diretório principal: `frontend/`
+
+### 1. `frontend/src/main.tsx`
+
+Carrega a fonte e os estilos globais, monta `App` no DOM e fornece o contexto de navegação com `BrowserRouter`.
+
+### 2. `frontend/src/App.tsx`
+
+Declara as rotas da SPA, associa caminhos às páginas e redireciona a raiz para o login.
+
+### 3. `frontend/vite.config.ts`
+
+Configura desenvolvimento e build com os plugins de React e Tailwind CSS.
+
+---
 
 ## Estilos e tema
 
-### `frontend/src/index.css`
+Centraliza os estilos globais e os tokens visuais utilizados pela interface.
 
-Entrada global de estilos do Tailwind CSS. Define os tokens de tipografia, raio e cores usados pela interface.
+Diretório principal: `frontend/src/`
+
+### 1. `frontend/src/index.css`
+
+Importa o Tailwind CSS e define tokens de tipografia, raio e cores.
+
+---
 
 ## Componentes UI
 
-### `frontend/src/components/ui/`
+Reúne elementos visuais básicos e reutilizáveis, independentes das regras de features específicas.
 
-Reúne componentes visuais básicos e reutilizáveis, independentes das regras de uma feature específica.
+Diretório principal: `frontend/src/components/ui/`
 
-### `frontend/src/components/ui/Button.tsx`
+### 1. `frontend/src/components/ui/Button.tsx`
 
-Botão reutilizável tipado com as propriedades nativas de `<button>`. Centraliza os estilos de ação primária, foco, estado desabilitado e extensão por `className`.
+Botão tipado com propriedades nativas. Padroniza ação primária, foco, estado desabilitado e extensão por `className`.
 
-### `frontend/src/components/ui/Input.tsx`
+### 2. `frontend/src/components/ui/Input.tsx`
 
-Campo de entrada reutilizável tipado com as propriedades nativas de `<input>`. Padroniza dimensões, foco e aparência do estado inválido acionado por `aria-invalid`.
+Campo tipado com propriedades nativas. Padroniza dimensões, foco e estado inválido acionado por `aria-invalid`.
 
-### `frontend/src/components/ui/Label.tsx`
+### 3. `frontend/src/components/ui/Label.tsx`
 
-Rótulo reutilizável baseado em `<label>`. Padroniza a tipografia dos campos e permite associação acessível com inputs por `htmlFor`.
+Rótulo baseado em `<label>`, com tipografia padronizada e associação acessível por `htmlFor`.
 
-### `frontend/src/components/ui/Select.tsx`
+### 4. `frontend/src/components/ui/Select.tsx`
 
-Seletor reutilizável tipado com as propriedades nativas de `<select>`. Padroniza dimensões, foco e aparência do estado inválido acionado por `aria-invalid`.
+Seletor tipado com propriedades nativas. Padroniza dimensões, foco e estado inválido acionado por `aria-invalid`.
 
-### `frontend/src/components/ui/StatusBadge.tsx`
+### 5. `frontend/src/components/ui/StatusBadge.tsx`
 
-Indicador textual compacto e reutilizável para estados semânticos. A variante seleciona os tokens de fundo e texto de warning, info, success, neutral ou error sem depender de uma feature específica.
+Indicador textual compacto cujas variantes aplicam os tokens semânticos de warning, info, success, neutral e error.
+
+---
 
 ## Componentes de feedback
 
-### `frontend/src/components/feedback/`
+Comunica estados e respostas da interface sem depender de uma feature específica.
 
-Reúne componentes reutilizáveis que comunicam estados e respostas da interface ao usuário.
+Diretório principal: `frontend/src/components/feedback/`
 
-### `frontend/src/components/feedback/EmptyState.tsx`
+### 1. `frontend/src/components/feedback/EmptyState.tsx`
 
-Mensagem acessível e genérica para situações sem conteúdo disponível. Recebe título e descrição opcional sem depender de uma feature específica.
+Apresenta uma mensagem acessível para ausência de conteúdo, com título e descrição opcional.
+
+---
 
 ## Layouts
 
-### `frontend/src/features/auth/components/AuthLayout.tsx`
+Define estruturas visuais compartilhadas por telas de autenticação e áreas internas.
 
-Layout das telas de autenticação. Centraliza o conteúdo em uma superfície sobre o fundo da aplicação e recebe a interface específica por `children`.
+Diretórios: `frontend/src/features/auth/components/` e `frontend/src/components/layout/`
 
-### `frontend/src/components/layout/`
+### 1. `frontend/src/features/auth/components/AuthLayout.tsx`
 
-Reúne layouts compartilhados por diferentes áreas da aplicação, sem vinculá-los a uma feature específica.
+Centraliza telas de autenticação em uma superfície sobre o fundo da aplicação e recebe conteúdo por `children`.
 
-### `frontend/src/components/layout/AppLayout.tsx`
+### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura responsiva compartilhada das telas internas. Renderiza uma sidebar permanente no desktop, oferece navegação recolhível no mobile, destaca a rota ativa e exibe o conteúdo de cada página na área principal.
+Estrutura as telas internas com sidebar desktop, navegação mobile recolhível, indicação de rota ativa e área principal.
+
+---
 
 ## Autenticação
 
-### `frontend/src/features/auth/`
+Reúne a tela de login, seu formulário e o schema de validação.
 
-Agrupa páginas, componentes e schemas pertencentes ao fluxo de autenticação.
+Diretório principal: `frontend/src/features/auth/`
 
-### `frontend/src/features/auth/pages/LoginPage.tsx`
+### 1. `frontend/src/features/auth/pages/LoginPage.tsx`
 
-Implementa a tela de login com campos acessíveis, alternância de visibilidade da senha, formulário gerenciado pelo React Hook Form e navegação mock para o Dashboard após validação.
+Implementa login acessível com React Hook Form, validação, visibilidade de senha e navegação mock para o Dashboard.
 
-### `frontend/src/features/auth/schemas/loginSchema.ts`
+### 2. `frontend/src/features/auth/schemas/loginSchema.ts`
 
-Define com Zod as regras de validação do e-mail e da senha do login. Também exporta `LoginFormData`, inferido diretamente do schema e usado por `LoginPage`.
+Define com Zod as regras de e-mail e senha e exporta `LoginFormData`, inferido e usado por `LoginPage`.
+
+---
 
 ## Dashboard
 
-### `frontend/src/features/dashboard/`
+Apresenta métricas resumidas e oferece navegação para áreas filtradas do sistema.
 
-Agrupa a página e futuras responsabilidades específicas do Dashboard.
+Diretório principal: `frontend/src/features/dashboard/`
 
-### `frontend/src/features/dashboard/pages/DashboardPage.tsx`
+### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Página inicial da área interna. Compõe, com `MetricCard`, um resumo em uma grade responsiva com seis métricas mockadas e navegáveis dentro de `AppLayout`.
+Compõe em `AppLayout` uma grade responsiva com seis métricas mockadas e navegáveis usando `MetricCard`.
 
-### `frontend/src/features/dashboard/components/`
+### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 
-Reúne componentes visuais específicos do Dashboard.
+Renderiza uma métrica navegável com nome, valor, destino e classes semânticas para suas variações visuais.
 
-### `frontend/src/features/dashboard/components/MetricCard.tsx`
-
-Card de métrica navegável reutilizado pelo Dashboard. Recebe o nome, o valor, o destino e as classes semânticas necessárias para preservar as variações visuais das métricas.
+---
 
 ## Ordens de Serviço
 
-### `frontend/src/features/orders/`
+Reúne listagem, detalhes, criação, edição, tipos e dados mockados do fluxo de ordens de serviço.
 
-Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço.
+Diretório principal: `frontend/src/features/orders/`
 
-### `frontend/src/features/orders/pages/OrdersPage.tsx`
+### 1. `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` a ação de criar uma ordem, filtros e paginação sincronizados com a URL, dados mockados responsivos e links para os detalhes.
+Lista ordens em tabela desktop ou lista mobile, controla filtros, busca e paginação pela URL e oferece criação e acesso aos detalhes.
 
-### `frontend/src/features/orders/types/`
+### 2. `frontend/src/features/orders/types/order.ts`
 
-Reúne os tipos de domínio usados pela feature de ordens de serviço.
+Define `Order` e seus status aceitos, tipando os mocks e o formato esperado de futuros dados da API.
 
-### `frontend/src/features/orders/types/order.ts`
+### 3. `frontend/src/features/orders/mocks/orders.ts`
 
-Define `Order` e os status aceitos por uma ordem. Tipifica os mocks atuais e estabelece o formato esperado para futuros dados recebidos da API.
+Exporta as ordens de protótipo como `Order[]`, separadas da página que as apresenta.
 
-### `frontend/src/features/orders/mocks/`
+### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Reúne dados simulados usados durante o desenvolvimento da feature de ordens de serviço.
+Obtém a ordem pela rota, exibe seus dados e ações, conecta à edição e usa `EmptyState` quando o registro não existe.
 
-### `frontend/src/features/orders/mocks/orders.ts`
+### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Exporta a lista de ordens mockadas tipada como `Order[]`, mantendo os dados de protótipo separados da página que os apresenta.
+Mantém número e cliente somente para leitura e estrutura controles e ações de edição sem submissão ou persistência.
 
-### `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
+### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
-Página de detalhes de uma ordem. Obtém o identificador pela rota, localiza a ordem nos mocks, exibe dados e ações dentro de `AppLayout`, conecta à tela de edição e apresenta `EmptyState` quando o registro não existe.
+Usa opções mockadas locais para cliente e responsável, mostra o status inicial aguardando e estrutura criação e cancelamento sem submissão ou numeração manual.
 
-### `frontend/src/features/orders/pages/OrderEditPage.tsx`
-
-Página de edição visual de uma ordem. Mantém número e cliente somente para leitura, preenche responsável e status nos controles reutilizáveis e estrutura ações de salvar e cancelar sem submissão ou persistência nesta etapa.
-
-### `frontend/src/features/orders/pages/OrderCreatePage.tsx`
-
-Página de criação visual de uma ordem. Usa opções mockadas locais para cliente e responsável, apresenta o status inicial como aguardando e estrutura ações de criar e cancelar sem submissão ou numeração manual.
+---
 
 ## Clientes
 
-### `frontend/src/features/clients/`
+Concentra a interface atual de consulta de clientes.
 
-Agrupa a página e futuras responsabilidades relacionadas aos clientes.
+Diretório principal: `frontend/src/features/clients/`
 
-### `frontend/src/features/clients/pages/ClientsPage.tsx`
+### 1. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Página inicial de clientes. Exibe dentro de `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta ao atualizar o filtro.
+Exibe em `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta.
+
+---
 
 ## Funcionários
 
-### `frontend/src/features/employees/`
+Concentra a interface atual de consulta de funcionários.
 
-Agrupa a página e futuras responsabilidades relacionadas aos funcionários.
+Diretório principal: `frontend/src/features/employees/`
 
-### `frontend/src/features/employees/pages/EmployeesPage.tsx`
+### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Página inicial de funcionários. Exibe dentro de `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta ao atualizar o filtro.
+Exibe em `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta.

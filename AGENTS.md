@@ -58,9 +58,12 @@ Sempre que um novo arquivo ou diretório autoral do frontend tiver responsabilid
 O documento deve:
 
 - registrar o caminho completo;
-- explicar de forma curta e concreta a responsabilidade do arquivo ou diretório;
-- quando fizer sentido, mencionar onde ele é utilizado ou como participa da aplicação;
 - organizar as entradas por famílias funcionais ou estruturais;
+- possuir uma visão rápida com as quantidades de arquivos e um sumário para as famílias;
+- usar diretórios como contexto para organizar as seções, sem numerá-los como arquivos;
+- documentar e numerar os arquivos relevantes dentro de suas respectivas famílias;
+- manter descrições curtas e orientadas à responsabilidade atual de cada arquivo;
+- quando fizer sentido, mencionar onde ele é utilizado ou como participa da aplicação;
 - dentro de cada família, preservar a ordem de criação;
 - atualizar a entrada existente quando a responsabilidade mudar, sem criar um histórico de alterações.
 
