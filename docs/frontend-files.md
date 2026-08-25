@@ -78,7 +78,7 @@ Agrupa a página e futuras responsabilidades específicas do Dashboard.
 
 ### `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Página inicial da área interna. Renderiza o título do Dashboard dentro de `AppLayout`.
+Página inicial da área interna. Apresenta um resumo em uma grade responsiva com seis métricas mockadas dentro de `AppLayout`.
 
 ## Ordens de Serviço
 
