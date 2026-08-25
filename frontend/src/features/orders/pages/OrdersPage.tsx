@@ -107,6 +107,37 @@ function OrdersPage() {
         </Select>
       </div>
 
+      <ul className="mt-8 space-y-4 md:hidden">
+        {filteredOrders.map((order) => {
+          const statusDetail = statusDetails[order.status]
+
+          return (
+            <li
+              key={order.number}
+              className="bg-surface rounded-ui border border-neutral-bg p-4"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-foreground font-medium">{order.number}</p>
+                <StatusBadge variant={statusDetail.variant}>
+                  {statusDetail.label}
+                </StatusBadge>
+              </div>
+
+              <dl className="mt-4 space-y-3">
+                <div>
+                  <dt className="text-neutral text-xs">Cliente</dt>
+                  <dd className="text-foreground mt-1">{order.client}</dd>
+                </div>
+                <div>
+                  <dt className="text-neutral text-xs">Responsável</dt>
+                  <dd className="text-foreground mt-1">{order.responsible}</dd>
+                </div>
+              </dl>
+            </li>
+          )
+        })}
+      </ul>
+
       <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
         <table className="w-full text-left">
           <caption className="sr-only">Lista de ordens de serviço</caption>
