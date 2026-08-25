@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
+import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
@@ -21,6 +22,8 @@ const statusDetails = {
   completed: { label: 'Concluída', variant: 'success' },
   cancelled: { label: 'Cancelada', variant: 'neutral' },
 } as const satisfies Record<OrderStatus, { label: string; variant: string }>
+
+const ordersPerPage = 2
 
 function isOrderStatus(value: string | null): value is OrderStatus {
   return value !== null && orderStatuses.some((status) => status === value)
@@ -44,6 +47,32 @@ function OrdersPage() {
       )
     : ordersFilteredByStatus
   const hasOrders = filteredOrders.length > 0
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredOrders.length / ordersPerPage),
+  )
+  const requestedPage = Number(searchParams.get('page') ?? '1')
+  const currentPage =
+    Number.isInteger(requestedPage) && requestedPage > 0
+      ? Math.min(requestedPage, totalPages)
+      : 1
+  const pageStart = (currentPage - 1) * ordersPerPage
+  const currentOrders = filteredOrders.slice(
+    pageStart,
+    pageStart + ordersPerPage,
+  )
+
+  function changePage(nextPage: number) {
+    const nextSearchParams = new URLSearchParams(searchParams)
+
+    if (nextPage === 1) {
+      nextSearchParams.delete('page')
+    } else {
+      nextSearchParams.set('page', String(nextPage))
+    }
+
+    setSearchParams(nextSearchParams)
+  }
 
   return (
     <AppLayout>
@@ -63,6 +92,7 @@ function OrdersPage() {
               nextSearchParams.set('status', event.target.value)
             }
 
+            nextSearchParams.delete('page')
             setSearchParams(nextSearchParams)
           }}
         >
@@ -90,6 +120,7 @@ function OrdersPage() {
               nextSearchParams.set('search', event.target.value)
             }
 
+            nextSearchParams.delete('page')
             setSearchParams(nextSearchParams)
           }}
         />
@@ -106,7 +137,7 @@ function OrdersPage() {
 
       {hasOrders && (
         <ul className="mt-8 space-y-4 md:hidden">
-          {filteredOrders.map((order) => {
+          {currentOrders.map((order) => {
             const statusDetail = statusDetails[order.status]
 
             return (
@@ -162,7 +193,7 @@ function OrdersPage() {
               </tr>
             </thead>
             <tbody className="bg-surface divide-y divide-neutral-bg">
-              {filteredOrders.map((order) => {
+              {currentOrders.map((order) => {
                 const statusDetail = statusDetails[order.status]
 
                 return (
@@ -187,6 +218,31 @@ function OrdersPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {hasOrders && (
+        <nav
+          aria-label="Paginação de ordens"
+          className="mt-6 flex items-center justify-between gap-4"
+        >
+          <Button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => changePage(currentPage - 1)}
+          >
+            Anterior
+          </Button>
+          <p className="text-neutral text-sm">
+            Página {currentPage} de {totalPages}
+          </p>
+          <Button
+            type="button"
+            disabled={currentPage === totalPages}
+            onClick={() => changePage(currentPage + 1)}
+          >
+            Próxima
+          </Button>
+        </nav>
       )}
     </AppLayout>
   )

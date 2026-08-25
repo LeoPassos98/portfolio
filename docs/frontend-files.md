@@ -114,7 +114,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros sincronizados com a URL, dados mockados responsivos com `StatusBadge` e um estado vazio quando nenhum resultado corresponde à busca e ao status.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros e paginação sincronizados com a URL, dados mockados responsivos com `StatusBadge` e um estado vazio quando nenhum resultado corresponde à busca e ao status.
 
 ### `frontend/src/features/orders/types/`
 
