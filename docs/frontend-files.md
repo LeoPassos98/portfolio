@@ -138,7 +138,7 @@ Página de detalhes de uma ordem. Obtém o identificador pela rota, localiza a o
 
 ### `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Página inicial de edição de uma ordem. Obtém o identificador pela rota, valida sua existência nos mocks e apresenta somente o título e o retorno aos detalhes, sem formulário nesta etapa.
+Página de edição visual de uma ordem. Mantém número e cliente somente para leitura, preenche responsável e status nos controles reutilizáveis e estrutura ações de salvar e cancelar sem submissão ou persistência nesta etapa.
 
 ## Clientes
 
