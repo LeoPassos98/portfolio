@@ -50,3 +50,27 @@ const classes = [
   className,
 ]
 ```
+
+## Mapa de arquivos do frontend
+
+Sempre que um novo arquivo ou diretório autoral do frontend tiver responsabilidade relevante na estrutura, no comportamento ou na interface da aplicação, atualize `docs/frontend-files.md`.
+
+O documento deve:
+
+- registrar o caminho completo;
+- explicar de forma curta e concreta a responsabilidade do arquivo ou diretório;
+- quando fizer sentido, mencionar onde ele é utilizado ou como participa da aplicação;
+- organizar as entradas por famílias funcionais ou estruturais;
+- dentro de cada família, preservar a ordem de criação;
+- atualizar a entrada existente quando a responsabilidade mudar, sem criar um histórico de alterações.
+
+Não registrar:
+
+- `node_modules`;
+- `dist`;
+- arquivos gerados automaticamente por instalação;
+- `package.json` ou `package-lock.json`;
+- arquivos puramente padrões ou de infraestrutura sem responsabilidade específica na aplicação;
+- assets ou arquivos sem função arquitetural relevante.
+
+O objetivo de `docs/frontend-files.md` é servir como um mapa do estado atual do frontend, sem explicar implementações linha por linha.
