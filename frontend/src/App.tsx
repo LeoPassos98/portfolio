@@ -4,6 +4,7 @@ import { ClientsPage } from './features/clients/pages/ClientsPage'
 import { DashboardPage } from './features/dashboard/pages/DashboardPage'
 import { EmployeesPage } from './features/employees/pages/EmployeesPage'
 import { OrderDetailsPage } from './features/orders/pages/OrderDetailsPage'
+import { OrderEditPage } from './features/orders/pages/OrderEditPage'
 import { OrdersPage } from './features/orders/pages/OrdersPage'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+      <Route path="/orders/:orderId/edit" element={<OrderEditPage />} />
       <Route path="/clients" element={<ClientsPage />} />
       <Route path="/employees" element={<EmployeesPage />} />
     </Routes>

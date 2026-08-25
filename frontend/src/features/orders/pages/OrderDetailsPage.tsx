@@ -49,7 +49,12 @@ function OrderDetailsPage() {
         <h1 className="text-foreground text-2xl font-bold">{order.number}</h1>
 
         <div className="flex flex-wrap gap-3">
-          <Button type="button">Editar</Button>
+          <Link
+            to={`/orders/${order.id}/edit`}
+            className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          >
+            Editar
+          </Link>
           <Button type="button">Ver histórico</Button>
         </div>
       </div>

@@ -134,7 +134,11 @@ Exporta a lista de ordens mockadas tipada como `Order[]`, mantendo os dados de p
 
 ### `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Página de detalhes de uma ordem. Obtém o identificador pela rota, localiza a ordem nos mocks, exibe dados e ações estruturais dentro de `AppLayout`, permite voltar à listagem e apresenta `EmptyState` quando o registro não existe.
+Página de detalhes de uma ordem. Obtém o identificador pela rota, localiza a ordem nos mocks, exibe dados e ações dentro de `AppLayout`, conecta à tela de edição e apresenta `EmptyState` quando o registro não existe.
+
+### `frontend/src/features/orders/pages/OrderEditPage.tsx`
+
+Página inicial de edição de uma ordem. Obtém o identificador pela rota, valida sua existência nos mocks e apresenta somente o título e o retorno aos detalhes, sem formulário nesta etapa.
 
 ## Clientes
 
