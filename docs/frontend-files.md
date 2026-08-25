@@ -100,7 +100,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` o título e o filtro `status` recebido pela URL, usando `todos` quando o parâmetro não existe.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta ao atualizar o filtro.
 
 ## Clientes
 
