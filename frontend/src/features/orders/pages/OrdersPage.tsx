@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
+import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
@@ -74,9 +75,18 @@ function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const statusParam = searchParams.get('status')
   const status = statusParam ?? 'all'
-  const filteredOrders = isOrderStatus(statusParam)
+  const search = searchParams.get('search') ?? ''
+  const ordersFilteredByStatus = isOrderStatus(statusParam)
     ? mockOrders.filter((order) => order.status === statusParam)
     : mockOrders
+  const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
+  const filteredOrders = normalizedSearch
+    ? ordersFilteredByStatus.filter((order) =>
+        [order.number, order.client, order.responsible].some((value) =>
+          value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
+        ),
+      )
+    : ordersFilteredByStatus
 
   return (
     <AppLayout>
@@ -105,6 +115,27 @@ function OrdersPage() {
           <option value="completed">Concluídas</option>
           <option value="cancelled">Canceladas</option>
         </Select>
+      </div>
+
+      <div className="mt-4 max-w-md space-y-2">
+        <Label htmlFor="order-search">Buscar</Label>
+        <Input
+          id="order-search"
+          type="search"
+          value={search}
+          placeholder="Ordem, cliente ou responsável"
+          onChange={(event) => {
+            const nextSearchParams = new URLSearchParams(searchParams)
+
+            if (event.target.value.trim() === '') {
+              nextSearchParams.delete('search')
+            } else {
+              nextSearchParams.set('search', event.target.value)
+            }
+
+            setSearchParams(nextSearchParams)
+          }}
+        />
       </div>
 
       <ul className="mt-8 space-y-4 md:hidden">
