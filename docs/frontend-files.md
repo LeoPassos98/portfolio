@@ -50,6 +50,16 @@ Seletor reutilizável tipado com as propriedades nativas de `<select>`. Padroniz
 
 Indicador textual compacto e reutilizável para estados semânticos. A variante seleciona os tokens de fundo e texto de warning, info, success, neutral ou error sem depender de uma feature específica.
 
+## Componentes de feedback
+
+### `frontend/src/components/feedback/`
+
+Reúne componentes reutilizáveis que comunicam estados e respostas da interface ao usuário.
+
+### `frontend/src/components/feedback/EmptyState.tsx`
+
+Mensagem acessível e genérica para situações sem conteúdo disponível. Recebe título e descrição opcional sem depender de uma feature específica.
+
 ## Layouts
 
 ### `frontend/src/features/auth/components/AuthLayout.tsx`
@@ -104,7 +114,7 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 ### `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros de status e busca sincronizados com a URL, aplicados aos dados mockados apresentados como lista no mobile e tabela no desktop com `StatusBadge`.
+Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros sincronizados com a URL, dados mockados responsivos com `StatusBadge` e um estado vazio quando nenhum resultado corresponde à busca e ao status.
 
 ### `frontend/src/features/orders/types/`
 

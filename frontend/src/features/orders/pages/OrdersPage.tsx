@@ -1,4 +1,5 @@
 import { useSearchParams } from 'react-router'
+import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
@@ -42,6 +43,7 @@ function OrdersPage() {
         ),
       )
     : ordersFilteredByStatus
+  const hasOrders = filteredOrders.length > 0
 
   return (
     <AppLayout>
@@ -93,84 +95,99 @@ function OrdersPage() {
         />
       </div>
 
-      <ul className="mt-8 space-y-4 md:hidden">
-        {filteredOrders.map((order) => {
-          const statusDetail = statusDetails[order.status]
+      {!hasOrders && (
+        <div className="mt-8">
+          <EmptyState
+            title="Nenhuma ordem encontrada"
+            description="Tente ajustar a busca ou os filtros."
+          />
+        </div>
+      )}
 
-          return (
-            <li
-              key={order.id}
-              className="bg-surface rounded-ui border border-neutral-bg p-4"
-            >
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-foreground font-medium">{order.number}</p>
-                <StatusBadge variant={statusDetail.variant}>
-                  {statusDetail.label}
-                </StatusBadge>
-              </div>
+      {hasOrders && (
+        <ul className="mt-8 space-y-4 md:hidden">
+          {filteredOrders.map((order) => {
+            const statusDetail = statusDetails[order.status]
 
-              <dl className="mt-4 space-y-3">
-                <div>
-                  <dt className="text-neutral text-xs">Cliente</dt>
-                  <dd className="text-foreground mt-1">{order.clientName}</dd>
+            return (
+              <li
+                key={order.id}
+                className="bg-surface rounded-ui border border-neutral-bg p-4"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-foreground font-medium">{order.number}</p>
+                  <StatusBadge variant={statusDetail.variant}>
+                    {statusDetail.label}
+                  </StatusBadge>
                 </div>
-                <div>
-                  <dt className="text-neutral text-xs">Responsável</dt>
-                  <dd className="text-foreground mt-1">
-                    {order.responsibleName}
-                  </dd>
-                </div>
-              </dl>
-            </li>
-          )
-        })}
-      </ul>
 
-      <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
-        <table className="w-full text-left">
-          <caption className="sr-only">Lista de ordens de serviço</caption>
-          <thead className="bg-neutral-bg text-neutral text-sm">
-            <tr>
-              <th className="px-4 py-3 font-medium" scope="col">
-                Ordem
-              </th>
-              <th className="px-4 py-3 font-medium" scope="col">
-                Cliente
-              </th>
-              <th className="px-4 py-3 font-medium" scope="col">
-                Responsável
-              </th>
-              <th className="px-4 py-3 font-medium" scope="col">
-                Status
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-surface divide-y divide-neutral-bg">
-            {filteredOrders.map((order) => {
-              const statusDetail = statusDetails[order.status]
+                <dl className="mt-4 space-y-3">
+                  <div>
+                    <dt className="text-neutral text-xs">Cliente</dt>
+                    <dd className="text-foreground mt-1">
+                      {order.clientName}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral text-xs">Responsável</dt>
+                    <dd className="text-foreground mt-1">
+                      {order.responsibleName}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            )
+          })}
+        </ul>
+      )}
 
-              return (
-                <tr key={order.id}>
-                  <td className="text-foreground px-4 py-3 font-medium">
-                    {order.number}
-                  </td>
-                  <td className="text-neutral px-4 py-3">
-                    {order.clientName}
-                  </td>
-                  <td className="text-neutral px-4 py-3">
-                    {order.responsibleName}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge variant={statusDetail.variant}>
-                      {statusDetail.label}
-                    </StatusBadge>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+      {hasOrders && (
+        <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
+          <table className="w-full text-left">
+            <caption className="sr-only">Lista de ordens de serviço</caption>
+            <thead className="bg-neutral-bg text-neutral text-sm">
+              <tr>
+                <th className="px-4 py-3 font-medium" scope="col">
+                  Ordem
+                </th>
+                <th className="px-4 py-3 font-medium" scope="col">
+                  Cliente
+                </th>
+                <th className="px-4 py-3 font-medium" scope="col">
+                  Responsável
+                </th>
+                <th className="px-4 py-3 font-medium" scope="col">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-surface divide-y divide-neutral-bg">
+              {filteredOrders.map((order) => {
+                const statusDetail = statusDetails[order.status]
+
+                return (
+                  <tr key={order.id}>
+                    <td className="text-foreground px-4 py-3 font-medium">
+                      {order.number}
+                    </td>
+                    <td className="text-neutral px-4 py-3">
+                      {order.clientName}
+                    </td>
+                    <td className="text-neutral px-4 py-3">
+                      {order.responsibleName}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge variant={statusDetail.variant}>
+                        {statusDetail.label}
+                      </StatusBadge>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </AppLayout>
   )
 }
