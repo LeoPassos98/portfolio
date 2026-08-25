@@ -42,6 +42,10 @@ Campo de entrada reutilizável tipado com as propriedades nativas de `<input>`. 
 
 Rótulo reutilizável baseado em `<label>`. Padroniza a tipografia dos campos e permite associação acessível com inputs por `htmlFor`.
 
+### `frontend/src/components/ui/Select.tsx`
+
+Seletor reutilizável tipado com as propriedades nativas de `<select>`. Padroniza dimensões, foco e aparência do estado inválido acionado por `aria-invalid`.
+
 ## Layouts
 
 ### `frontend/src/features/auth/components/AuthLayout.tsx`
