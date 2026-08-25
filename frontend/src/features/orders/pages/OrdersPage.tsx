@@ -4,65 +4,63 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import type { Order, OrderStatus } from '../types/order'
 
-const orderStatuses = [
+const orderStatuses: readonly OrderStatus[] = [
   'awaiting',
   'in-progress',
   'completed',
   'cancelled',
-] as const
-
-type OrderStatus = (typeof orderStatuses)[number]
-
-type MockOrder = {
-  number: string
-  client: string
-  responsible: string
-  status: OrderStatus
-}
+]
 
 const statusDetails = {
   awaiting: { label: 'Aguardando', variant: 'warning' },
   'in-progress': { label: 'Em andamento', variant: 'info' },
   completed: { label: 'Concluída', variant: 'success' },
   cancelled: { label: 'Cancelada', variant: 'neutral' },
-} as const
+} as const satisfies Record<OrderStatus, { label: string; variant: string }>
 
-const mockOrders: MockOrder[] = [
+const mockOrders: Order[] = [
   {
+    id: '1',
     number: 'OS-1001',
-    client: 'Mariana Costa',
-    responsible: 'Carlos Lima',
+    clientName: 'Mariana Costa',
+    responsibleName: 'Carlos Lima',
     status: 'awaiting',
   },
   {
+    id: '2',
     number: 'OS-1002',
-    client: 'Empresa Horizonte',
-    responsible: 'Ana Souza',
+    clientName: 'Empresa Horizonte',
+    responsibleName: 'Ana Souza',
     status: 'in-progress',
   },
   {
+    id: '3',
     number: 'OS-1003',
-    client: 'Rafael Martins',
-    responsible: 'Carlos Lima',
+    clientName: 'Rafael Martins',
+    responsibleName: 'Carlos Lima',
     status: 'completed',
   },
   {
+    id: '4',
     number: 'OS-1004',
-    client: 'Clínica Central',
-    responsible: 'Beatriz Alves',
+    clientName: 'Clínica Central',
+    responsibleName: 'Beatriz Alves',
     status: 'cancelled',
   },
   {
+    id: '5',
     number: 'OS-1005',
-    client: 'Oficina União',
-    responsible: 'Ana Souza',
+    clientName: 'Oficina União',
+    responsibleName: 'Ana Souza',
     status: 'in-progress',
   },
   {
+    id: '6',
     number: 'OS-1006',
-    client: 'Paulo Mendes',
-    responsible: 'Beatriz Alves',
+    clientName: 'Paulo Mendes',
+    responsibleName: 'Beatriz Alves',
     status: 'awaiting',
   },
 ]
@@ -82,8 +80,9 @@ function OrdersPage() {
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
   const filteredOrders = normalizedSearch
     ? ordersFilteredByStatus.filter((order) =>
-        [order.number, order.client, order.responsible].some((value) =>
-          value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
+        [order.number, order.clientName, order.responsibleName].some(
+          (value) =>
+            value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
         ),
       )
     : ordersFilteredByStatus
@@ -144,7 +143,7 @@ function OrdersPage() {
 
           return (
             <li
-              key={order.number}
+              key={order.id}
               className="bg-surface rounded-ui border border-neutral-bg p-4"
             >
               <div className="flex items-center justify-between gap-4">
@@ -157,11 +156,13 @@ function OrdersPage() {
               <dl className="mt-4 space-y-3">
                 <div>
                   <dt className="text-neutral text-xs">Cliente</dt>
-                  <dd className="text-foreground mt-1">{order.client}</dd>
+                  <dd className="text-foreground mt-1">{order.clientName}</dd>
                 </div>
                 <div>
                   <dt className="text-neutral text-xs">Responsável</dt>
-                  <dd className="text-foreground mt-1">{order.responsible}</dd>
+                  <dd className="text-foreground mt-1">
+                    {order.responsibleName}
+                  </dd>
                 </div>
               </dl>
             </li>
@@ -193,13 +194,15 @@ function OrdersPage() {
               const statusDetail = statusDetails[order.status]
 
               return (
-                <tr key={order.number}>
+                <tr key={order.id}>
                   <td className="text-foreground px-4 py-3 font-medium">
                     {order.number}
                   </td>
-                  <td className="text-neutral px-4 py-3">{order.client}</td>
                   <td className="text-neutral px-4 py-3">
-                    {order.responsible}
+                    {order.clientName}
+                  </td>
+                  <td className="text-neutral px-4 py-3">
+                    {order.responsibleName}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge variant={statusDetail.variant}>

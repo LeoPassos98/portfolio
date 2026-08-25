@@ -106,6 +106,14 @@ Agrupa a página e futuras responsabilidades relacionadas às ordens de serviço
 
 Página inicial de ordens de serviço. Exibe dentro de `AppLayout` filtros de status e busca sincronizados com a URL, aplicados aos dados mockados apresentados como lista no mobile e tabela no desktop com `StatusBadge`.
 
+### `frontend/src/features/orders/types/`
+
+Reúne os tipos de domínio usados pela feature de ordens de serviço.
+
+### `frontend/src/features/orders/types/order.ts`
+
+Define `Order` e os status aceitos por uma ordem. Tipifica os mocks atuais e estabelece o formato esperado para futuros dados recebidos da API.
+
 ## Clientes
 
 ### `frontend/src/features/clients/`
