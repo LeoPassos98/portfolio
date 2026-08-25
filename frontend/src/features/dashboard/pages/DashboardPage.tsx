@@ -1,4 +1,5 @@
 import { AppLayout } from '../../../components/layout/AppLayout'
+import { MetricCard } from '../components/MetricCard'
 
 const dashboardMetrics = [
   {
@@ -54,26 +55,7 @@ function DashboardPage() {
         className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
       >
         {dashboardMetrics.map((metric) => (
-          <article
-            key={metric.label}
-            className={[
-              'rounded-ui',
-              'p-5',
-              metric.backgroundClass,
-            ].join(' ')}
-          >
-            <p className="text-neutral text-sm font-medium">{metric.label}</p>
-            <p
-              className={[
-                'mt-2',
-                'text-3xl',
-                'font-bold',
-                metric.valueClass,
-              ].join(' ')}
-            >
-              {metric.value}
-            </p>
-          </article>
+          <MetricCard key={metric.label} {...metric} />
         ))}
       </section>
     </AppLayout>
