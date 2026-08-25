@@ -1,8 +1,11 @@
+import { Link } from 'react-router'
+
 type MetricCardProps = {
   label: string
   value: number
   backgroundClass: string
   valueClass: string
+  to: string
 }
 
 function MetricCard({
@@ -10,12 +13,21 @@ function MetricCard({
   value,
   backgroundClass,
   valueClass,
+  to,
 }: MetricCardProps) {
   return (
-    <article
+    <Link
+      to={to}
       className={[
+        'block',
         'rounded-ui',
         'p-5',
+        'transition-shadow',
+        'hover:shadow-md',
+        'focus-visible:outline-none',
+        'focus-visible:ring-2',
+        'focus-visible:ring-primary',
+        'focus-visible:ring-offset-2',
         backgroundClass,
       ].join(' ')}
     >
@@ -30,7 +42,7 @@ function MetricCard({
       >
         {value}
       </p>
-    </article>
+    </Link>
   )
 }
 

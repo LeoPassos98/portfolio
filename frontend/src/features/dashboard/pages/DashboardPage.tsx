@@ -7,36 +7,42 @@ const dashboardMetrics = [
     value: 12,
     backgroundClass: 'bg-warning-bg',
     valueClass: 'text-warning',
+    to: '/orders?status=awaiting',
   },
   {
     label: 'Ordens em andamento',
     value: 8,
     backgroundClass: 'bg-info-bg',
     valueClass: 'text-info',
+    to: '/orders?status=in-progress',
   },
   {
     label: 'Ordens concluídas',
     value: 34,
     backgroundClass: 'bg-success-bg',
     valueClass: 'text-success',
+    to: '/orders?status=completed',
   },
   {
     label: 'Ordens canceladas',
     value: 3,
     backgroundClass: 'bg-error-bg',
     valueClass: 'text-error',
+    to: '/orders?status=cancelled',
   },
   {
     label: 'Clientes ativos',
     value: 128,
     backgroundClass: 'bg-neutral-bg',
     valueClass: 'text-neutral',
+    to: '/clients?status=active',
   },
   {
     label: 'Funcionários ativos',
     value: 16,
     backgroundClass: 'bg-success-bg',
     valueClass: 'text-success',
+    to: '/employees?status=active',
   },
 ]
 

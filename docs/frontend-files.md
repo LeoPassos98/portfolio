@@ -78,7 +78,7 @@ Agrupa a página e futuras responsabilidades específicas do Dashboard.
 
 ### `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Página inicial da área interna. Compõe, com `MetricCard`, um resumo em uma grade responsiva com seis métricas mockadas dentro de `AppLayout`.
+Página inicial da área interna. Compõe, com `MetricCard`, um resumo em uma grade responsiva com seis métricas mockadas e navegáveis dentro de `AppLayout`.
 
 ### `frontend/src/features/dashboard/components/`
 
@@ -86,7 +86,7 @@ Reúne componentes visuais específicos do Dashboard.
 
 ### `frontend/src/features/dashboard/components/MetricCard.tsx`
 
-Card de métrica reutilizado pelo Dashboard. Recebe o nome, o valor e as classes semânticas necessárias para preservar as variações visuais das métricas.
+Card de métrica navegável reutilizado pelo Dashboard. Recebe o nome, o valor, o destino e as classes semânticas necessárias para preservar as variações visuais das métricas.
 
 ## Ordens de Serviço
 
