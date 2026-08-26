@@ -16,7 +16,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Login, primeiro acesso e validação | 3 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
-| Clientes | Filtro e formulários estruturais de clientes | 3 |
+| Clientes | Listagem mockada, filtro, busca e formulários estruturais de clientes | 5 |
 | Funcionários | Consulta, perfil, formulários e gestão de acesso | 5 |
 
 ## Sumário
@@ -216,15 +216,23 @@ Concentra a consulta e as estruturas de cadastro e edição de clientes.
 
 Diretório principal: `frontend/src/features/clients/`
 
-### 1. `frontend/src/features/clients/pages/ClientsPage.tsx`
+### 1. `frontend/src/features/clients/types/client.ts`
 
-Exibe em `AppLayout` a ação de novo cliente, um seletor de status sincronizado com a URL e um registro mockado mínimo com acesso à edição, usando clientes ativos como padrão e preservando os demais parâmetros.
+Define o formato e a situação dos clientes usados temporariamente pela consulta mockada.
 
-### 2. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
+### 2. `frontend/src/features/clients/mocks/clients.ts`
+
+Exporta clientes representativos, ativos e inativos, para a Listagem de Clientes mockada.
+
+### 3. `frontend/src/features/clients/pages/ClientsPage.tsx`
+
+Exibe em `AppLayout` a consulta mockada responsiva de clientes, com busca por nome ou CPF/CNPJ, filtro de status sincronizado com a URL, tabela no desktop, lista no mobile, estados vazios e acesso à edição; clientes ativos permanecem como padrão.
+
+### 4. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
 Estrutura no `AppLayout` o cadastro responsivo de cliente com dados cadastrais, contato, endereço e ações ainda sem comportamento.
 
-### 3. `frontend/src/features/clients/pages/ClientEditPage.tsx`
+### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
 Estrutura no `AppLayout` a edição responsiva dos mesmos dados de cliente, sem carregamento pelo parâmetro da rota ou persistência.
 
