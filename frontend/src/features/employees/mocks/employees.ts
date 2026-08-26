@@ -8,6 +8,7 @@ const mockEmployees: Employee[] = [
     contactEmail: 'carlos.lima@example.com',
     status: 'active',
     access: {
+      loginEmail: 'carlos.lima@login.example.com',
       status: 'active',
       profile: 'employee',
     },
@@ -19,6 +20,7 @@ const mockEmployees: Employee[] = [
     contactEmail: 'ana.souza@example.com',
     status: 'active',
     access: {
+      loginEmail: 'ana.souza@login.example.com',
       status: 'active',
       profile: 'administrator',
     },
@@ -38,6 +40,7 @@ const mockEmployees: Employee[] = [
     contactEmail: 'paulo.mendes@example.com',
     status: 'inactive',
     access: {
+      loginEmail: 'paulo.mendes@login.example.com',
       status: 'inactive',
       profile: 'employee',
     },
@@ -49,6 +52,7 @@ const mockEmployees: Employee[] = [
     contactEmail: 'fernanda.rocha@example.com',
     status: 'active',
     access: {
+      loginEmail: 'fernanda.rocha@login.example.com',
       status: 'inactive',
       profile: 'employee',
     },

@@ -254,7 +254,7 @@ Estrutura no `AppLayout` o cadastro responsivo do funcionário e informa que sua
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Estrutura no `AppLayout` a edição responsiva e a gestão integrada da conta, recebe acesso contextual pelo Perfil e retorna a ele ao cancelar, sem executar operações reais.
+Carrega o funcionário mockado pela rota para apresentar valores cadastrais e a situação da conta de acesso na edição responsiva, mantém a criação de acesso apenas visual quando inexistente e retorna ao Perfil sem executar operações reais.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
@@ -262,8 +262,8 @@ Reúne dados administrativos, situação da conta, ações de edição e acesso 
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 
-Exporta funcionários representativos, com conta ativa, inativa ou ausente, para a listagem e o Perfil administrativo mockados.
+Exporta funcionários representativos, com dados de conta ativa, inativa ou ausente, para a listagem, edição e Perfil administrativo mockados.
 
 ### 6. `frontend/src/features/employees/types/employee.ts`
 
-Define o formato, as situações de cadastro e de conta de acesso usados pela consulta mockada de funcionários.
+Define o formato, as situações e os dados de login da conta de acesso usados pela consulta e edição mockadas de funcionários.

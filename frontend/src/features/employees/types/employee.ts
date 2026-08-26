@@ -9,6 +9,7 @@ type Employee = {
   contactEmail: string
   status: EmployeeStatus
   access: {
+    loginEmail: string
     status: EmployeeAccessStatus
     profile: EmployeeAccessProfile
   } | null
