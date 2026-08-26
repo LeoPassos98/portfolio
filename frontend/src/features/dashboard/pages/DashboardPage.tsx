@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
@@ -9,6 +10,10 @@ import {
   dashboardPeriodOptions,
   type DashboardPeriod,
 } from '../mocks/adminDashboard'
+import {
+  employeeDashboardPerformance,
+  employeeDashboardSituation,
+} from '../mocks/employeeDashboard'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -23,11 +28,11 @@ function formatPercentage(value: number, total: number) {
   return `${Math.round((value / total) * 100)}%`
 }
 
-const openOrders =
+const adminOpenOrders =
   adminDashboardSituation.orders.awaiting +
   adminDashboardSituation.orders.inProgress
 
-const currentSituationMetrics = [
+const adminCurrentSituationMetrics = [
   {
     label: 'Clientes',
     value: `${adminDashboardSituation.clients.active} / ${adminDashboardSituation.clients.total}`,
@@ -44,14 +49,26 @@ const currentSituationMetrics = [
   },
   {
     label: 'Ordens em aberto',
-    value: openOrders,
-    secondaryText: `${adminDashboardSituation.orders.awaiting} aguardando + ${adminDashboardSituation.orders.inProgress} em andamento · ${formatPercentage(openOrders, adminDashboardSituation.orders.total)} do total`,
+    value: adminOpenOrders,
+    secondaryText: `${adminDashboardSituation.orders.awaiting} aguardando + ${adminDashboardSituation.orders.inProgress} em andamento · ${formatPercentage(adminOpenOrders, adminDashboardSituation.orders.total)} do total`,
     valueClass: 'text-warning',
   },
 ]
 
-function DashboardPage() {
-  const [period, setPeriod] = useState<DashboardPeriod>('current-month')
+const employeeOpenOrders =
+  employeeDashboardSituation.orders.awaiting +
+  employeeDashboardSituation.orders.inProgress
+
+const employeeCurrentSituationMetrics = [
+  {
+    label: 'Minhas ordens em aberto',
+    value: employeeOpenOrders,
+    secondaryText: `${employeeDashboardSituation.orders.awaiting} aguardando + ${employeeDashboardSituation.orders.inProgress} em andamento · ${formatPercentage(employeeOpenOrders, employeeDashboardSituation.orders.total)} das minhas OS`,
+    valueClass: 'text-warning',
+  },
+]
+
+function createAdminPerformanceMetrics(period: DashboardPeriod) {
   const performance = adminDashboardPerformance[period]
   const closedOrders =
     performance.completedOrders + performance.cancelledOrders
@@ -59,7 +76,7 @@ function DashboardPage() {
     performance.completedOrders === 0
       ? 0
       : performance.completedOrdersValue / performance.completedOrders
-  const performanceMetrics = [
+  return [
     {
       label: 'Valor das ordens concluídas',
       value: currencyFormatter.format(performance.completedOrdersValue),
@@ -95,13 +112,73 @@ function DashboardPage() {
       valueClass: 'text-foreground',
     },
   ]
+}
+
+function createEmployeePerformanceMetrics(period: DashboardPeriod) {
+  const performance = employeeDashboardPerformance[period]
+  const closedOrders =
+    performance.completedOrders + performance.cancelledOrders
+  const averageTicket =
+    performance.completedOrders === 0
+      ? 0
+      : performance.creditedCompletedOrdersValue / performance.completedOrders
+
+  return [
+    {
+      label: 'Valor das minhas ordens concluídas',
+      value: currencyFormatter.format(
+        performance.creditedCompletedOrdersValue,
+      ),
+      valueClass: 'text-success',
+    },
+    {
+      label: 'Minhas ordens concluídas',
+      value: performance.completedOrders,
+      secondaryText: `${formatPercentage(performance.completedOrders, closedOrders)} das minhas OS encerradas`,
+      valueClass: 'text-success',
+    },
+    {
+      label: 'Minhas ordens canceladas',
+      value: performance.cancelledOrders,
+      secondaryText: `${formatPercentage(performance.cancelledOrders, closedOrders)} das minhas OS encerradas`,
+      valueClass: 'text-error',
+    },
+    {
+      label: 'Ticket médio das minhas ordens concluídas',
+      value: currencyFormatter.format(averageTicket),
+      valueClass: 'text-foreground',
+    },
+    {
+      label: 'Clientes recorrentes',
+      value: performance.recurringDistinctClients,
+      secondaryText: `${formatPercentage(performance.recurringDistinctClients, performance.distinctClientsServed)} dos clientes distintos atendidos`,
+      valueClass: 'text-info',
+    },
+  ]
+}
+
+function DashboardPage() {
+  const [searchParams] = useSearchParams()
+  const [period, setPeriod] = useState<DashboardPeriod>('current-month')
+
+  // Controle temporário do protótipo; o perfil real virá da sessão autenticada.
+  // O parâmetro não representa nem concede autorização.
+  const isEmployeeDashboard = searchParams.get('profile') === 'employee'
+  const currentSituationMetrics = isEmployeeDashboard
+    ? employeeCurrentSituationMetrics
+    : adminCurrentSituationMetrics
+  const performanceMetrics = isEmployeeDashboard
+    ? createEmployeePerformanceMetrics(period)
+    : createAdminPerformanceMetrics(period)
 
   return (
     <AppLayout>
       <header>
         <h1 className="text-foreground text-2xl font-bold">Dashboard</h1>
         <p className="text-neutral mt-1">
-          Acompanhe a situação atual da operação e o desempenho do negócio.
+          {isEmployeeDashboard
+            ? 'Acompanhe suas ordens e seu desempenho.'
+            : 'Acompanhe a situação atual da operação e o desempenho do negócio.'}
         </p>
       </header>
 

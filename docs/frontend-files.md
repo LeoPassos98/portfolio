@@ -14,7 +14,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 2 |
 | Autenticação | Login, primeiro acesso e validação | 3 |
-| Dashboard | Situação operacional e desempenho administrativo | 3 |
+| Dashboard | Visões administrativa e individual de métricas | 4 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
 | Clientes | Filtro e formulários estruturais de clientes | 3 |
 | Funcionários | Filtro, formulários e acesso estrutural | 3 |
@@ -144,13 +144,13 @@ Estrutura o fluxo obrigatório de definição da nova senha no `AuthLayout` e co
 
 ## Dashboard
 
-Apresenta a situação operacional e o desempenho do Dashboard administrativo com dados mockados.
+Apresenta métricas de situação atual e desempenho para as visões de Administrador e Funcionário com dados mockados.
 
 Diretório principal: `frontend/src/features/dashboard/`
 
 ### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Compõe em `AppLayout` os blocos responsivos de situação atual e desempenho, controla o período selecionado e transforma os mocks administrativos em métricas para `MetricCard`.
+Compõe em `AppLayout` os blocos responsivos de situação atual e desempenho, controla período e seleciona temporariamente a visão administrativa ou do funcionário por query parameter do protótipo.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 
@@ -159,6 +159,10 @@ Renderiza métricas numéricas ou monetárias com texto secundário e classes se
 ### 3. `frontend/src/features/dashboard/mocks/adminDashboard.ts`
 
 Define os totais atuais, opções de período e valores mockados de desempenho usados exclusivamente pelo Dashboard do Administrador.
+
+### 4. `frontend/src/features/dashboard/mocks/employeeDashboard.ts`
+
+Define ordens atuais e métricas mockadas por período para o Dashboard do Funcionário, incluindo crédito das conclusões ao responsável e clientes recorrentes distintos.
 
 ---
 
