@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
@@ -83,6 +83,13 @@ function LoginPage() {
             Entrar
           </Button>
         </form>
+
+        <Link
+          to="/first-access"
+          className="text-primary inline-flex w-full justify-center rounded-ui px-4 py-2 text-sm font-medium hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Simular primeiro acesso
+        </Link>
       </div>
     </AuthLayout>
   )

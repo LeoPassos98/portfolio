@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router'
+import { FirstAccessPage } from './features/auth/pages/FirstAccessPage'
 import { LoginPage } from './features/auth/pages/LoginPage'
 import { ClientsPage } from './features/clients/pages/ClientsPage'
 import { DashboardPage } from './features/dashboard/pages/DashboardPage'
@@ -13,6 +14,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/first-access" element={<FirstAccessPage />} />
       <Route path="/dashboard" element={<DashboardPage />} />
       <Route path="/orders" element={<OrdersPage />} />
       <Route path="/orders/new" element={<OrderCreatePage />} />

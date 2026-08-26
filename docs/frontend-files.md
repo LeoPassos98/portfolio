@@ -13,7 +13,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes UI | Elementos reutilizáveis da interface | 5 |
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 2 |
-| Autenticação | Login e validação | 2 |
+| Autenticação | Login, primeiro acesso e validação | 3 |
 | Dashboard | Métricas e navegação | 2 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
 | Clientes | Filtro de clientes | 1 |
@@ -124,17 +124,21 @@ Estrutura as telas internas com sidebar desktop, navegação mobile recolhível,
 
 ## Autenticação
 
-Reúne a tela de login, seu formulário e o schema de validação.
+Reúne as telas de login e primeiro acesso, seus fluxos de protótipo e o schema de validação atual.
 
 Diretório principal: `frontend/src/features/auth/`
 
 ### 1. `frontend/src/features/auth/pages/LoginPage.tsx`
 
-Implementa login acessível com React Hook Form, validação, visibilidade de senha e navegação mock para o Dashboard.
+Implementa login acessível com React Hook Form, validação, visibilidade de senha, navegação mock para o Dashboard e atalho temporário para simular o primeiro acesso.
 
 ### 2. `frontend/src/features/auth/schemas/loginSchema.ts`
 
 Define com Zod as regras de e-mail e senha e exporta `LoginFormData`, inferido e usado por `LoginPage`.
+
+### 3. `frontend/src/features/auth/pages/FirstAccessPage.tsx`
+
+Estrutura o fluxo obrigatório de definição da nova senha no `AuthLayout`, ainda sem validação, submissão ou integração com sessão.
 
 ---
 
