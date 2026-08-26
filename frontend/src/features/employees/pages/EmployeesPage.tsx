@@ -1,15 +1,23 @@
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 
 function EmployeesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const status = searchParams.get('status') ?? 'all'
+  const status = searchParams.get('status') ?? 'active'
 
   return (
     <AppLayout>
-      <h1>Funcionários</h1>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <h1>Funcionários</h1>
+        <Link
+          to="/employees/new"
+          className="bg-primary inline-flex rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Novo funcionário
+        </Link>
+      </div>
 
       <div className="mt-6 max-w-xs space-y-2">
         <Label htmlFor="employee-status">Status</Label>
@@ -19,7 +27,7 @@ function EmployeesPage() {
           onChange={(event) => {
             const nextSearchParams = new URLSearchParams(searchParams)
 
-            if (event.target.value === 'all') {
+            if (event.target.value === 'active') {
               nextSearchParams.delete('status')
             } else {
               nextSearchParams.set('status', event.target.value)

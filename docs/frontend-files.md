@@ -206,7 +206,7 @@ Diretório principal: `frontend/src/features/clients/`
 
 ### 1. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Exibe em `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta.
+Exibe em `AppLayout` a ação de novo cliente e um seletor de status sincronizado com a URL, usando clientes ativos como padrão e preservando os demais parâmetros.
 
 ### 2. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
@@ -226,7 +226,7 @@ Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Exibe em `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta.
+Exibe em `AppLayout` a ação de novo funcionário e um seletor de status sincronizado com a URL, usando funcionários ativos como padrão e preservando os demais parâmetros.
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
