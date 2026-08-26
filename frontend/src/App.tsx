@@ -5,6 +5,8 @@ import { ClientCreatePage } from './features/clients/pages/ClientCreatePage'
 import { ClientEditPage } from './features/clients/pages/ClientEditPage'
 import { ClientsPage } from './features/clients/pages/ClientsPage'
 import { DashboardPage } from './features/dashboard/pages/DashboardPage'
+import { EmployeeCreatePage } from './features/employees/pages/EmployeeCreatePage'
+import { EmployeeEditPage } from './features/employees/pages/EmployeeEditPage'
 import { EmployeesPage } from './features/employees/pages/EmployeesPage'
 import { OrderCreatePage } from './features/orders/pages/OrderCreatePage'
 import { OrderDetailsPage } from './features/orders/pages/OrderDetailsPage'
@@ -26,6 +28,8 @@ function App() {
       <Route path="/clients/new" element={<ClientCreatePage />} />
       <Route path="/clients/:clientId/edit" element={<ClientEditPage />} />
       <Route path="/employees" element={<EmployeesPage />} />
+      <Route path="/employees/new" element={<EmployeeCreatePage />} />
+      <Route path="/employees/:employeeId/edit" element={<EmployeeEditPage />} />
     </Routes>
   )
 }

@@ -17,7 +17,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Dashboard | Métricas e navegação | 2 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
 | Clientes | Filtro e formulários estruturais de clientes | 3 |
-| Funcionários | Filtro de funcionários | 1 |
+| Funcionários | Filtro, formulários e acesso estrutural | 3 |
 
 ## Sumário
 
@@ -220,10 +220,18 @@ Estrutura no `AppLayout` a edição responsiva dos mesmos dados de cliente, sem 
 
 ## Funcionários
 
-Concentra a interface atual de consulta de funcionários.
+Concentra a consulta, os formulários e a estrutura integrada de gestão de acesso dos funcionários.
 
 Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
 Exibe em `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta.
+
+### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
+
+Estrutura no `AppLayout` o cadastro responsivo do funcionário e informa que sua conta de acesso será criada separadamente.
+
+### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
+
+Estrutura no `AppLayout` a edição responsiva do funcionário e integra a criação da conta de acesso no estado sem acesso, sem carregar dados ou executar operações.
