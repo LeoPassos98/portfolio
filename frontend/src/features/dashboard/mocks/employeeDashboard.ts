@@ -54,6 +54,14 @@ const employeeDashboardByEmployeeId: Record<
         recurringDistinctClients: 18,
         distinctClientsServed: 31,
       },
+      // Representa o histórico completo, sem limites inicial ou final de data.
+      'all-time': {
+        creditedCompletedOrdersValue: 118_300,
+        completedOrders: 84,
+        cancelledOrders: 11,
+        recurringDistinctClients: 26,
+        distinctClientsServed: 43,
+      },
     },
   },
 }

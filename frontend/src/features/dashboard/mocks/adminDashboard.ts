@@ -1,4 +1,8 @@
-type DashboardPeriod = 'current-month' | 'previous-month' | 'current-year'
+type DashboardPeriod =
+  | 'current-month'
+  | 'previous-month'
+  | 'current-year'
+  | 'all-time'
 
 type AdminDashboardPerformance = {
   completedOrdersValue: number
@@ -31,6 +35,7 @@ const dashboardPeriodOptions: Array<{
   { value: 'current-month', label: 'Este mês' },
   { value: 'previous-month', label: 'Mês anterior' },
   { value: 'current-year', label: 'Este ano' },
+  { value: 'all-time', label: 'Todo o período' },
 ]
 
 const adminDashboardPerformance: Record<
@@ -57,6 +62,14 @@ const adminDashboardPerformance: Record<
     cancelledOrders: 22,
     newClients: 37,
     newEmployees: 5,
+  },
+  // Representa o histórico completo, sem limites inicial ou final de data.
+  'all-time': {
+    completedOrdersValue: 486_900,
+    completedOrders: 341,
+    cancelledOrders: 37,
+    newClients: 142,
+    newEmployees: 18,
   },
 }
 
