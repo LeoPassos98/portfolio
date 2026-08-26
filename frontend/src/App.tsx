@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { FirstAccessPage } from './features/auth/pages/FirstAccessPage'
 import { LoginPage } from './features/auth/pages/LoginPage'
+import { ClientCreatePage } from './features/clients/pages/ClientCreatePage'
+import { ClientEditPage } from './features/clients/pages/ClientEditPage'
 import { ClientsPage } from './features/clients/pages/ClientsPage'
 import { DashboardPage } from './features/dashboard/pages/DashboardPage'
 import { EmployeesPage } from './features/employees/pages/EmployeesPage'
@@ -21,6 +23,8 @@ function App() {
       <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
       <Route path="/orders/:orderId/edit" element={<OrderEditPage />} />
       <Route path="/clients" element={<ClientsPage />} />
+      <Route path="/clients/new" element={<ClientCreatePage />} />
+      <Route path="/clients/:clientId/edit" element={<ClientEditPage />} />
       <Route path="/employees" element={<EmployeesPage />} />
     </Routes>
   )

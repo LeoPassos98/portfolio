@@ -16,7 +16,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Login, primeiro acesso e validação | 3 |
 | Dashboard | Métricas e navegação | 2 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
-| Clientes | Filtro de clientes | 1 |
+| Clientes | Filtro e formulários estruturais de clientes | 3 |
 | Funcionários | Filtro de funcionários | 1 |
 
 ## Sumário
@@ -200,13 +200,21 @@ Exporta snapshots mockados e tipados usados pelos detalhes da ordem para represe
 
 ## Clientes
 
-Concentra a interface atual de consulta de clientes.
+Concentra a consulta e as estruturas de cadastro e edição de clientes.
 
 Diretório principal: `frontend/src/features/clients/`
 
 ### 1. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
 Exibe em `AppLayout` um seletor de status sincronizado com a URL, preservando os demais parâmetros de consulta.
+
+### 2. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
+
+Estrutura no `AppLayout` o cadastro responsivo de cliente com dados cadastrais, contato, endereço e ações ainda sem comportamento.
+
+### 3. `frontend/src/features/clients/pages/ClientEditPage.tsx`
+
+Estrutura no `AppLayout` a edição responsiva dos mesmos dados de cliente, sem carregamento pelo parâmetro da rota ou persistência.
 
 ---
 
