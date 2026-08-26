@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Layouts | Estruturas compartilhadas de páginas | 2 |
 | Autenticação | Login e validação | 2 |
 | Dashboard | Métricas e navegação | 2 |
-| Ordens de Serviço | Listagem, detalhes, criação, edição, tipos e mocks | 6 |
+| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
 | Clientes | Filtro de clientes | 1 |
 | Funcionários | Filtro de funcionários | 1 |
 
@@ -156,7 +156,7 @@ Renderiza uma métrica navegável com nome, valor, destino e classes semânticas
 
 ## Ordens de Serviço
 
-Reúne listagem, detalhes, criação, edição, tipos e dados mockados do fluxo de ordens de serviço.
+Reúne listagem, detalhes, criação, edição, histórico, tipos e dados mockados do fluxo de ordens de serviço.
 
 Diretório principal: `frontend/src/features/orders/`
 
@@ -174,7 +174,7 @@ Exporta as ordens de protótipo como `Order[]`, separadas da página que as apre
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem pela rota, exibe seus dados e ações, conecta à edição e usa `EmptyState` quando o registro não existe.
+Obtém a ordem pela rota, exibe seus dados e ações, conecta à edição, lista snapshots do histórico e usa `EmptyState` quando não há ordem ou histórico.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
@@ -183,6 +183,14 @@ Mantém número e cliente somente para leitura e estrutura controles e ações d
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
 Usa opções mockadas locais para cliente e responsável, mostra o status inicial aguardando e estrutura criação e cancelamento sem submissão ou numeração manual.
+
+### 7. `frontend/src/features/orders/types/orderHistory.ts`
+
+Define o snapshot do histórico de uma ordem com vínculo, data e hora, autor, responsável e status daquele momento.
+
+### 8. `frontend/src/features/orders/mocks/orderHistory.ts`
+
+Exporta snapshots mockados e tipados usados pelos detalhes da ordem para representar seu histórico.
 
 ---
 

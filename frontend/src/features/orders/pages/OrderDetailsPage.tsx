@@ -1,8 +1,8 @@
 import { Link, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
-import { Button } from '../../../components/ui/Button'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { mockOrderHistory } from '../mocks/orderHistory'
 import { mockOrders } from '../mocks/orders'
 import type { OrderStatus } from '../types/order'
 
@@ -12,6 +12,11 @@ const statusDetails = {
   completed: { label: 'Concluída', variant: 'success' },
   cancelled: { label: 'Cancelada', variant: 'neutral' },
 } as const satisfies Record<OrderStatus, { label: string; variant: string }>
+
+const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
 
 function OrderDetailsPage() {
   const { orderId } = useParams<{ orderId: string }>()
@@ -40,6 +45,13 @@ function OrderDetailsPage() {
   }
 
   const statusDetail = statusDetails[order.status]
+  const orderHistory = mockOrderHistory
+    .filter((snapshot) => snapshot.orderId === order.id)
+    .sort(
+      (firstSnapshot, secondSnapshot) =>
+        new Date(secondSnapshot.changedAt).getTime() -
+        new Date(firstSnapshot.changedAt).getTime(),
+    )
 
   return (
     <AppLayout>
@@ -55,7 +67,6 @@ function OrderDetailsPage() {
           >
             Editar
           </Link>
-          <Button type="button">Ver histórico</Button>
         </div>
       </div>
 
@@ -81,6 +92,66 @@ function OrderDetailsPage() {
           </dd>
         </div>
       </dl>
+
+      <section aria-labelledby="order-history-title" className="mt-8">
+        <h2
+          id="order-history-title"
+          className="text-foreground text-xl font-bold"
+        >
+          Histórico
+        </h2>
+
+        {orderHistory.length === 0 ? (
+          <div className="mt-4">
+            <EmptyState
+              title="Nenhum histórico disponível"
+              description="Esta ordem ainda não possui snapshots registrados."
+            />
+          </div>
+        ) : (
+          <ol className="mt-4 space-y-4">
+            {orderHistory.map((snapshot) => {
+              const snapshotStatusDetail = statusDetails[snapshot.status]
+
+              return (
+                <li
+                  key={snapshot.id}
+                  className="bg-surface rounded-ui border border-neutral-bg p-4"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <time
+                      dateTime={snapshot.changedAt}
+                      className="text-neutral text-sm"
+                    >
+                      {dateTimeFormatter.format(new Date(snapshot.changedAt))}
+                    </time>
+                    <StatusBadge variant={snapshotStatusDetail.variant}>
+                      {snapshotStatusDetail.label}
+                    </StatusBadge>
+                  </div>
+
+                  <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <dt className="text-neutral text-sm">Alterado por</dt>
+                      <dd className="text-foreground mt-1 font-medium">
+                        {snapshot.authorName}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-neutral text-sm">
+                        Responsável naquele momento
+                      </dt>
+                      <dd className="text-foreground mt-1 font-medium">
+                        {snapshot.responsibleName}
+                      </dd>
+                    </div>
+                  </dl>
+                </li>
+              )
+            })}
+          </ol>
+        )}
+      </section>
     </AppLayout>
   )
 }
