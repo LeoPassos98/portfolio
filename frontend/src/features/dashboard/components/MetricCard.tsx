@@ -2,7 +2,7 @@ import { Link } from 'react-router'
 
 type MetricCardProps = {
   label: string
-  value: number
+  value: number | string
   backgroundClass: string
   valueClass: string
   to: string

@@ -31,18 +31,18 @@ const dashboardMetrics = [
     to: '/orders?status=cancelled',
   },
   {
-    label: 'Clientes ativos',
-    value: 128,
+    label: 'Total de ordens',
+    value: 57,
     backgroundClass: 'bg-neutral-bg',
-    valueClass: 'text-neutral',
-    to: '/clients?status=active',
+    valueClass: 'text-primary',
+    to: '/orders',
   },
   {
-    label: 'Funcionários ativos',
-    value: 16,
+    label: 'Valor total das ordens concluídas',
+    value: 'R$ 48.750,00',
     backgroundClass: 'bg-success-bg',
     valueClass: 'text-success',
-    to: '/employees?status=active',
+    to: '/orders?status=completed',
   },
 ]
 
