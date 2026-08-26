@@ -3,34 +3,37 @@ import { Link } from 'react-router'
 type MetricCardProps = {
   label: string
   value: number | string
-  backgroundClass: string
+  secondaryText?: string
   valueClass: string
-  to: string
+  to?: string
 }
 
 function MetricCard({
   label,
   value,
-  backgroundClass,
+  secondaryText,
   valueClass,
   to,
 }: MetricCardProps) {
-  return (
-    <Link
-      to={to}
-      className={[
-        'block',
-        'rounded-ui',
-        'p-5',
-        'transition-shadow',
-        'hover:shadow-md',
-        'focus-visible:outline-none',
-        'focus-visible:ring-2',
-        'focus-visible:ring-primary',
-        'focus-visible:ring-offset-2',
-        backgroundClass,
-      ].join(' ')}
-    >
+  const classes = [
+    'bg-surface',
+    'block',
+    'rounded-ui',
+    'border',
+    'border-neutral-bg',
+    'p-5',
+    to && 'transition-shadow',
+    to && 'hover:shadow-md',
+    to && 'focus-visible:outline-none',
+    to && 'focus-visible:ring-2',
+    to && 'focus-visible:ring-primary',
+    to && 'focus-visible:ring-offset-2',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const content = (
+    <>
       <p className="text-neutral text-sm font-medium">{label}</p>
       <p
         className={[
@@ -42,8 +45,21 @@ function MetricCard({
       >
         {value}
       </p>
-    </Link>
+      {secondaryText && (
+        <p className="text-neutral mt-2 text-sm">{secondaryText}</p>
+      )}
+    </>
   )
+
+  if (to) {
+    return (
+      <Link to={to} className={classes}>
+        {content}
+      </Link>
+    )
+  }
+
+  return <article className={classes}>{content}</article>
 }
 
 export { MetricCard }
