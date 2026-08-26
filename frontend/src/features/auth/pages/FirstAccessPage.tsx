@@ -1,9 +1,17 @@
+import { useNavigate } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { AuthLayout } from '../components/AuthLayout'
 
 function FirstAccessPage() {
+  const navigate = useNavigate()
+
+  // Fluxo temporário do protótipo; será substituído pela resposta real do backend.
+  function handleMockPasswordChange() {
+    navigate('/dashboard')
+  }
+
   return (
     <AuthLayout>
       <div className="space-y-6">
@@ -31,7 +39,11 @@ function FirstAccessPage() {
             <Input id="confirm-password" type="password" />
           </div>
 
-          <Button className="w-full" type="button">
+          <Button
+            className="w-full"
+            type="button"
+            onClick={handleMockPasswordChange}
+          >
             Salvar nova senha
           </Button>
         </div>

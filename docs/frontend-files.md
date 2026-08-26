@@ -138,7 +138,7 @@ Define com Zod as regras de e-mail e senha e exporta `LoginFormData`, inferido e
 
 ### 3. `frontend/src/features/auth/pages/FirstAccessPage.tsx`
 
-Estrutura o fluxo obrigatório de definição da nova senha no `AuthLayout`, ainda sem validação, submissão ou integração com sessão.
+Estrutura o fluxo obrigatório de definição da nova senha no `AuthLayout` e conclui temporariamente o protótipo navegando para o Dashboard, ainda sem validação, submissão real ou integração com sessão.
 
 ---
 
@@ -206,7 +206,7 @@ Diretório principal: `frontend/src/features/clients/`
 
 ### 1. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Exibe em `AppLayout` a ação de novo cliente e um seletor de status sincronizado com a URL, usando clientes ativos como padrão e preservando os demais parâmetros.
+Exibe em `AppLayout` a ação de novo cliente, um seletor de status sincronizado com a URL e um registro mockado mínimo com acesso à edição, usando clientes ativos como padrão e preservando os demais parâmetros.
 
 ### 2. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
@@ -226,7 +226,7 @@ Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Exibe em `AppLayout` a ação de novo funcionário e um seletor de status sincronizado com a URL, usando funcionários ativos como padrão e preservando os demais parâmetros.
+Exibe em `AppLayout` a ação de novo funcionário, um seletor de status sincronizado com a URL e um registro mockado mínimo com acesso à edição, usando funcionários ativos como padrão e preservando os demais parâmetros.
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 

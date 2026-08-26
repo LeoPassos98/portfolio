@@ -2,10 +2,19 @@ import { Link, useSearchParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
+import { StatusBadge } from '../../../components/ui/StatusBadge'
+
+const mockEmployee = {
+  id: 'employee-1',
+  name: 'Carlos Lima',
+  status: 'active',
+} as const
 
 function EmployeesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const status = searchParams.get('status') ?? 'active'
+  const isMockEmployeeVisible =
+    status === mockEmployee.status || status === 'all'
 
   return (
     <AppLayout>
@@ -41,6 +50,28 @@ function EmployeesPage() {
           <option value="inactive">Inativos</option>
         </Select>
       </div>
+
+      {isMockEmployeeVisible && (
+        <ul className="mt-8">
+          <li className="bg-surface flex flex-col gap-4 rounded-ui border border-neutral-bg p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-foreground font-medium">
+                {mockEmployee.name}
+              </p>
+              <div className="mt-2">
+                <StatusBadge variant="success">Ativo</StatusBadge>
+              </div>
+            </div>
+
+            <Link
+              to={`/employees/${mockEmployee.id}/edit`}
+              className="text-primary inline-flex rounded-ui px-4 py-2 font-medium hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Editar
+            </Link>
+          </li>
+        </ul>
+      )}
     </AppLayout>
   )
 }
