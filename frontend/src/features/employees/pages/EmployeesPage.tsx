@@ -3,18 +3,15 @@ import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
-
-const mockEmployee = {
-  id: 'employee-1',
-  name: 'Carlos Lima',
-  status: 'active',
-} as const
+import { mockEmployees } from '../mocks/employees'
 
 function EmployeesPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const status = searchParams.get('status') ?? 'active'
-  const isMockEmployeeVisible =
-    status === mockEmployee.status || status === 'all'
+  const visibleEmployees =
+    status === 'all'
+      ? mockEmployees
+      : mockEmployees.filter((employee) => employee.status === status)
 
   return (
     <AppLayout>
@@ -51,25 +48,32 @@ function EmployeesPage() {
         </Select>
       </div>
 
-      {isMockEmployeeVisible && (
+      {visibleEmployees.length > 0 && (
         <ul className="mt-8">
-          <li className="bg-surface flex flex-col gap-4 rounded-ui border border-neutral-bg p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-foreground font-medium">
-                {mockEmployee.name}
-              </p>
-              <div className="mt-2">
-                <StatusBadge variant="success">Ativo</StatusBadge>
-              </div>
-            </div>
-
-            <Link
-              to={`/employees/${mockEmployee.id}/edit`}
-              className="text-primary inline-flex rounded-ui px-4 py-2 font-medium hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          {visibleEmployees.map((employee) => (
+            <li
+              key={employee.id}
+              className="bg-surface flex flex-col gap-4 rounded-ui border border-neutral-bg p-4 sm:flex-row sm:items-center sm:justify-between"
             >
-              Editar
-            </Link>
-          </li>
+              <div>
+                <p className="text-foreground font-medium">{employee.name}</p>
+                <div className="mt-2">
+                  <StatusBadge
+                    variant={employee.status === 'active' ? 'success' : 'neutral'}
+                  >
+                    {employee.status === 'active' ? 'Ativo' : 'Inativo'}
+                  </StatusBadge>
+                </div>
+              </div>
+
+              <Link
+                to={`/employees/${employee.id}`}
+                className="text-primary inline-flex rounded-ui px-4 py-2 font-medium hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Ver perfil
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </AppLayout>

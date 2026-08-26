@@ -7,6 +7,7 @@ import { ClientsPage } from './features/clients/pages/ClientsPage'
 import { DashboardPage } from './features/dashboard/pages/DashboardPage'
 import { EmployeeCreatePage } from './features/employees/pages/EmployeeCreatePage'
 import { EmployeeEditPage } from './features/employees/pages/EmployeeEditPage'
+import { EmployeeProfilePage } from './features/employees/pages/EmployeeProfilePage'
 import { EmployeesPage } from './features/employees/pages/EmployeesPage'
 import { OrderCreatePage } from './features/orders/pages/OrderCreatePage'
 import { OrderDetailsPage } from './features/orders/pages/OrderDetailsPage'
@@ -29,6 +30,7 @@ function App() {
       <Route path="/clients/:clientId/edit" element={<ClientEditPage />} />
       <Route path="/employees" element={<EmployeesPage />} />
       <Route path="/employees/new" element={<EmployeeCreatePage />} />
+      <Route path="/employees/:employeeId" element={<EmployeeProfilePage />} />
       <Route path="/employees/:employeeId/edit" element={<EmployeeEditPage />} />
     </Routes>
   )

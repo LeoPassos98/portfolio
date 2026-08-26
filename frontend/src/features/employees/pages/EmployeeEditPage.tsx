@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -7,6 +7,11 @@ import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 
 function EmployeeEditPage() {
+  const { employeeId } = useParams<{ employeeId: string }>()
+  const employeeProfilePath = employeeId
+    ? `/employees/${employeeId}`
+    : '/employees'
+
   return (
     <AppLayout>
       <h1 className="text-foreground text-2xl font-bold">
@@ -61,7 +66,10 @@ function EmployeeEditPage() {
           </div>
         </section>
 
-        <section aria-labelledby="edit-employee-access-title">
+        <section
+          id="access-management"
+          aria-labelledby="edit-employee-access-title"
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2
               id="edit-employee-access-title"
@@ -119,7 +127,7 @@ function EmployeeEditPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button">Salvar alterações</Button>
           <Link
-            to="/employees"
+            to={employeeProfilePath}
             className="text-primary inline-flex rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Cancelar

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
+import { EmployeePerformancePanel } from '../components/EmployeePerformancePanel'
 import { MetricCard } from '../components/MetricCard'
 import {
   adminDashboardPerformance,
@@ -10,10 +11,6 @@ import {
   dashboardPeriodOptions,
   type DashboardPeriod,
 } from '../mocks/adminDashboard'
-import {
-  employeeDashboardPerformance,
-  employeeDashboardSituation,
-} from '../mocks/employeeDashboard'
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -51,19 +48,6 @@ const adminCurrentSituationMetrics = [
     label: 'Ordens em aberto',
     value: adminOpenOrders,
     secondaryText: `${adminDashboardSituation.orders.awaiting} aguardando + ${adminDashboardSituation.orders.inProgress} em andamento · ${formatPercentage(adminOpenOrders, adminDashboardSituation.orders.total)} do total`,
-    valueClass: 'text-warning',
-  },
-]
-
-const employeeOpenOrders =
-  employeeDashboardSituation.orders.awaiting +
-  employeeDashboardSituation.orders.inProgress
-
-const employeeCurrentSituationMetrics = [
-  {
-    label: 'Minhas ordens em aberto',
-    value: employeeOpenOrders,
-    secondaryText: `${employeeDashboardSituation.orders.awaiting} aguardando + ${employeeDashboardSituation.orders.inProgress} em andamento · ${formatPercentage(employeeOpenOrders, employeeDashboardSituation.orders.total)} das minhas OS`,
     valueClass: 'text-warning',
   },
 ]
@@ -114,49 +98,6 @@ function createAdminPerformanceMetrics(period: DashboardPeriod) {
   ]
 }
 
-function createEmployeePerformanceMetrics(period: DashboardPeriod) {
-  const performance = employeeDashboardPerformance[period]
-  const closedOrders =
-    performance.completedOrders + performance.cancelledOrders
-  const averageTicket =
-    performance.completedOrders === 0
-      ? 0
-      : performance.creditedCompletedOrdersValue / performance.completedOrders
-
-  return [
-    {
-      label: 'Valor das minhas ordens concluídas',
-      value: currencyFormatter.format(
-        performance.creditedCompletedOrdersValue,
-      ),
-      valueClass: 'text-success',
-    },
-    {
-      label: 'Minhas ordens concluídas',
-      value: performance.completedOrders,
-      secondaryText: `${formatPercentage(performance.completedOrders, closedOrders)} das minhas OS encerradas`,
-      valueClass: 'text-success',
-    },
-    {
-      label: 'Minhas ordens canceladas',
-      value: performance.cancelledOrders,
-      secondaryText: `${formatPercentage(performance.cancelledOrders, closedOrders)} das minhas OS encerradas`,
-      valueClass: 'text-error',
-    },
-    {
-      label: 'Ticket médio das minhas ordens concluídas',
-      value: currencyFormatter.format(averageTicket),
-      valueClass: 'text-foreground',
-    },
-    {
-      label: 'Clientes recorrentes',
-      value: performance.recurringDistinctClients,
-      secondaryText: `${formatPercentage(performance.recurringDistinctClients, performance.distinctClientsServed)} dos clientes distintos atendidos`,
-      valueClass: 'text-info',
-    },
-  ]
-}
-
 function DashboardPage() {
   const [searchParams] = useSearchParams()
   const [period, setPeriod] = useState<DashboardPeriod>('current-month')
@@ -164,21 +105,31 @@ function DashboardPage() {
   // Controle temporário do protótipo; o perfil real virá da sessão autenticada.
   // O parâmetro não representa nem concede autorização.
   const isEmployeeDashboard = searchParams.get('profile') === 'employee'
-  const currentSituationMetrics = isEmployeeDashboard
-    ? employeeCurrentSituationMetrics
-    : adminCurrentSituationMetrics
-  const performanceMetrics = isEmployeeDashboard
-    ? createEmployeePerformanceMetrics(period)
-    : createAdminPerformanceMetrics(period)
+
+  if (isEmployeeDashboard) {
+    // Identificador temporário; futuramente virá do funcionário da sessão.
+    return (
+      <AppLayout>
+        <header>
+          <h1 className="text-foreground text-2xl font-bold">Dashboard</h1>
+          <p className="text-neutral mt-1">
+            Acompanhe suas ordens e seu desempenho.
+          </p>
+        </header>
+
+        <EmployeePerformancePanel employeeId="employee-1" context="self" />
+      </AppLayout>
+    )
+  }
+
+  const performanceMetrics = createAdminPerformanceMetrics(period)
 
   return (
     <AppLayout>
       <header>
         <h1 className="text-foreground text-2xl font-bold">Dashboard</h1>
         <p className="text-neutral mt-1">
-          {isEmployeeDashboard
-            ? 'Acompanhe suas ordens e seu desempenho.'
-            : 'Acompanhe a situação atual da operação e o desempenho do negócio.'}
+          Acompanhe a situação atual da operação e o desempenho do negócio.
         </p>
       </header>
 
@@ -191,7 +142,7 @@ function DashboardPage() {
         </h2>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {currentSituationMetrics.map((metric) => (
+          {adminCurrentSituationMetrics.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}
         </div>

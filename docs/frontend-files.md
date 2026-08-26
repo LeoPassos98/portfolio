@@ -14,10 +14,10 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 2 |
 | Autenticação | Login, primeiro acesso e validação | 3 |
-| Dashboard | Visões administrativa e individual de métricas | 4 |
+| Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
 | Clientes | Filtro e formulários estruturais de clientes | 3 |
-| Funcionários | Filtro, formulários e acesso estrutural | 3 |
+| Funcionários | Consulta, perfil, formulários e gestão de acesso | 5 |
 
 ## Sumário
 
@@ -150,19 +150,23 @@ Diretório principal: `frontend/src/features/dashboard/`
 
 ### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Compõe em `AppLayout` os blocos responsivos de situação atual e desempenho, controla período e seleciona temporariamente a visão administrativa ou do funcionário por query parameter do protótipo.
+Compõe o Dashboard administrativo e seleciona temporariamente por query parameter a visão do funcionário, delegando o painel individual ao componente compartilhado.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 
 Renderiza métricas numéricas ou monetárias com texto secundário e classes semânticas, usando link acessível somente quando existe um destino compatível.
 
-### 3. `frontend/src/features/dashboard/mocks/adminDashboard.ts`
+### 3. `frontend/src/features/dashboard/components/EmployeePerformancePanel.tsx`
+
+Reúne situação atual, seletor de período, cálculos e cards de desempenho de um funcionário, adaptando os textos para uso próprio ou consulta administrativa.
+
+### 4. `frontend/src/features/dashboard/mocks/adminDashboard.ts`
 
 Define os totais atuais, opções de período e valores mockados de desempenho usados exclusivamente pelo Dashboard do Administrador.
 
-### 4. `frontend/src/features/dashboard/mocks/employeeDashboard.ts`
+### 5. `frontend/src/features/dashboard/mocks/employeeDashboard.ts`
 
-Define ordens atuais e métricas mockadas por período para o Dashboard do Funcionário, incluindo crédito das conclusões ao responsável e clientes recorrentes distintos.
+Relaciona cada funcionário mockado às suas ordens atuais e métricas por período, permitindo reutilizar o mesmo painel no Dashboard e no Perfil administrativo.
 
 ---
 
@@ -234,7 +238,7 @@ Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Exibe em `AppLayout` a ação de novo funcionário, um seletor de status sincronizado com a URL e um registro mockado mínimo com acesso à edição, usando funcionários ativos como padrão e preservando os demais parâmetros.
+Exibe em `AppLayout` a ação de novo funcionário, filtro de status e registros mockados com acesso ao Perfil do Funcionário, usando funcionários ativos como padrão.
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
@@ -242,4 +246,12 @@ Estrutura no `AppLayout` o cadastro responsivo do funcionário e informa que sua
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Estrutura no `AppLayout` a edição responsiva do funcionário e integra a criação da conta de acesso no estado sem acesso, sem carregar dados ou executar operações.
+Estrutura no `AppLayout` a edição responsiva e a gestão integrada da conta, recebe acesso contextual pelo Perfil e retorna a ele ao cancelar, sem executar operações reais.
+
+### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
+
+Reúne dados administrativos, situação da conta, ações de edição e acesso e o painel compartilhado de desempenho do funcionário selecionado pela rota.
+
+### 5. `frontend/src/features/employees/mocks/employees.ts`
+
+Exporta o registro representativo de funcionário e sua conta de acesso para reutilização na listagem e no Perfil administrativo.
