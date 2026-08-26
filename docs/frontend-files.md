@@ -218,11 +218,11 @@ Diretório principal: `frontend/src/features/clients/`
 
 ### 1. `frontend/src/features/clients/types/client.ts`
 
-Define o formato e a situação dos clientes usados temporariamente pela consulta mockada.
+Define o formato, a situação e os dados cadastrais completos usados pela consulta e edição mockadas de clientes.
 
 ### 2. `frontend/src/features/clients/mocks/clients.ts`
 
-Exporta clientes representativos, ativos e inativos, para a Listagem de Clientes mockada.
+Exporta clientes representativos, ativos e inativos, com dados cadastrais completos para a listagem e edição mockadas.
 
 ### 3. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
@@ -234,7 +234,7 @@ Estrutura no `AppLayout` o cadastro responsivo de cliente com dados cadastrais, 
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Estrutura no `AppLayout` a edição responsiva dos mesmos dados de cliente, sem carregamento pelo parâmetro da rota ou persistência.
+Carrega o cliente mockado pela rota para preencher a edição responsiva, identifica a situação ativo/inativo e trata registros inexistentes, sem persistência.
 
 ---
 
