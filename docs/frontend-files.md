@@ -17,7 +17,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
 | Clientes | Listagem mockada, filtro, busca e formulários estruturais de clientes | 5 |
-| Funcionários | Consulta, perfil, formulários e gestão de acesso | 5 |
+| Funcionários | Listagem mockada, perfil, formulários e gestão de acesso | 6 |
 
 ## Sumário
 
@@ -246,7 +246,7 @@ Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Exibe em `AppLayout` a ação de novo funcionário, filtro de status e registros mockados com acesso ao Perfil do Funcionário, usando funcionários ativos como padrão.
+Exibe em `AppLayout` a consulta mockada responsiva de funcionários, com busca por nome, telefone ou e-mail, filtro de situação sincronizado com a URL, tabela no desktop, lista no mobile, estados vazios e acesso ao Perfil do Funcionário; a situação do cadastro e da conta permanecem distintas.
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
@@ -262,4 +262,8 @@ Reúne dados administrativos, situação da conta, ações de edição e acesso 
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 
-Exporta o registro representativo de funcionário e sua conta de acesso para reutilização na listagem e no Perfil administrativo.
+Exporta funcionários representativos, com conta ativa, inativa ou ausente, para a listagem e o Perfil administrativo mockados.
+
+### 6. `frontend/src/features/employees/types/employee.ts`
+
+Define o formato, as situações de cadastro e de conta de acesso usados pela consulta mockada de funcionários.

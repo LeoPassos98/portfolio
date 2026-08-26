@@ -1,20 +1,6 @@
-type EmployeeStatus = 'active' | 'inactive'
-type EmployeeAccessStatus = 'active' | 'inactive'
-type EmployeeAccessProfile = 'administrator' | 'employee'
+import type { Employee } from '../types/employee'
 
-type MockEmployee = {
-  id: string
-  name: string
-  phone: string
-  contactEmail: string
-  status: EmployeeStatus
-  access: {
-    status: EmployeeAccessStatus
-    profile: EmployeeAccessProfile
-  } | null
-}
-
-const mockEmployees: MockEmployee[] = [
+const mockEmployees: Employee[] = [
   {
     id: 'employee-1',
     name: 'Carlos Lima',
@@ -23,6 +9,47 @@ const mockEmployees: MockEmployee[] = [
     status: 'active',
     access: {
       status: 'active',
+      profile: 'employee',
+    },
+  },
+  {
+    id: 'employee-2',
+    name: 'Ana Souza',
+    phone: '(11) 98888-5678',
+    contactEmail: 'ana.souza@example.com',
+    status: 'active',
+    access: {
+      status: 'active',
+      profile: 'administrator',
+    },
+  },
+  {
+    id: 'employee-3',
+    name: 'Beatriz Alves',
+    phone: '(11) 97777-2468',
+    contactEmail: 'beatriz.alves@example.com',
+    status: 'active',
+    access: null,
+  },
+  {
+    id: 'employee-4',
+    name: 'Paulo Mendes',
+    phone: '(11) 96666-1357',
+    contactEmail: 'paulo.mendes@example.com',
+    status: 'inactive',
+    access: {
+      status: 'inactive',
+      profile: 'employee',
+    },
+  },
+  {
+    id: 'employee-5',
+    name: 'Fernanda Rocha',
+    phone: '(11) 95555-8642',
+    contactEmail: 'fernanda.rocha@example.com',
+    status: 'active',
+    access: {
+      status: 'inactive',
       profile: 'employee',
     },
   },
