@@ -4,7 +4,7 @@ import { AppLayout } from '../../../components/layout/AppLayout'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { mockOrderHistory } from '../mocks/orderHistory'
 import { mockOrders } from '../mocks/orders'
-import type { OrderStatus } from '../types/order'
+import type { OrderStatus, OrderVisibility } from '../types/order'
 
 const statusDetails = {
   awaiting: { label: 'Aguardando', variant: 'warning' },
@@ -13,8 +13,21 @@ const statusDetails = {
   cancelled: { label: 'Cancelada', variant: 'neutral' },
 } as const satisfies Record<OrderStatus, { label: string; variant: string }>
 
+const visibilityDetails = {
+  public: { label: 'Pública', variant: 'info' },
+  private: { label: 'Privada', variant: 'neutral' },
+} as const satisfies Record<
+  OrderVisibility,
+  { label: string; variant: string }
+>
+
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
 const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
-  dateStyle: 'short',
+  dateStyle: 'medium',
   timeStyle: 'short',
 })
 
@@ -45,6 +58,7 @@ function OrderDetailsPage() {
   }
 
   const statusDetail = statusDetails[order.status]
+  const visibilityDetail = visibilityDetails[order.visibility]
   const orderHistory = mockOrderHistory
     .filter((snapshot) => snapshot.orderId === order.id)
     .sort(
@@ -57,9 +71,21 @@ function OrderDetailsPage() {
     <AppLayout>
       {backLink}
 
-      <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-foreground text-2xl font-bold">{order.number}</h1>
-
+      <header className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-foreground text-2xl font-bold">
+              {order.number}
+            </h1>
+            <StatusBadge variant={statusDetail.variant}>
+              {statusDetail.label}
+            </StatusBadge>
+            <StatusBadge variant={visibilityDetail.variant}>
+              {visibilityDetail.label}
+            </StatusBadge>
+          </div>
+          <p className="text-neutral mt-1">{order.clientName}</p>
+        </div>
         <div className="flex flex-wrap gap-3">
           <Link
             to={`/orders/${order.id}/edit`}
@@ -68,30 +94,111 @@ function OrderDetailsPage() {
             Editar
           </Link>
         </div>
-      </div>
+      </header>
 
-      <dl className="bg-surface mt-6 grid gap-6 rounded-ui border border-neutral-bg p-6 sm:grid-cols-2">
-        <div>
-          <dt className="text-neutral text-sm">Cliente</dt>
-          <dd className="text-foreground mt-1 font-medium">
-            {order.clientName}
-          </dd>
+      <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <aside
+          aria-labelledby="order-summary-title"
+          className="bg-surface rounded-ui border border-neutral-bg p-4 sm:p-6 lg:order-last"
+        >
+          <h2
+            id="order-summary-title"
+            className="text-foreground text-lg font-bold"
+          >
+            Resumo operacional
+          </h2>
+
+          <dl className="mt-5 space-y-5">
+            <div>
+              <dt className="text-neutral text-sm">Valor</dt>
+              <dd className="text-foreground mt-1 text-xl font-bold">
+                {currencyFormatter.format(order.value)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral text-sm">Responsável</dt>
+              <dd className="text-foreground mt-1 font-medium">
+                {order.responsibleName}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral text-sm">Status</dt>
+              <dd className="mt-2">
+                <StatusBadge variant={statusDetail.variant}>
+                  {statusDetail.label}
+                </StatusBadge>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral text-sm">Visibilidade</dt>
+              <dd className="mt-2">
+                <StatusBadge variant={visibilityDetail.variant}>
+                  {visibilityDetail.label}
+                </StatusBadge>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral text-sm">Criada em</dt>
+              <dd className="text-foreground mt-1 font-medium">
+                <time dateTime={order.createdAt}>
+                  {dateTimeFormatter.format(new Date(order.createdAt))}
+                </time>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-neutral text-sm">Última atualização</dt>
+              <dd className="text-foreground mt-1 font-medium">
+                <time dateTime={order.updatedAt}>
+                  {dateTimeFormatter.format(new Date(order.updatedAt))}
+                </time>
+              </dd>
+            </div>
+          </dl>
+        </aside>
+
+        <div className="bg-surface rounded-ui border border-neutral-bg p-4 sm:p-6">
+          <section aria-labelledby="order-service-title">
+            <h2
+              id="order-service-title"
+              className="text-foreground text-lg font-bold"
+            >
+              Serviço
+            </h2>
+            <p className="text-foreground mt-4 whitespace-pre-wrap">
+              {order.description}
+            </p>
+
+            <div className="mt-6">
+              <h3 className="text-foreground text-sm font-medium">
+                Observações
+              </h3>
+              <p className="text-neutral mt-2 whitespace-pre-wrap">
+                {order.notes ?? 'Nenhuma observação informada.'}
+              </p>
+            </div>
+          </section>
+
+          <section
+            aria-labelledby="order-client-title"
+            className="mt-8 border-t border-neutral-bg pt-6"
+          >
+            <h2
+              id="order-client-title"
+              className="text-foreground text-lg font-bold"
+            >
+              Cliente
+            </h2>
+            <dl className="mt-4">
+              <div>
+                <dt className="text-neutral text-sm">Cliente vinculado</dt>
+                <dd className="text-foreground mt-1 font-medium">
+                  {order.clientName}
+                </dd>
+              </div>
+            </dl>
+          </section>
         </div>
-        <div>
-          <dt className="text-neutral text-sm">Responsável</dt>
-          <dd className="text-foreground mt-1 font-medium">
-            {order.responsibleName}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-neutral text-sm">Status</dt>
-          <dd className="mt-2">
-            <StatusBadge variant={statusDetail.variant}>
-              {statusDetail.label}
-            </StatusBadge>
-          </dd>
-        </div>
-      </dl>
+      </div>
 
       <section aria-labelledby="order-history-title" className="mt-8">
         <h2

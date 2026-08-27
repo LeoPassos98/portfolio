@@ -186,15 +186,15 @@ Lista ordens em tabela desktop ou lista mobile, controla filtros, busca e pagina
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define `Order` e seus status aceitos, tipando os mocks e o formato esperado de futuros dados da API.
+Define `Order`, seus status e visibilidade, incluindo os dados de serviço, valor, observações e datas usados nos mocks, Detalhes e futura edição.
 
 ### 3. `frontend/src/features/orders/mocks/orders.ts`
 
-Exporta as ordens de protótipo como `Order[]`, separadas da página que as apresenta.
+Exporta ordens de protótipo completas como `Order[]`, com dados de serviço, valor, visibilidade, observações e datas para apresentação por rota.
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem pela rota, exibe seus dados e ações, conecta à edição, lista snapshots do histórico e usa `EmptyState` quando não há ordem ou histórico.
+Obtém a ordem completa pela rota, apresenta cabeçalho, resumo operacional, serviço e cliente de forma responsiva, preserva edição e histórico mockado e usa `EmptyState` quando não há ordem ou histórico.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
