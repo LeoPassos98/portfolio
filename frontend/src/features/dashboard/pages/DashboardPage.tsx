@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
@@ -11,6 +12,10 @@ import {
   dashboardPeriodOptions,
   type DashboardPeriod,
 } from '../mocks/adminDashboard'
+
+type DashboardLocationState = {
+  accessDenied?: boolean
+}
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -104,8 +109,22 @@ function createAdminPerformanceMetrics(period: DashboardPeriod) {
 }
 
 function DashboardPage() {
-  const { currentUser } = useAuthSession()
+  const session = useAuthSession()
+  const location = useLocation()
   const [period, setPeriod] = useState<DashboardPeriod>('current-month')
+  const hasAccessDeniedFeedback =
+    (location.state as DashboardLocationState | null)?.accessDenied === true
+
+  if (!session) {
+    return null
+  }
+
+  const { currentUser } = session
+  const accessDeniedFeedback = hasAccessDeniedFeedback ? (
+    <p role="alert" className="mt-3 text-sm text-error">
+      Você não tem permissão para acessar esta área.
+    </p>
+  ) : null
 
   if (currentUser.profile === 'employee') {
     return (
@@ -115,6 +134,7 @@ function DashboardPage() {
           <p className="text-neutral mt-1">
             Acompanhe suas ordens e seu desempenho.
           </p>
+          {accessDeniedFeedback}
         </header>
 
         <EmployeePerformancePanel
@@ -134,6 +154,7 @@ function DashboardPage() {
         <p className="text-neutral mt-1">
           Acompanhe a situação atual da operação e o desempenho do negócio.
         </p>
+        {accessDeniedFeedback}
       </header>
 
       <section aria-labelledby="current-situation-title" className="mt-8">

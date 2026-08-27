@@ -4,7 +4,7 @@ import { AuthSessionContext } from '../context/AuthSessionContext'
 function useAuthSession() {
   const session = useContext(AuthSessionContext)
 
-  if (!session) {
+  if (session === undefined) {
     throw new Error('useAuthSession deve ser usado dentro de AuthSessionProvider.')
   }
 

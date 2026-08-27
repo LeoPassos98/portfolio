@@ -32,8 +32,10 @@ const mockEmployeeSession: MockAuthenticatedSession = {
   },
 }
 
-// Para testar o outro perfil no desenvolvimento, altere somente esta referência.
-const activeMockAuthenticatedSession = mockAdministratorSession
+// Para testes de desenvolvimento, altere somente esta referência para uma
+// sessão de Funcionário ou para null, simulando ausência de sessão.
+const activeMockAuthenticatedSession: MockAuthenticatedSession | null =
+  mockAdministratorSession
 
 export {
   activeMockAuthenticatedSession,

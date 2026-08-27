@@ -149,7 +149,7 @@ function getUserInitials(name: string) {
 }
 
 function AppLayout({ children }: AppLayoutProps) {
-  const { currentUser } = useAuthSession()
+  const session = useAuthSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isMobileHeaderHidden, setIsMobileHeaderHidden] = useState(false)
@@ -164,9 +164,10 @@ function AppLayout({ children }: AppLayoutProps) {
 
   const sidebarWidthClass = isSidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
   const sidebarPaddingClass = isSidebarCollapsed ? 'p-3' : 'p-6'
+  const currentUser = session?.currentUser
   const profileLabel =
-    currentUser.profile === 'admin' ? 'Administradora' : 'Funcionário'
-  const userInitials = getUserInitials(currentUser.name)
+    currentUser?.profile === 'admin' ? 'Administradora' : 'Funcionário'
+  const userInitials = currentUser ? getUserInitials(currentUser.name) : ''
 
   function toggleSidebar() {
     setIsSidebarCollapsed((isCollapsed) => {
@@ -330,6 +331,10 @@ function AppLayout({ children }: AppLayoutProps) {
         onClick={closeMenu ? closeMobileNavigation : undefined}
       />
     ))
+
+  if (!currentUser) {
+    return null
+  }
 
   return (
     <div className="bg-background min-h-screen">

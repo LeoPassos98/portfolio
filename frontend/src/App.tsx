@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { FirstAccessPage } from './features/auth/pages/FirstAccessPage'
 import { LoginPage } from './features/auth/pages/LoginPage'
+import { ProtectedRoute } from './features/auth/components/ProtectedRoute'
 import { ClientCreatePage } from './features/clients/pages/ClientCreatePage'
 import { ClientEditPage } from './features/clients/pages/ClientEditPage'
 import { ClientsPage } from './features/clients/pages/ClientsPage'
@@ -20,18 +21,28 @@ function App() {
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/first-access" element={<FirstAccessPage />} />
-      <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/orders" element={<OrdersPage />} />
-      <Route path="/orders/new" element={<OrderCreatePage />} />
-      <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
-      <Route path="/orders/:orderId/edit" element={<OrderEditPage />} />
-      <Route path="/clients" element={<ClientsPage />} />
-      <Route path="/clients/new" element={<ClientCreatePage />} />
-      <Route path="/clients/:clientId/edit" element={<ClientEditPage />} />
-      <Route path="/employees" element={<EmployeesPage />} />
-      <Route path="/employees/new" element={<EmployeeCreatePage />} />
-      <Route path="/employees/:employeeId" element={<EmployeeProfilePage />} />
-      <Route path="/employees/:employeeId/edit" element={<EmployeeEditPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/orders/new" element={<OrderCreatePage />} />
+        <Route path="/orders/:orderId" element={<OrderDetailsPage />} />
+        <Route path="/orders/:orderId/edit" element={<OrderEditPage />} />
+        <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/clients/new" element={<ClientCreatePage />} />
+        <Route path="/clients/:clientId/edit" element={<ClientEditPage />} />
+        <Route element={<ProtectedRoute requiredProfile="admin" />}>
+          <Route path="/employees" element={<EmployeesPage />} />
+          <Route path="/employees/new" element={<EmployeeCreatePage />} />
+          <Route
+            path="/employees/:employeeId"
+            element={<EmployeeProfilePage />}
+          />
+          <Route
+            path="/employees/:employeeId/edit"
+            element={<EmployeeEditPage />}
+          />
+        </Route>
+      </Route>
     </Routes>
   )
 }
