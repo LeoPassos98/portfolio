@@ -47,7 +47,7 @@ function AppLayout({ children }: AppLayoutProps) {
     ))
 
   return (
-    <div className="bg-background min-h-screen md:flex">
+    <div className="bg-background min-h-screen md:flex md:h-screen md:overflow-hidden">
       <header className="bg-surface p-4 md:hidden">
         <div className="flex items-center justify-between">
           <p className="text-foreground text-lg font-bold">Sistema OS</p>
@@ -70,13 +70,15 @@ function AppLayout({ children }: AppLayoutProps) {
         )}
       </header>
 
-      <aside className="bg-surface hidden w-64 shrink-0 p-6 md:block">
+      <aside className="bg-surface hidden w-64 shrink-0 p-6 md:block md:h-screen md:overflow-y-auto">
         <p className="text-foreground text-lg font-bold">Sistema OS</p>
 
         <nav className="mt-8 space-y-2">{renderNavigation()}</nav>
       </aside>
 
-      <main className="flex-1 p-6">{children}</main>
+      <main className="min-w-0 flex-1 p-6 md:h-screen md:overflow-y-auto">
+        {children}
+      </main>
     </div>
   )
 }

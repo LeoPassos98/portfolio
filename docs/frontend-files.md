@@ -122,7 +122,7 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas com sidebar desktop, navegação mobile recolhível, indicação de rota ativa e área principal.
+Estrutura as telas internas com sidebar desktop estável e rolável de forma independente, navegação mobile recolhível, indicação de rota ativa e área principal sem sobreposição.
 
 ---
 
