@@ -10,7 +10,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | --- | --- | ---: |
 | Configuração e entrada | Inicialização, rotas e build do frontend | 3 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
-| Componentes UI | Elementos reutilizáveis da interface | 6 |
+| Componentes UI | Elementos reutilizáveis da interface | 7 |
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso e validação | 3 |
@@ -95,6 +95,10 @@ Indicador textual compacto cujas variantes aplicam os tokens semânticos de warn
 ### 6. `frontend/src/components/ui/Textarea.tsx`
 
 Campo de texto longo tipado com propriedades nativas. Padroniza dimensões, foco e estado inválido para descrições e observações.
+
+### 7. `frontend/src/components/ui/SearchableSelect.tsx`
+
+Combobox reutilizável sem dependências externas, com busca textual, seleção explícita, lista acessível e navegação por teclado; usado pelos seletores de Cliente e Responsável da OS.
 
 ---
 
@@ -218,7 +222,7 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável de criação e edição de OS, preenchendo dados mockados quando há uma ordem e preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
+Reúne a estrutura visual reutilizável de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável, preenchendo dados mockados quando há uma ordem e preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
 
 ---
 

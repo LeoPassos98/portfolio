@@ -2,6 +2,10 @@ import { Link } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from '../../../components/ui/SearchableSelect'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { Textarea } from '../../../components/ui/Textarea'
@@ -12,6 +16,18 @@ import type { Order } from '../types/order'
 const activeClients = mockClients.filter((client) => client.status === 'active')
 const activeEmployees = mockEmployees.filter(
   (employee) => employee.status === 'active',
+)
+const clientOptions: SearchableSelectOption[] = activeClients.map((client) => ({
+  label: client.name,
+  searchTerms: client.document ? [client.document] : [],
+  value: client.id,
+}))
+const employeeOptions: SearchableSelectOption[] = activeEmployees.map(
+  (employee) => ({
+    label: employee.name,
+    searchTerms: [employee.contactEmail, employee.phone],
+    value: employee.id,
+  }),
 )
 
 type OrderFormProps = {
@@ -51,13 +67,13 @@ function OrderForm({ order }: OrderFormProps) {
         ) : (
           <div className="mt-4 space-y-2">
             <Label htmlFor={`${fieldPrefix}-client`}>Cliente</Label>
-            <Select id={`${fieldPrefix}-client`} name="clientName">
-              {activeClients.map((client) => (
-                <option key={client.id} value={client.name}>
-                  {client.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              id={`${fieldPrefix}-client`}
+              name="clientId"
+              options={clientOptions}
+              placeholder="Pesquisar cliente"
+              emptyMessage="Nenhum cliente ativo encontrado."
+            />
           </div>
         )}
       </section>
@@ -118,17 +134,16 @@ function OrderForm({ order }: OrderFormProps) {
         <div className="mt-4 space-y-6">
           <div className="space-y-2">
             <Label htmlFor={`${fieldPrefix}-responsible`}>Responsável</Label>
-            <Select
+            <SearchableSelect
               id={`${fieldPrefix}-responsible`}
-              name="responsibleName"
-              defaultValue={order?.responsibleName}
-            >
-              {activeEmployees.map((employee) => (
-                <option key={employee.id} value={employee.name}>
-                  {employee.name}
-                </option>
-              ))}
-            </Select>
+              name="responsibleId"
+              defaultValue={activeEmployees.find(
+                (employee) => employee.name === order?.responsibleName,
+              )?.id}
+              options={employeeOptions}
+              placeholder="Pesquisar responsável"
+              emptyMessage="Nenhum funcionário ativo encontrado."
+            />
           </div>
 
           {isEditing ? (
