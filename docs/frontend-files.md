@@ -10,7 +10,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | --- | --- | ---: |
 | Configuração e entrada | Inicialização, rotas e build do frontend | 3 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
-| Componentes UI | Elementos reutilizáveis da interface | 5 |
+| Componentes UI | Elementos reutilizáveis da interface | 6 |
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 2 |
 | Autenticação | Login, primeiro acesso e validação | 3 |
@@ -91,6 +91,10 @@ Seletor tipado com propriedades nativas. Padroniza dimensões, foco e estado inv
 ### 5. `frontend/src/components/ui/StatusBadge.tsx`
 
 Indicador textual compacto cujas variantes aplicam os tokens semânticos de warning, info, success, neutral e error.
+
+### 6. `frontend/src/components/ui/Textarea.tsx`
+
+Campo de texto longo tipado com propriedades nativas. Padroniza dimensões, foco e estado inválido para descrições e observações.
 
 ---
 
@@ -198,7 +202,7 @@ Mantém número e cliente somente para leitura e estrutura controles e ações d
 
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
-Usa opções mockadas locais para cliente e responsável, mostra o status inicial aguardando e estrutura criação e cancelamento sem submissão ou numeração manual.
+Estrutura a criação mockada em Cliente, Dados do serviço e Configuração; reutiliza clientes e funcionários ativos dos mocks, apresenta visibilidade explícita, status inicial e numeração automática apenas informativos, sem submissão.
 
 ### 7. `frontend/src/features/orders/types/orderHistory.ts`
 
