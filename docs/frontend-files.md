@@ -17,7 +17,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
-| Funcionários | Listagem mockada, perfil, formulários e gestão de acesso | 6 |
+| Funcionários | Listagem mockada, perfil, formulários validados e gestão de acesso | 7 |
 
 ## Sumário
 
@@ -274,11 +274,11 @@ Exibe em `AppLayout` a consulta mockada responsiva de funcionários, com busca p
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
-Estrutura no `AppLayout` o cadastro responsivo do funcionário e informa que sua conta de acesso será criada separadamente.
+Implementa no `AppLayout` o cadastro responsivo do funcionário com React Hook Form, validação compartilhada com Zod e retorno mockado à listagem após envio válido; a conta de acesso continua separada.
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Carrega o funcionário mockado pela rota para apresentar valores cadastrais e a situação da conta de acesso na edição responsiva, mantém a criação de acesso apenas visual quando inexistente e retorna ao Perfil sem executar operações reais.
+Carrega o funcionário mockado pela rota para apresentar e validar os valores cadastrais, mantém a conta de acesso sem validação nesta etapa e retorna mockadamente ao Perfil após envio válido.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
@@ -291,3 +291,7 @@ Exporta funcionários representativos, com dados de conta ativa, inativa ou ause
 ### 6. `frontend/src/features/employees/types/employee.ts`
 
 Define o formato, as situações e os dados de login da conta de acesso usados pela consulta e edição mockadas de funcionários.
+
+### 7. `frontend/src/features/employees/schemas/employeeSchema.ts`
+
+Define com Zod as validações e normalizações reutilizadas nos dados cadastrais dos formulários de Funcionários, sem abranger os campos da conta de acesso.

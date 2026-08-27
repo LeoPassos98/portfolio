@@ -1,4 +1,6 @@
-import { Link, useParams } from 'react-router'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
+import { Link, useNavigate, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -7,6 +9,11 @@ import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { mockEmployees } from '../mocks/employees'
+import {
+  employeeSchema,
+  type EmployeeFormData,
+  type EmployeeFormValues,
+} from '../schemas/employeeSchema'
 
 const accessStatusDetails = {
   active: { label: 'Ativa', variant: 'success' },
@@ -15,7 +22,27 @@ const accessStatusDetails = {
 
 function EmployeeEditPage() {
   const { employeeId } = useParams<{ employeeId: string }>()
+  const navigate = useNavigate()
   const employee = mockEmployees.find((item) => item.id === employeeId)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
+    resolver: zodResolver(employeeSchema),
+    defaultValues: {
+      name: employee?.name ?? '',
+      phone: employee?.phone ?? '',
+      contactEmail: employee?.contactEmail ?? '',
+      status: employee?.status ?? 'active',
+    },
+  })
+
+  function onSubmit() {
+    if (employee) {
+      navigate(`/employees/${employee.id}`)
+    }
+  }
 
   if (!employee) {
     return (
@@ -47,7 +74,11 @@ function EmployeeEditPage() {
       </h1>
       <p className="text-neutral mt-1">{employee.name}</p>
 
-      <form className="bg-surface mt-6 space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6">
+      <form
+        noValidate
+        className="bg-surface mt-6 space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6"
+        onSubmit={handleSubmit(onSubmit)}
+      >
         <section aria-labelledby="edit-employee-data-title">
           <h2
             id="edit-employee-data-title"
@@ -61,9 +92,19 @@ function EmployeeEditPage() {
               <Label htmlFor="edit-employee-name">Nome</Label>
               <Input
                 id="edit-employee-name"
-                name="name"
-                defaultValue={employee.name}
+                autoComplete="name"
+                aria-invalid={Boolean(errors.name)}
+                aria-required="true"
+                aria-describedby={
+                  errors.name ? 'edit-employee-name-error' : undefined
+                }
+                {...register('name')}
               />
+              {errors.name?.message && (
+                <p id="edit-employee-name-error" className="text-error text-sm">
+                  {errors.name.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -72,12 +113,24 @@ function EmployeeEditPage() {
               </Label>
               <Select
                 id="edit-employee-status"
-                name="status"
-                defaultValue={employee.status}
+                aria-invalid={Boolean(errors.status)}
+                aria-required="true"
+                aria-describedby={
+                  errors.status ? 'edit-employee-status-error' : undefined
+                }
+                {...register('status')}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
+              {errors.status?.message && (
+                <p
+                  id="edit-employee-status-error"
+                  className="text-error text-sm"
+                >
+                  {errors.status.message}
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -95,20 +148,41 @@ function EmployeeEditPage() {
               <Label htmlFor="edit-employee-phone">Telefone</Label>
               <Input
                 id="edit-employee-phone"
-                name="phone"
                 type="tel"
-                defaultValue={employee.phone}
+                autoComplete="tel"
+                inputMode="tel"
+                aria-invalid={Boolean(errors.phone)}
+                aria-required="true"
+                aria-describedby={
+                  errors.phone ? 'edit-employee-phone-error' : undefined
+                }
+                {...register('phone')}
               />
+              {errors.phone?.message && (
+                <p id="edit-employee-phone-error" className="text-error text-sm">
+                  {errors.phone.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="edit-employee-email">E-mail de contato</Label>
               <Input
                 id="edit-employee-email"
-                name="email"
                 type="email"
-                defaultValue={employee.contactEmail}
+                autoComplete="email"
+                aria-invalid={Boolean(errors.contactEmail)}
+                aria-required="true"
+                aria-describedby={
+                  errors.contactEmail ? 'edit-employee-email-error' : undefined
+                }
+                {...register('contactEmail')}
               />
+              {errors.contactEmail?.message && (
+                <p id="edit-employee-email-error" className="text-error text-sm">
+                  {errors.contactEmail.message}
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -212,7 +286,7 @@ function EmployeeEditPage() {
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="button">Salvar alterações</Button>
+          <Button type="submit">Salvar alterações</Button>
           <Link
             to={`/employees/${employee.id}`}
             className="text-primary inline-flex rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
