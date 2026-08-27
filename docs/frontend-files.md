@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso e validação | 4 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
-| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
+| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 10 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
 | Funcionários | Listagem mockada, perfil, formulários validados e gestão de acesso | 8 |
 
@@ -98,7 +98,7 @@ Campo de texto longo tipado com propriedades nativas. Padroniza dimensões, foco
 
 ### 7. `frontend/src/components/ui/SearchableSelect.tsx`
 
-Combobox reutilizável sem dependências externas, com busca textual, seleção explícita, lista acessível e navegação por teclado; usado pelos seletores de Cliente e Responsável da OS.
+Combobox reutilizável sem dependências externas, com busca textual, seleção explícita, lista acessível, navegação por teclado e integração de valor/erro com formulários; usado pelos seletores de Cliente e Responsável da OS.
 
 ---
 
@@ -226,7 +226,11 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável, preenchendo dados mockados quando há uma ordem e preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável, preenchendo dados mockados quando há uma ordem e preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
+
+### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
+
+Define as validações compartilhadas e as restrições configuráveis de criação ou edição de OS, usadas pelo `OrderForm` com React Hook Form.
 
 ---
 

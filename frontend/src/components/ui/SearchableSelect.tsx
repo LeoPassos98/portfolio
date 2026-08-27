@@ -14,26 +14,30 @@ type SearchableSelectOption = {
 }
 
 type SearchableSelectProps = {
+  ariaDescribedBy?: string
+  ariaInvalid?: boolean
   defaultValue?: string
   emptyMessage: string
   id: string
   name: string
+  onValueChange?: (value: string) => void
   options: readonly SearchableSelectOption[]
   placeholder: string
 }
 
 function SearchableSelect({
+  ariaDescribedBy,
+  ariaInvalid,
   defaultValue,
   emptyMessage,
   id,
   name,
+  onValueChange,
   options,
   placeholder,
 }: SearchableSelectProps) {
   const initialSelectedOption =
-    options.find((option) => option.value === defaultValue) ??
-    options[0] ??
-    null
+    options.find((option) => option.value === defaultValue) ?? null
   const [activeOptionIndex, setActiveOptionIndex] = useState(-1)
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState(initialSelectedOption?.label ?? '')
@@ -66,6 +70,7 @@ function SearchableSelect({
     setQuery(option.label)
     setActiveOptionIndex(-1)
     setIsOpen(false)
+    onValueChange?.(option.value)
   }
 
   function closeOptions() {
@@ -92,6 +97,7 @@ function SearchableSelect({
     setSelectedValue(null)
     setActiveOptionIndex(0)
     setIsOpen(true)
+    onValueChange?.('')
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -156,8 +162,11 @@ function SearchableSelect({
         }
         aria-autocomplete="list"
         aria-controls={listboxId}
-        aria-describedby={selectionStatusId}
+        aria-describedby={[selectionStatusId, ariaDescribedBy]
+          .filter(Boolean)
+          .join(' ')}
         aria-expanded={isOpen}
+        aria-invalid={ariaInvalid}
         placeholder={placeholder}
         value={query}
         onChange={(event) => handleInputChange(event.target.value)}

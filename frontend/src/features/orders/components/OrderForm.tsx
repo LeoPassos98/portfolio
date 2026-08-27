@@ -1,3 +1,5 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -11,6 +13,11 @@ import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { Textarea } from '../../../components/ui/Textarea'
 import { mockClients } from '../../clients/mocks/clients'
 import { mockEmployees } from '../../employees/mocks/employees'
+import {
+  createOrderFormSchema,
+  type OrderFormData,
+  type OrderFormValues,
+} from '../schemas/orderSchema'
 import type { Order } from '../types/order'
 
 const activeClients = mockClients.filter((client) => client.status === 'active')
@@ -38,9 +45,40 @@ function OrderForm({ order }: OrderFormProps) {
   const isEditing = order !== undefined
   const fieldPrefix = isEditing ? 'edit-order' : 'new-order'
   const cancelLink = isEditing ? `/orders/${order.id}` : '/orders'
+  const responsibleId = activeEmployees.find(
+    (employee) => employee.name === order?.responsibleName,
+  )?.id
+  const orderFormSchema = createOrderFormSchema({
+    clientIds: activeClients.map((client) => client.id),
+    requiresClient: !isEditing,
+    responsibleIds: activeEmployees.map((employee) => employee.id),
+  })
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<OrderFormData, unknown, OrderFormValues>({
+    resolver: zodResolver(orderFormSchema),
+    defaultValues: {
+      clientId: '',
+      responsibleId: responsibleId ?? '',
+      description: order?.description ?? '',
+      value: order ? String(order.value) : '',
+      notes: order?.notes ?? '',
+      status: order?.status ?? 'awaiting',
+      visibility: order?.visibility ?? 'private',
+    },
+  })
+
+  function onSubmit() {}
 
   return (
-    <form className="bg-surface mt-6 max-w-3xl space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6">
+    <form
+      noValidate
+      className="bg-surface mt-6 max-w-3xl space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6"
+      onSubmit={handleSubmit(onSubmit)}
+    >
       <section aria-labelledby={`${fieldPrefix}-client-title`}>
         <h2
           id={`${fieldPrefix}-client-title`}
@@ -73,7 +111,19 @@ function OrderForm({ order }: OrderFormProps) {
               options={clientOptions}
               placeholder="Pesquisar cliente"
               emptyMessage="Nenhum cliente ativo encontrado."
+              ariaInvalid={Boolean(errors.clientId)}
+              ariaDescribedBy={
+                errors.clientId ? `${fieldPrefix}-client-error` : undefined
+              }
+              onValueChange={(value) => {
+                setValue('clientId', value, { shouldValidate: true })
+              }}
             />
+            {errors.clientId?.message && (
+              <p id={`${fieldPrefix}-client-error`} className="text-error text-sm">
+                {errors.clientId.message}
+              </p>
+            )}
           </div>
         )}
       </section>
@@ -91,34 +141,63 @@ function OrderForm({ order }: OrderFormProps) {
             <Label htmlFor={`${fieldPrefix}-description`}>Descrição</Label>
             <Textarea
               id={`${fieldPrefix}-description`}
-              name="description"
               rows={5}
               className="min-h-32"
-              defaultValue={order?.description}
+              aria-invalid={Boolean(errors.description)}
+              aria-required="true"
+              aria-describedby={
+                errors.description ? `${fieldPrefix}-description-error` : undefined
+              }
+              {...register('description')}
             />
+            {errors.description?.message && (
+              <p
+                id={`${fieldPrefix}-description-error`}
+                className="text-error text-sm"
+              >
+                {errors.description.message}
+              </p>
+            )}
           </div>
 
           <div className="max-w-xs space-y-2">
             <Label htmlFor={`${fieldPrefix}-value`}>Valor</Label>
             <Input
               id={`${fieldPrefix}-value`}
-              name="value"
               type="number"
               min="0"
               step="0.01"
               inputMode="decimal"
-              defaultValue={order?.value ?? ''}
+              aria-invalid={Boolean(errors.value)}
+              aria-required="true"
+              aria-describedby={
+                errors.value ? `${fieldPrefix}-value-error` : undefined
+              }
+              {...register('value')}
             />
+            {errors.value?.message && (
+              <p id={`${fieldPrefix}-value-error`} className="text-error text-sm">
+                {errors.value.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor={`${fieldPrefix}-notes`}>Observações (opcional)</Label>
             <Textarea
               id={`${fieldPrefix}-notes`}
-              name="notes"
               rows={4}
-              defaultValue={order?.notes ?? ''}
+              aria-invalid={Boolean(errors.notes)}
+              aria-describedby={
+                errors.notes ? `${fieldPrefix}-notes-error` : undefined
+              }
+              {...register('notes')}
             />
+            {errors.notes?.message && (
+              <p id={`${fieldPrefix}-notes-error`} className="text-error text-sm">
+                {errors.notes.message}
+              </p>
+            )}
           </div>
         </div>
       </section>
@@ -137,13 +216,28 @@ function OrderForm({ order }: OrderFormProps) {
             <SearchableSelect
               id={`${fieldPrefix}-responsible`}
               name="responsibleId"
-              defaultValue={activeEmployees.find(
-                (employee) => employee.name === order?.responsibleName,
-              )?.id}
+              defaultValue={responsibleId}
               options={employeeOptions}
               placeholder="Pesquisar responsável"
               emptyMessage="Nenhum funcionário ativo encontrado."
+              ariaInvalid={Boolean(errors.responsibleId)}
+              ariaDescribedBy={
+                errors.responsibleId
+                  ? `${fieldPrefix}-responsible-error`
+                  : undefined
+              }
+              onValueChange={(value) => {
+                setValue('responsibleId', value, { shouldValidate: true })
+              }}
             />
+            {errors.responsibleId?.message && (
+              <p
+                id={`${fieldPrefix}-responsible-error`}
+                className="text-error text-sm"
+              >
+                {errors.responsibleId.message}
+              </p>
+            )}
           </div>
 
           {isEditing ? (
@@ -151,14 +245,23 @@ function OrderForm({ order }: OrderFormProps) {
               <Label htmlFor={`${fieldPrefix}-status`}>Status</Label>
               <Select
                 id={`${fieldPrefix}-status`}
-                name="status"
-                defaultValue={order.status}
+                aria-invalid={Boolean(errors.status)}
+                aria-required="true"
+                aria-describedby={
+                  errors.status ? `${fieldPrefix}-status-error` : undefined
+                }
+                {...register('status')}
               >
                 <option value="awaiting">Aguardando</option>
                 <option value="in-progress">Em andamento</option>
                 <option value="completed">Concluída</option>
                 <option value="cancelled">Cancelada</option>
               </Select>
+              {errors.status?.message && (
+                <p id={`${fieldPrefix}-status-error`} className="text-error text-sm">
+                  {errors.status.message}
+                </p>
+              )}
             </div>
           ) : null}
 
@@ -170,24 +273,40 @@ function OrderForm({ order }: OrderFormProps) {
               <label className="has-[:checked]:border-primary has-[:checked]:bg-neutral-bg flex cursor-pointer items-center gap-3 rounded-ui border border-neutral-bg p-3">
                 <input
                   type="radio"
-                  name="visibility"
                   value="public"
                   defaultChecked={order?.visibility === 'public'}
                   className="h-4 w-4 accent-primary"
+                  aria-invalid={Boolean(errors.visibility)}
+                  aria-describedby={
+                    errors.visibility ? `${fieldPrefix}-visibility-error` : undefined
+                  }
+                  {...register('visibility')}
                 />
                 <span className="text-foreground font-medium">Pública</span>
               </label>
               <label className="has-[:checked]:border-primary has-[:checked]:bg-neutral-bg flex cursor-pointer items-center gap-3 rounded-ui border border-neutral-bg p-3">
                 <input
                   type="radio"
-                  name="visibility"
                   value="private"
                   defaultChecked={order?.visibility !== 'public'}
                   className="h-4 w-4 accent-primary"
+                  aria-invalid={Boolean(errors.visibility)}
+                  aria-describedby={
+                    errors.visibility ? `${fieldPrefix}-visibility-error` : undefined
+                  }
+                  {...register('visibility')}
                 />
                 <span className="text-foreground font-medium">Privada</span>
               </label>
             </div>
+            {errors.visibility?.message && (
+              <p
+                id={`${fieldPrefix}-visibility-error`}
+                className="text-error mt-2 text-sm"
+              >
+                {errors.visibility.message}
+              </p>
+            )}
           </fieldset>
 
           {isEditing ? null : (
@@ -210,7 +329,7 @@ function OrderForm({ order }: OrderFormProps) {
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button">
+        <Button type="submit">
           {isEditing ? 'Salvar alterações' : 'Criar OS'}
         </Button>
         <Link
