@@ -25,6 +25,15 @@ const statusDetails = {
 
 const ordersPerPage = 2
 
+const currencyFormatter = new Intl.NumberFormat('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
+const orderDateFormatter = new Intl.DateTimeFormat('pt-BR', {
+  dateStyle: 'short',
+})
+
 function isOrderStatus(value: string | null): value is OrderStatus {
   return value !== null && orderStatuses.some((status) => status === value)
 }
@@ -40,13 +49,14 @@ function OrdersPage() {
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
   const filteredOrders = normalizedSearch
     ? ordersFilteredByStatus.filter((order) =>
-        [order.number, order.clientName, order.responsibleName].some(
+        [order.number, order.clientName].some(
           (value) =>
             value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
         ),
       )
     : ordersFilteredByStatus
   const hasOrders = filteredOrders.length > 0
+  const hasActiveFilters = isOrderStatus(statusParam) || search.trim() !== ''
   const totalPages = Math.max(
     1,
     Math.ceil(filteredOrders.length / ordersPerPage),
@@ -72,6 +82,10 @@ function OrdersPage() {
     }
 
     setSearchParams(nextSearchParams)
+  }
+
+  function clearFilters() {
+    setSearchParams({})
   }
 
   return (
@@ -120,7 +134,7 @@ function OrdersPage() {
           id="order-search"
           type="search"
           value={search}
-          placeholder="Ordem, cliente ou responsável"
+          placeholder="Buscar por número ou cliente"
           onChange={(event) => {
             const nextSearchParams = new URLSearchParams(searchParams)
 
@@ -137,11 +151,18 @@ function OrdersPage() {
       </div>
 
       {!hasOrders && (
-        <div className="mt-8">
+        <div className="mt-8 space-y-4">
           <EmptyState
             title="Nenhuma ordem encontrada"
             description="Tente ajustar a busca ou os filtros."
           />
+          {hasActiveFilters ? (
+            <div className="flex justify-center">
+              <Button type="button" onClick={clearFilters}>
+                Limpar filtros
+              </Button>
+            </div>
+          ) : null}
         </div>
       )}
 
@@ -167,7 +188,7 @@ function OrdersPage() {
                   </StatusBadge>
                 </div>
 
-                <dl className="mt-4 space-y-3">
+                <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div>
                     <dt className="text-neutral text-xs">Cliente</dt>
                     <dd className="text-foreground mt-1">
@@ -178,6 +199,20 @@ function OrdersPage() {
                     <dt className="text-neutral text-xs">Responsável</dt>
                     <dd className="text-foreground mt-1">
                       {order.responsibleName}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral text-xs">Data</dt>
+                    <dd className="text-foreground mt-1">
+                      <time dateTime={order.createdAt}>
+                        {orderDateFormatter.format(new Date(order.createdAt))}
+                      </time>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-neutral text-xs">Valor</dt>
+                    <dd className="text-foreground mt-1 font-medium">
+                      {currencyFormatter.format(order.value)}
                     </dd>
                   </div>
                 </dl>
@@ -200,10 +235,16 @@ function OrdersPage() {
                   Cliente
                 </th>
                 <th className="px-4 py-3 font-medium" scope="col">
+                  Status
+                </th>
+                <th className="px-4 py-3 font-medium" scope="col">
                   Responsável
                 </th>
                 <th className="px-4 py-3 font-medium" scope="col">
-                  Status
+                  Data
+                </th>
+                <th className="px-4 py-3 font-medium" scope="col">
+                  Valor
                 </th>
               </tr>
             </thead>
@@ -225,12 +266,20 @@ function OrdersPage() {
                       {order.clientName}
                     </td>
                     <td className="text-neutral px-4 py-3">
-                      {order.responsibleName}
-                    </td>
-                    <td className="px-4 py-3">
                       <StatusBadge variant={statusDetail.variant}>
                         {statusDetail.label}
                       </StatusBadge>
+                    </td>
+                    <td className="text-neutral px-4 py-3">
+                      {order.responsibleName}
+                    </td>
+                    <td className="text-neutral whitespace-nowrap px-4 py-3">
+                      <time dateTime={order.createdAt}>
+                        {orderDateFormatter.format(new Date(order.createdAt))}
+                      </time>
+                    </td>
+                    <td className="text-foreground whitespace-nowrap px-4 py-3 font-medium">
+                      {currencyFormatter.format(order.value)}
                     </td>
                   </tr>
                 )
