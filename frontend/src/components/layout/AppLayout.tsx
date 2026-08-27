@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { NavLink } from 'react-router'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { NavLink, useNavigate } from 'react-router'
 import { AppBrand } from './AppBrand'
 
 const navigationItems = [
@@ -104,6 +104,32 @@ function SidebarToggleIcon({ isCollapsed }: { isCollapsed: boolean }) {
   )
 }
 
+function MobileMenuIcon({ isOpen }: { isOpen: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      className="h-5 w-5"
+    >
+      {isOpen ? (
+        <>
+          <path d="m6 6 12 12" />
+          <path d="m18 6-12 12" />
+        </>
+      ) : (
+        <>
+          <path d="M4 7h16" />
+          <path d="M4 12h16" />
+          <path d="M4 17h16" />
+        </>
+      )}
+    </svg>
+  )
+}
+
 function getInitialSidebarState() {
   if (typeof window === 'undefined') {
     return false
@@ -114,9 +140,16 @@ function getInitialSidebarState() {
 
 function AppLayout({ children }: AppLayoutProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const [isMobileHeaderHidden, setIsMobileHeaderHidden] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     getInitialSidebarState,
   )
+  const drawerRef = useRef<HTMLElement>(null)
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
+  const mobileScrollPositionRef = useRef(0)
+  const logoutButtonRef = useRef<HTMLButtonElement>(null)
+  const navigate = useNavigate()
 
   const sidebarWidthClass = isSidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
   const sidebarPaddingClass = isSidebarCollapsed ? 'p-3' : 'p-6'
@@ -131,6 +164,144 @@ function AppLayout({ children }: AppLayoutProps) {
     })
   }
 
+  function closeMobileNavigation() {
+    setIsMenuOpen(false)
+  }
+
+  function toggleMobileNavigation() {
+    setIsMenuOpen((isOpen) => {
+      const nextState = !isOpen
+
+      if (nextState) {
+        setIsProfileMenuOpen(false)
+      }
+
+      return nextState
+    })
+  }
+
+  function toggleProfileMenu() {
+    setIsProfileMenuOpen((isOpen) => {
+      const nextState = !isOpen
+
+      if (nextState) {
+        setIsMenuOpen(false)
+      }
+
+      return nextState
+    })
+  }
+
+  function handleMockSignOut() {
+    setIsProfileMenuOpen(false)
+    navigate('/login')
+  }
+
+  useEffect(() => {
+    function closeNavigationOnDesktop() {
+      if (window.innerWidth >= 768) {
+        setIsMenuOpen(false)
+        setIsMobileHeaderHidden(false)
+      }
+    }
+
+    window.addEventListener('resize', closeNavigationOnDesktop)
+
+    return () => window.removeEventListener('resize', closeNavigationOnDesktop)
+  }, [])
+
+  useEffect(() => {
+    function handleScroll() {
+      const currentScrollPosition = Math.max(window.scrollY, 0)
+
+      if (
+        window.innerWidth >= 768 ||
+        isMenuOpen ||
+        isProfileMenuOpen ||
+        currentScrollPosition <= 8
+      ) {
+        setIsMobileHeaderHidden(false)
+        mobileScrollPositionRef.current = currentScrollPosition
+        return
+      }
+
+      const scrollDifference =
+        currentScrollPosition - mobileScrollPositionRef.current
+
+      if (Math.abs(scrollDifference) < 12) {
+        return
+      }
+
+      setIsMobileHeaderHidden(scrollDifference > 0)
+      mobileScrollPositionRef.current = currentScrollPosition
+    }
+
+    mobileScrollPositionRef.current = Math.max(window.scrollY, 0)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [isMenuOpen, isProfileMenuOpen])
+
+  useEffect(() => {
+    if (!isMenuOpen) {
+      return
+    }
+
+    const focusedElementBeforeOpen = document.activeElement as HTMLElement | null
+    const drawer = drawerRef.current
+    const focusableElements = drawer?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    const firstFocusableElement = focusableElements?.[0]
+    const lastFocusableElement = focusableElements?.[
+      focusableElements.length - 1
+    ]
+    const previousBodyOverflow = document.body.style.overflow
+
+    document.body.style.overflow = 'hidden'
+    firstFocusableElement?.focus()
+
+    function handleDrawerKeyboardNavigation(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeMobileNavigation()
+        return
+      }
+
+      if (
+        event.key !== 'Tab' ||
+        !firstFocusableElement ||
+        !lastFocusableElement
+      ) {
+        return
+      }
+
+      if (event.shiftKey && document.activeElement === firstFocusableElement) {
+        event.preventDefault()
+        lastFocusableElement.focus()
+      }
+
+      if (!event.shiftKey && document.activeElement === lastFocusableElement) {
+        event.preventDefault()
+        firstFocusableElement.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleDrawerKeyboardNavigation)
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.removeEventListener('keydown', handleDrawerKeyboardNavigation)
+      focusedElementBeforeOpen?.focus()
+    }
+  }, [isMenuOpen])
+
+  useEffect(() => {
+    if (isProfileMenuOpen) {
+      logoutButtonRef.current?.focus()
+    }
+  }, [isProfileMenuOpen])
+
   const renderNavigation = ({
     closeMenu = false,
     isCollapsed = false,
@@ -142,7 +313,7 @@ function AppLayout({ children }: AppLayoutProps) {
         label={item.label}
         to={item.to}
         isCollapsed={isCollapsed}
-        onClick={closeMenu ? () => setIsMenuOpen(false) : undefined}
+        onClick={closeMenu ? closeMobileNavigation : undefined}
       />
     ))
 
@@ -194,27 +365,112 @@ function AppLayout({ children }: AppLayoutProps) {
         </div>
       </header>
 
-      <header className="bg-surface p-4 md:hidden">
-        <div className="flex items-center justify-between">
-          <AppBrand />
+      <header
+        className={[
+          'bg-surface',
+          'sticky',
+          'top-0',
+          'z-50',
+          'border-b',
+          'border-neutral-bg',
+          'transition-transform',
+          'duration-200',
+          'ease-out',
+          'md:hidden',
+          isMobileHeaderHidden && '-translate-y-full',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <div className="relative flex h-16 items-center px-4">
+          <button
+            ref={mobileMenuButtonRef}
+            type="button"
+            aria-controls="mobile-navigation-drawer"
+            aria-expanded={isMenuOpen}
+            aria-label={
+              isMenuOpen
+                ? 'Fechar navegação principal'
+                : 'Abrir navegação principal'
+            }
+            title={
+              isMenuOpen
+                ? 'Fechar navegação principal'
+                : 'Abrir navegação principal'
+            }
+            className="text-foreground flex h-10 w-10 items-center justify-center rounded-ui hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            onClick={toggleMobileNavigation}
+          >
+            <MobileMenuIcon isOpen={isMenuOpen} />
+          </button>
 
+          <div className="absolute left-1/2 -translate-x-1/2">
+            <AppBrand />
+          </div>
+
+          <div className="relative ml-auto">
+            <button
+              type="button"
+              aria-controls="mobile-profile-menu"
+              aria-expanded={isProfileMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Abrir menu de perfil de Ana Souza, Administradora"
+              className="text-foreground flex h-10 items-center gap-2 rounded-ui px-1 hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              onClick={toggleProfileMenu}
+            >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-bg text-xs font-bold text-neutral">
+                AS
+              </span>
+              <span className="hidden text-left min-[420px]:block">
+                <span className="block text-xs font-medium">Ana Souza</span>
+                <span className="text-neutral block text-[11px]">
+                  Administradora
+                </span>
+              </span>
+            </button>
+
+            {isProfileMenuOpen ? (
+              <div
+                id="mobile-profile-menu"
+                role="menu"
+                aria-label="Menu de perfil"
+                className="bg-surface absolute right-0 top-full z-50 mt-2 w-48 rounded-ui border border-neutral-bg p-2 shadow-md"
+              >
+                <button
+                  ref={logoutButtonRef}
+                  type="button"
+                  role="menuitem"
+                  className="text-foreground w-full rounded-ui px-3 py-2 text-left text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                  onClick={handleMockSignOut}
+                >
+                  Sair
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </header>
+
+      {isMenuOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden">
           <button
             type="button"
-            aria-controls="mobile-navigation"
-            aria-expanded={isMenuOpen}
-            className="text-foreground rounded-ui px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+            aria-label="Fechar navegação principal"
+            className="absolute inset-0 bg-foreground/30"
+            onClick={closeMobileNavigation}
+          />
+          <aside
+            ref={drawerRef}
+            id="mobile-navigation-drawer"
+            aria-label="Navegação principal"
+            className="bg-surface absolute bottom-0 left-0 top-16 w-[min(20rem,calc(100vw-3rem))] overflow-y-auto border-r border-neutral-bg p-4 shadow-xl"
           >
-            Menu
-          </button>
+            <nav className="space-y-2">
+              {renderNavigation({ closeMenu: true })}
+            </nav>
+          </aside>
         </div>
-
-        {isMenuOpen && (
-          <nav id="mobile-navigation" className="mt-4 space-y-2">
-            {renderNavigation({ closeMenu: true })}
-          </nav>
-        )}
-      </header>
+      ) : null}
 
       <div className="md:mx-auto md:flex md:h-[calc(100vh-4rem)] md:max-w-[1180px]">
         <aside
@@ -238,7 +494,10 @@ function AppLayout({ children }: AppLayoutProps) {
           </nav>
         </aside>
 
-        <main className="min-w-0 p-6 md:flex-1 md:overflow-y-auto">
+        <main
+          aria-hidden={isMenuOpen || undefined}
+          className="min-w-0 p-6 md:flex-1 md:overflow-y-auto"
+        >
           {children}
         </main>
       </div>
