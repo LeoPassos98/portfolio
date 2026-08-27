@@ -20,7 +20,7 @@ function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
-  function onSubmit() {
+  function onSubmit(_: LoginFormData) {
     navigate('/dashboard')
   }
 
@@ -29,7 +29,11 @@ function LoginPage() {
       <div className="space-y-6">
         <h1 className="text-foreground text-2xl font-bold">Entrar</h1>
 
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <form
+          noValidate
+          className="space-y-4"
+          onSubmit={handleSubmit(onSubmit)}
+        >
           <div className="space-y-2">
             <Label className="block" htmlFor="email">
               E-mail
@@ -37,7 +41,10 @@ function LoginPage() {
             <Input
               id="email"
               type="email"
+              autoCapitalize="none"
+              autoComplete="username"
               aria-invalid={Boolean(errors.email)}
+              aria-required="true"
               aria-describedby={errors.email ? 'email-error' : undefined}
               {...register('email')}
             />
@@ -57,7 +64,9 @@ function LoginPage() {
                 className="pr-20"
                 id="password"
                 type={isPasswordVisible ? 'text' : 'password'}
+                autoComplete="current-password"
                 aria-invalid={Boolean(errors.password)}
+                aria-required="true"
                 aria-describedby={
                   errors.password ? 'password-error' : undefined
                 }

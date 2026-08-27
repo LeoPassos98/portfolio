@@ -1,11 +1,13 @@
 import { z } from 'zod'
 
 const loginSchema = z.object({
-  email: z.string().email('Informe um e-mail válido'),
-  password: z
+  email: z
     .string()
-    .min(8, 'A senha deve ter no mínimo 8 caracteres')
-    .max(128, 'A senha deve ter no máximo 128 caracteres'),
+    .trim()
+    .toLowerCase()
+    .min(1, 'Informe seu e-mail')
+    .email('Informe um e-mail válido'),
+  password: z.string().min(1, 'Informe sua senha'),
 })
 
 type LoginFormData = z.infer<typeof loginSchema>

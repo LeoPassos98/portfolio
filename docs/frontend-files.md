@@ -13,7 +13,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
-| Autenticação | Login, primeiro acesso e validação | 3 |
+| Autenticação | Login, primeiro acesso e validação | 4 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
 | Clientes | Listagem mockada, filtro, busca e formulários estruturais de clientes | 5 |
@@ -146,11 +146,15 @@ Implementa login acessível com React Hook Form, validação, visibilidade de se
 
 ### 2. `frontend/src/features/auth/schemas/loginSchema.ts`
 
-Define com Zod as regras de e-mail e senha e exporta `LoginFormData`, inferido e usado por `LoginPage`.
+Define com Zod as regras de Login, normaliza o e-mail de login e exporta `LoginFormData`, inferido e usado por `LoginPage` com React Hook Form.
 
 ### 3. `frontend/src/features/auth/pages/FirstAccessPage.tsx`
 
-Estrutura o fluxo obrigatório de definição da nova senha no `AuthLayout` e conclui temporariamente o protótipo navegando para o Dashboard, ainda sem validação, submissão real ou integração com sessão.
+Implementa com React Hook Form e Zod o fluxo obrigatório de definição e confirmação da nova senha no `AuthLayout`; após validação, conclui temporariamente o protótipo navegando para o Dashboard, sem submissão real ou integração com sessão.
+
+### 4. `frontend/src/features/auth/schemas/firstAccessSchema.ts`
+
+Define com Zod a política de nova senha e confirmação do primeiro acesso sem transformar os valores informados, exportando `FirstAccessFormData` para a tela correspondente.
 
 ---
 
