@@ -8,12 +8,12 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área | Responsabilidade | Arquivos |
 | --- | --- | ---: |
-| Configuração e entrada | Inicialização, rotas e build do frontend | 3 |
+| Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
 | Componentes de feedback | Comunicação de estados da interface | 1 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
-| Autenticação | Login, primeiro acesso e validação | 4 |
+| Autenticação | Login, primeiro acesso, validação e sessão mockada | 8 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 10 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
@@ -42,7 +42,7 @@ Diretório principal: `frontend/`
 
 ### 1. `frontend/src/main.tsx`
 
-Carrega a fonte e os estilos globais, monta `App` no DOM e fornece o contexto de navegação com `BrowserRouter`.
+Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de sessão mockada e navegação com `AuthSessionProvider` e `BrowserRouter`.
 
 ### 2. `frontend/src/App.tsx`
 
@@ -136,7 +136,7 @@ Reserva uma marca geométrica reutilizável para o shell autenticado, sem defini
 
 ## Autenticação
 
-Reúne as telas de login e primeiro acesso, seus fluxos de protótipo e o schema de validação atual.
+Reúne as telas de login e primeiro acesso, seus fluxos de protótipo, schemas de validação e a sessão mockada compartilhada.
 
 Diretório principal: `frontend/src/features/auth/`
 
@@ -156,6 +156,22 @@ Implementa com React Hook Form e Zod o fluxo obrigatório de definição e confi
 
 Define com Zod a política de nova senha e confirmação do primeiro acesso sem transformar os valores informados, exportando `FirstAccessFormData` para a tela correspondente.
 
+### 5. `frontend/src/features/auth/mocks/authenticatedSession.ts`
+
+Define as sessões mockadas de Administrador e Funcionário e concentra, em `activeMockAuthenticatedSession`, a única troca manual do perfil ativo para desenvolvimento.
+
+### 6. `frontend/src/features/auth/context/AuthSessionContext.ts`
+
+Declara o Context tipado da sessão mockada, mantido separado para que Provider e consumidores compartilhem o mesmo contrato global.
+
+### 7. `frontend/src/features/auth/context/AuthSessionProvider.tsx`
+
+Fornece a sessão mockada ativa globalmente por meio de `AuthSessionProvider`, sem persistência ou autenticação real.
+
+### 8. `frontend/src/features/auth/hooks/useAuthSession.ts`
+
+Expõe o hook de consumo seguro da sessão para telas e componentes autenticados, garantindo uso dentro do Provider.
+
 ---
 
 ## Dashboard
@@ -166,7 +182,7 @@ Diretório principal: `frontend/src/features/dashboard/`
 
 ### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Compõe o Dashboard administrativo e seleciona temporariamente por query parameter a visão do funcionário, delegando o painel individual ao componente compartilhado.
+Compõe o Dashboard administrativo ou individual conforme o perfil da sessão mockada compartilhada, delegando o painel individual ao componente compartilhado.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 

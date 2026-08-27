@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router'
+import { useAuthSession } from '../../features/auth/hooks/useAuthSession'
 import { AppBrand } from './AppBrand'
 
 const navigationItems = [
@@ -138,7 +139,17 @@ function getInitialSidebarState() {
   return window.localStorage.getItem(sidebarStorageKey) === 'true'
 }
 
+function getUserInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((namePart) => namePart[0])
+    .join('')
+}
+
 function AppLayout({ children }: AppLayoutProps) {
+  const { currentUser } = useAuthSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const [isMobileHeaderHidden, setIsMobileHeaderHidden] = useState(false)
@@ -153,6 +164,9 @@ function AppLayout({ children }: AppLayoutProps) {
 
   const sidebarWidthClass = isSidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
   const sidebarPaddingClass = isSidebarCollapsed ? 'p-3' : 'p-6'
+  const profileLabel =
+    currentUser.profile === 'admin' ? 'Administradora' : 'Funcionário'
+  const userInitials = getUserInitials(currentUser.name)
 
   function toggleSidebar() {
     setIsSidebarCollapsed((isCollapsed) => {
@@ -355,11 +369,13 @@ function AppLayout({ children }: AppLayoutProps) {
 
           <div className="absolute right-0 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-bg text-sm font-bold text-neutral">
-              AS
+              {userInitials}
             </div>
             <div className="text-right">
-              <p className="text-foreground text-sm font-medium">Ana Souza</p>
-              <p className="text-neutral text-xs">Administradora</p>
+              <p className="text-foreground text-sm font-medium">
+                {currentUser.name}
+              </p>
+              <p className="text-neutral text-xs">{profileLabel}</p>
             </div>
           </div>
         </div>
@@ -414,17 +430,19 @@ function AppLayout({ children }: AppLayoutProps) {
               aria-controls="mobile-profile-menu"
               aria-expanded={isProfileMenuOpen}
               aria-haspopup="menu"
-              aria-label="Abrir menu de perfil de Ana Souza, Administradora"
+              aria-label={`Abrir menu de perfil de ${currentUser.name}, ${profileLabel}`}
               className="text-foreground flex h-10 items-center gap-2 rounded-ui px-1 hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               onClick={toggleProfileMenu}
             >
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-bg text-xs font-bold text-neutral">
-                AS
+                {userInitials}
               </span>
               <span className="hidden text-left min-[420px]:block">
-                <span className="block text-xs font-medium">Ana Souza</span>
+                <span className="block text-xs font-medium">
+                  {currentUser.name}
+                </span>
                 <span className="text-neutral block text-[11px]">
-                  Administradora
+                  {profileLabel}
                 </span>
               </span>
             </button>

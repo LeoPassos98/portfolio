@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
+import { useAuthSession } from '../../auth/hooks/useAuthSession'
 import { EmployeePerformancePanel } from '../components/EmployeePerformancePanel'
 import { MetricCard } from '../components/MetricCard'
 import {
@@ -104,15 +104,10 @@ function createAdminPerformanceMetrics(period: DashboardPeriod) {
 }
 
 function DashboardPage() {
-  const [searchParams] = useSearchParams()
+  const { currentUser } = useAuthSession()
   const [period, setPeriod] = useState<DashboardPeriod>('current-month')
 
-  // Controle temporário do protótipo; o perfil real virá da sessão autenticada.
-  // O parâmetro não representa nem concede autorização.
-  const isEmployeeDashboard = searchParams.get('profile') === 'employee'
-
-  if (isEmployeeDashboard) {
-    // Identificador temporário; futuramente virá do funcionário da sessão.
+  if (currentUser.profile === 'employee') {
     return (
       <AppLayout>
         <header>
@@ -122,7 +117,10 @@ function DashboardPage() {
           </p>
         </header>
 
-        <EmployeePerformancePanel employeeId="employee-1" context="self" />
+        <EmployeePerformancePanel
+          employeeId={currentUser.employeeId}
+          context="self"
+        />
       </AppLayout>
     )
   }
