@@ -43,7 +43,7 @@ function ClientsPage() {
   return (
     <AppLayout>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1>Clientes</h1>
+        <h1 className="text-foreground text-2xl font-bold">Clientes</h1>
         <Link
           to="/clients/new"
           className="bg-primary inline-flex rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
