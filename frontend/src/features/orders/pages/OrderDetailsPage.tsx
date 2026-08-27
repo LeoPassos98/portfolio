@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
+import { Button } from '../../../components/ui/Button'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { mockOrderHistory } from '../mocks/orderHistory'
 import { mockOrders } from '../mocks/orders'
@@ -33,6 +35,9 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
 
 function OrderDetailsPage() {
   const { orderId } = useParams<{ orderId: string }>()
+  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
+    null,
+  )
   const order = mockOrders.find((item) => item.id === orderId)
   const backLink = (
     <Link
@@ -57,8 +62,6 @@ function OrderDetailsPage() {
     )
   }
 
-  const statusDetail = statusDetails[order.status]
-  const visibilityDetail = visibilityDetails[order.visibility]
   const orderHistory = mockOrderHistory
     .filter((snapshot) => snapshot.orderId === order.id)
     .sort(
@@ -66,6 +69,26 @@ function OrderDetailsPage() {
         new Date(secondSnapshot.changedAt).getTime() -
         new Date(firstSnapshot.changedAt).getTime(),
     )
+  const selectedSnapshot = selectedSnapshotId
+    ? orderHistory.find((snapshot) => snapshot.id === selectedSnapshotId)
+    : undefined
+  const displayedOrder = selectedSnapshot
+    ? {
+        ...order,
+        description: selectedSnapshot.description,
+        value: selectedSnapshot.value,
+        notes: selectedSnapshot.notes,
+        responsibleName: selectedSnapshot.responsibleName,
+        status: selectedSnapshot.status,
+        visibility: selectedSnapshot.visibility,
+      }
+    : order
+  const statusDetail = statusDetails[displayedOrder.status]
+  const visibilityDetail = visibilityDetails[displayedOrder.visibility]
+  const updateDate = selectedSnapshot?.changedAt ?? order.updatedAt
+  const updateLabel = selectedSnapshot
+    ? 'Versão preservada em'
+    : 'Última atualização'
 
   return (
     <AppLayout>
@@ -86,15 +109,43 @@ function OrderDetailsPage() {
           </div>
           <p className="text-neutral mt-1">{order.clientName}</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            to={`/orders/${order.id}/edit`}
-            className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            Editar
-          </Link>
-        </div>
+        {selectedSnapshot ? null : (
+          <div className="flex flex-wrap gap-3">
+            <Link
+              to={`/orders/${order.id}/edit`}
+              className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Editar
+            </Link>
+          </div>
+        )}
       </header>
+
+      {selectedSnapshot ? (
+        <section
+          aria-labelledby="historical-version-title"
+          className="bg-info-bg mt-6 flex flex-col gap-4 rounded-ui border border-info p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <h2
+              id="historical-version-title"
+              className="text-info font-bold"
+            >
+              Versão {selectedSnapshot.version} — somente leitura
+            </h2>
+            <p className="text-info mt-1 text-sm">
+              Preservada em{' '}
+              <time dateTime={selectedSnapshot.changedAt}>
+                {dateTimeFormatter.format(new Date(selectedSnapshot.changedAt))}
+              </time>{' '}
+              por {selectedSnapshot.authorName}.
+            </p>
+          </div>
+          <Button type="button" onClick={() => setSelectedSnapshotId(null)}>
+            Voltar para versão atual
+          </Button>
+        </section>
+      ) : null}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <aside
@@ -112,13 +163,13 @@ function OrderDetailsPage() {
             <div>
               <dt className="text-neutral text-sm">Valor</dt>
               <dd className="text-foreground mt-1 text-xl font-bold">
-                {currencyFormatter.format(order.value)}
+                {currencyFormatter.format(displayedOrder.value)}
               </dd>
             </div>
             <div>
               <dt className="text-neutral text-sm">Responsável</dt>
               <dd className="text-foreground mt-1 font-medium">
-                {order.responsibleName}
+                {displayedOrder.responsibleName}
               </dd>
             </div>
             <div>
@@ -146,10 +197,10 @@ function OrderDetailsPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-neutral text-sm">Última atualização</dt>
+              <dt className="text-neutral text-sm">{updateLabel}</dt>
               <dd className="text-foreground mt-1 font-medium">
-                <time dateTime={order.updatedAt}>
-                  {dateTimeFormatter.format(new Date(order.updatedAt))}
+                <time dateTime={updateDate}>
+                  {dateTimeFormatter.format(new Date(updateDate))}
                 </time>
               </dd>
             </div>
@@ -165,7 +216,7 @@ function OrderDetailsPage() {
               Serviço
             </h2>
             <p className="text-foreground mt-4 whitespace-pre-wrap">
-              {order.description}
+              {displayedOrder.description}
             </p>
 
             <div className="mt-6">
@@ -173,7 +224,7 @@ function OrderDetailsPage() {
                 Observações
               </h3>
               <p className="text-neutral mt-2 whitespace-pre-wrap">
-                {order.notes ?? 'Nenhuma observação informada.'}
+                {displayedOrder.notes ?? 'Nenhuma observação informada.'}
               </p>
             </div>
           </section>
@@ -219,40 +270,58 @@ function OrderDetailsPage() {
           <ol className="mt-4 space-y-4">
             {orderHistory.map((snapshot) => {
               const snapshotStatusDetail = statusDetails[snapshot.status]
+              const isSelected = snapshot.id === selectedSnapshot?.id
 
               return (
-                <li
-                  key={snapshot.id}
-                  className="bg-surface rounded-ui border border-neutral-bg p-4"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <time
-                      dateTime={snapshot.changedAt}
-                      className="text-neutral text-sm"
-                    >
-                      {dateTimeFormatter.format(new Date(snapshot.changedAt))}
-                    </time>
-                    <StatusBadge variant={snapshotStatusDetail.variant}>
-                      {snapshotStatusDetail.label}
-                    </StatusBadge>
-                  </div>
+                <li key={snapshot.id}>
+                  <button
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => setSelectedSnapshotId(snapshot.id)}
+                    className={
+                      isSelected
+                        ? 'bg-neutral-bg w-full rounded-ui border border-primary p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+                        : 'bg-surface w-full rounded-ui border border-neutral-bg p-4 text-left hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+                    }
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <span className="text-foreground font-medium">
+                        Versão {snapshot.version}
+                      </span>
+                      <StatusBadge variant={snapshotStatusDetail.variant}>
+                        {snapshotStatusDetail.label}
+                      </StatusBadge>
+                    </div>
 
-                  <dl className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <dt className="text-neutral text-sm">Alterado por</dt>
-                      <dd className="text-foreground mt-1 font-medium">
-                        {snapshot.authorName}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-neutral text-sm">
-                        Responsável naquele momento
-                      </dt>
-                      <dd className="text-foreground mt-1 font-medium">
-                        {snapshot.responsibleName}
-                      </dd>
-                    </div>
-                  </dl>
+                    <dl className="mt-4 grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <dt className="text-neutral text-sm">Preservada em</dt>
+                        <dd className="text-foreground mt-1 font-medium">
+                          <time dateTime={snapshot.changedAt}>
+                            {dateTimeFormatter.format(
+                              new Date(snapshot.changedAt),
+                            )}
+                          </time>
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-neutral text-sm">
+                          Alterado por
+                        </dt>
+                        <dd className="text-foreground mt-1 font-medium">
+                          {snapshot.authorName}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="text-neutral text-sm">
+                          Responsável naquele momento
+                        </dt>
+                        <dd className="text-foreground mt-1 font-medium">
+                          {snapshot.responsibleName}
+                        </dd>
+                      </div>
+                    </dl>
+                  </button>
                 </li>
               )
             })}

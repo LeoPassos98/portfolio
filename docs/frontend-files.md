@@ -194,7 +194,7 @@ Exporta ordens de protótipo completas como `Order[]`, com dados de serviço, va
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem completa pela rota, apresenta cabeçalho, resumo operacional, serviço e cliente de forma responsiva, preserva edição e histórico mockado e usa `EmptyState` quando não há ordem ou histórico.
+Obtém a ordem completa pela rota, apresenta seus dados de forma responsiva e permite consultar snapshots históricos em modo somente leitura, sem confundir ou alterar a versão atual.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
@@ -206,11 +206,11 @@ Compõe o formulário compartilhado no modo de criação, preservando a estrutur
 
 ### 7. `frontend/src/features/orders/types/orderHistory.ts`
 
-Define o snapshot do histórico de uma ordem com vínculo, data e hora, autor, responsável e status daquele momento.
+Define o snapshot histórico com versão, dados de negócio preservados, data e hora, autor e responsável daquele momento.
 
 ### 8. `frontend/src/features/orders/mocks/orderHistory.ts`
 
-Exporta snapshots mockados e tipados usados pelos detalhes da ordem para representar seu histórico.
+Exporta snapshots mockados e tipados com versões e estados anteriores completos para consulta nos Detalhes da OS.
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
