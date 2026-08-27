@@ -126,7 +126,7 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e conteúdo rolável; preserva header e drawer de navegação próprios no mobile.
+Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e rolagem principal no documento; preserva a rolagem própria da sidebar e do drawer mobile.
 
 ### 3. `frontend/src/components/layout/AppBrand.tsx`
 

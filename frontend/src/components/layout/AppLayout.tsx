@@ -318,8 +318,8 @@ function AppLayout({ children }: AppLayoutProps) {
     ))
 
   return (
-    <div className="bg-background min-h-screen md:h-screen md:overflow-hidden">
-      <header className="bg-surface hidden border-b border-neutral-bg md:block">
+    <div className="bg-background min-h-screen">
+      <header className="bg-surface hidden border-b border-neutral-bg md:sticky md:top-0 md:z-30 md:block">
         <div className="relative mx-auto flex h-16 max-w-[1180px] items-center">
           <div
             className={[
@@ -472,7 +472,7 @@ function AppLayout({ children }: AppLayoutProps) {
         </div>
       ) : null}
 
-      <div className="md:mx-auto md:flex md:h-[calc(100vh-4rem)] md:max-w-[1180px]">
+      <div className="md:mx-auto md:flex md:max-w-[1180px] md:items-start">
         <aside
           className={[
             'bg-surface',
@@ -485,6 +485,9 @@ function AppLayout({ children }: AppLayoutProps) {
             'duration-200',
             'ease-out',
             'md:block',
+            'md:sticky',
+            'md:top-16',
+            'md:h-[calc(100vh-4rem)]',
             sidebarWidthClass,
             sidebarPaddingClass,
           ].join(' ')}
@@ -496,7 +499,7 @@ function AppLayout({ children }: AppLayoutProps) {
 
         <main
           aria-hidden={isMenuOpen || undefined}
-          className="min-w-0 p-6 md:flex-1 md:overflow-y-auto"
+          className="min-w-0 p-6 md:flex-1"
         >
           {children}
         </main>
