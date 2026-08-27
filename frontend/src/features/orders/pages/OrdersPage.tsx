@@ -16,6 +16,10 @@ const orderStatuses: readonly OrderStatus[] = [
   'cancelled',
 ]
 
+const orderListStatuses = ['open', ...orderStatuses] as const
+
+type OrderListStatus = (typeof orderListStatuses)[number]
+
 const statusDetails = {
   awaiting: { label: 'Aguardando', variant: 'warning' },
   'in-progress': { label: 'Em andamento', variant: 'info' },
@@ -38,13 +42,24 @@ function isOrderStatus(value: string | null): value is OrderStatus {
   return value !== null && orderStatuses.some((status) => status === value)
 }
 
+function isOrderListStatus(value: string | null): value is OrderListStatus {
+  return (
+    value !== null && orderListStatuses.some((status) => status === value)
+  )
+}
+
 function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const statusParam = searchParams.get('status')
-  const status = statusParam ?? 'all'
+  const status = isOrderListStatus(statusParam) ? statusParam : 'all'
   const search = searchParams.get('search') ?? ''
   const ordersFilteredByStatus = isOrderStatus(statusParam)
     ? mockOrders.filter((order) => order.status === statusParam)
+    : statusParam === 'open'
+      ? mockOrders.filter(
+          (order) =>
+            order.status === 'awaiting' || order.status === 'in-progress',
+        )
     : mockOrders
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
   const filteredOrders = normalizedSearch
@@ -56,7 +71,7 @@ function OrdersPage() {
       )
     : ordersFilteredByStatus
   const hasOrders = filteredOrders.length > 0
-  const hasActiveFilters = isOrderStatus(statusParam) || search.trim() !== ''
+  const hasActiveFilters = isOrderListStatus(statusParam) || search.trim() !== ''
   const totalPages = Math.max(
     1,
     Math.ceil(filteredOrders.length / ordersPerPage),
@@ -121,6 +136,7 @@ function OrdersPage() {
           }}
         >
           <option value="all">Todos</option>
+          <option value="open">Em aberto</option>
           <option value="awaiting">Aguardando</option>
           <option value="in-progress">Em andamento</option>
           <option value="completed">Concluídas</option>

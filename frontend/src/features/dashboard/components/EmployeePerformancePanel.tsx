@@ -55,6 +55,7 @@ function EmployeePerformancePanel({
       value: openOrders,
       secondaryText: `${dashboard.situation.orders.awaiting} aguardando + ${dashboard.situation.orders.inProgress} em andamento · ${formatPercentage(openOrders, dashboard.situation.orders.total)} das OS atribuídas`,
       valueClass: 'text-warning',
+      to: '/orders?status=open',
     },
   ]
   const performance = dashboard.performance[period]
@@ -74,6 +75,7 @@ function EmployeePerformancePanel({
         performance.creditedCompletedOrdersValue,
       ),
       valueClass: 'text-success',
+      to: '/orders?status=completed',
     },
     {
       label:
@@ -81,6 +83,7 @@ function EmployeePerformancePanel({
       value: performance.completedOrders,
       secondaryText: `${formatPercentage(performance.completedOrders, closedOrders)} das OS encerradas`,
       valueClass: 'text-success',
+      to: '/orders?status=completed',
     },
     {
       label:
@@ -88,6 +91,7 @@ function EmployeePerformancePanel({
       value: performance.cancelledOrders,
       secondaryText: `${formatPercentage(performance.cancelledOrders, closedOrders)} das OS encerradas`,
       valueClass: 'text-error',
+      to: '/orders?status=cancelled',
     },
     {
       label:
@@ -96,6 +100,7 @@ function EmployeePerformancePanel({
           : 'Ticket médio das ordens concluídas',
       value: currencyFormatter.format(averageTicket),
       valueClass: 'text-foreground',
+      to: '/orders?status=completed',
     },
     {
       label: 'Clientes recorrentes',

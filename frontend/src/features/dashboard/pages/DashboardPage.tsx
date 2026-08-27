@@ -49,6 +49,7 @@ const adminCurrentSituationMetrics = [
     value: adminOpenOrders,
     secondaryText: `${adminDashboardSituation.orders.awaiting} aguardando + ${adminDashboardSituation.orders.inProgress} em andamento · ${formatPercentage(adminOpenOrders, adminDashboardSituation.orders.total)} do total`,
     valueClass: 'text-warning',
+    to: '/orders?status=open',
   },
 ]
 
@@ -65,18 +66,21 @@ function createAdminPerformanceMetrics(period: DashboardPeriod) {
       label: 'Valor das ordens concluídas',
       value: currencyFormatter.format(performance.completedOrdersValue),
       valueClass: 'text-success',
+      to: '/orders?status=completed',
     },
     {
       label: 'Ordens concluídas',
       value: performance.completedOrders,
       secondaryText: `${formatPercentage(performance.completedOrders, closedOrders)} das OS encerradas`,
       valueClass: 'text-success',
+      to: '/orders?status=completed',
     },
     {
       label: 'Ordens canceladas',
       value: performance.cancelledOrders,
       secondaryText: `${formatPercentage(performance.cancelledOrders, closedOrders)} das OS encerradas`,
       valueClass: 'text-error',
+      to: '/orders?status=cancelled',
     },
     {
       label: 'Novos clientes',
@@ -94,6 +98,7 @@ function createAdminPerformanceMetrics(period: DashboardPeriod) {
       label: 'Ticket médio das ordens concluídas',
       value: currencyFormatter.format(averageTicket),
       valueClass: 'text-foreground',
+      to: '/orders?status=completed',
     },
   ]
 }
