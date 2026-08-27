@@ -12,7 +12,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 6 |
 | Componentes de feedback | Comunicação de estados da interface | 1 |
-| Layouts | Estruturas compartilhadas de páginas | 2 |
+| Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso e validação | 3 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
@@ -122,7 +122,11 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas com sidebar desktop estável e rolável de forma independente, navegação mobile recolhível, indicação de rota ativa e área principal sem sobreposição.
+Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e conteúdo rolável; preserva header e drawer de navegação próprios no mobile.
+
+### 3. `frontend/src/components/layout/AppBrand.tsx`
+
+Reserva uma marca geométrica reutilizável para o shell autenticado, sem definir o logo final do produto.
 
 ---
 
