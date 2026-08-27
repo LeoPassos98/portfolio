@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Layouts | Estruturas compartilhadas de páginas | 2 |
 | Autenticação | Login, primeiro acesso e validação | 3 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
-| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 8 |
+| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
 | Clientes | Listagem mockada, filtro, busca e formulários estruturais de clientes | 5 |
 | Funcionários | Listagem mockada, perfil, formulários e gestão de acesso | 6 |
 
@@ -198,11 +198,11 @@ Obtém a ordem completa pela rota, apresenta cabeçalho, resumo operacional, ser
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Mantém número e cliente somente para leitura e estrutura controles e ações de edição sem submissão ou persistência.
+Obtém a ordem pela rota, trata identificadores inexistentes e compõe o formulário compartilhado com cliente e número somente leitura, sem submissão ou persistência.
 
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
-Estrutura a criação mockada em Cliente, Dados do serviço e Configuração; reutiliza clientes e funcionários ativos dos mocks, apresenta visibilidade explícita, status inicial e numeração automática apenas informativos, sem submissão.
+Compõe o formulário compartilhado no modo de criação, preservando a estrutura mockada de Cliente, Dados do serviço e Configuração sem submissão.
 
 ### 7. `frontend/src/features/orders/types/orderHistory.ts`
 
@@ -211,6 +211,10 @@ Define o snapshot do histórico de uma ordem com vínculo, data e hora, autor, r
 ### 8. `frontend/src/features/orders/mocks/orderHistory.ts`
 
 Exporta snapshots mockados e tipados usados pelos detalhes da ordem para representar seu histórico.
+
+### 9. `frontend/src/features/orders/components/OrderForm.tsx`
+
+Reúne a estrutura visual reutilizável de criação e edição de OS, preenchendo dados mockados quando há uma ordem e preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
 
 ---
 
