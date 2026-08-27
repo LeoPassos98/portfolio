@@ -16,7 +16,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Login, primeiro acesso e validação | 4 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
-| Clientes | Listagem mockada, filtro, busca e formulários estruturais de clientes | 5 |
+| Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
 | Funcionários | Listagem mockada, perfil, formulários e gestão de acesso | 6 |
 
 ## Sumário
@@ -250,11 +250,15 @@ Exibe em `AppLayout` a consulta mockada responsiva de clientes, com busca por no
 
 ### 4. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
-Estrutura no `AppLayout` o cadastro responsivo de cliente com dados cadastrais, contato, endereço e ações ainda sem comportamento.
+Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, validação compartilhada com Zod, erros associados aos campos e retorno mockado à listagem após um envio válido.
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Carrega o cliente mockado pela rota para preencher a edição responsiva, identifica a situação ativo/inativo e trata registros inexistentes, sem persistência.
+Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod, identifica a situação ativo/inativo, retorna à listagem após envio válido e trata registros inexistentes, sem persistência.
+
+### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
+
+Define com Zod as validações e normalizações reutilizadas nos formulários de criação e edição de Clientes, incluindo os dígitos verificadores de CPF/CNPJ.
 
 ---
 

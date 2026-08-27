@@ -23,7 +23,7 @@ const mockClients: Client[] = [
     name: 'Empresa Horizonte',
     phone: '(11) 3333-9000',
     email: 'contato@empresahorizonte.example.com',
-    document: '12.345.678/0001-90',
+    document: '12.345.678/0001-95',
     status: 'active',
     address: {
       postalCode: '04538-133',
@@ -57,7 +57,7 @@ const mockClients: Client[] = [
     name: 'Clínica Central',
     phone: '(11) 3222-1000',
     email: 'atendimento@clinicacentral.example.com',
-    document: '98.765.432/0001-10',
+    document: '98.765.432/0001-92',
     status: 'inactive',
     address: {
       postalCode: '01001-000',
