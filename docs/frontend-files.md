@@ -17,7 +17,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, tipos e mocks | 9 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
-| Funcionários | Listagem mockada, perfil, formulários validados e gestão de acesso | 7 |
+| Funcionários | Listagem mockada, perfil, formulários validados e gestão de acesso | 8 |
 
 ## Sumário
 
@@ -278,7 +278,7 @@ Implementa no `AppLayout` o cadastro responsivo do funcionário com React Hook F
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Carrega o funcionário mockado pela rota para apresentar e validar os valores cadastrais, mantém a conta de acesso sem validação nesta etapa e retorna mockadamente ao Perfil após envio válido.
+Carrega o funcionário mockado pela rota para validar os valores cadastrais e os formulários de criação ou alteração da conta de acesso, mantendo separados e-mail de contato e e-mail de login.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
@@ -295,3 +295,7 @@ Define o formato, as situações e os dados de login da conta de acesso usados p
 ### 7. `frontend/src/features/employees/schemas/employeeSchema.ts`
 
 Define com Zod as validações e normalizações reutilizadas nos dados cadastrais dos formulários de Funcionários, sem abranger os campos da conta de acesso.
+
+### 8. `frontend/src/features/employees/schemas/employeeAccessSchema.ts`
+
+Define com Zod as validações reutilizadas da criação e alteração de contas de acesso, incluindo normalização do e-mail de login e confirmação da senha temporária.

@@ -14,6 +14,14 @@ import {
   type EmployeeFormData,
   type EmployeeFormValues,
 } from '../schemas/employeeSchema'
+import {
+  employeeAccessCreationSchema,
+  employeeAccessUpdateSchema,
+  type EmployeeAccessCreationFormData,
+  type EmployeeAccessCreationFormValues,
+  type EmployeeAccessUpdateFormData,
+  type EmployeeAccessUpdateFormValues,
+} from '../schemas/employeeAccessSchema'
 
 const accessStatusDetails = {
   active: { label: 'Ativa', variant: 'success' },
@@ -25,9 +33,9 @@ function EmployeeEditPage() {
   const navigate = useNavigate()
   const employee = mockEmployees.find((item) => item.id === employeeId)
   const {
-    register,
-    handleSubmit,
-    formState: { errors },
+    register: registerEmployee,
+    handleSubmit: handleSubmitEmployee,
+    formState: { errors: employeeErrors },
   } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
@@ -37,12 +45,48 @@ function EmployeeEditPage() {
       status: employee?.status ?? 'active',
     },
   })
+  const {
+    register: registerAccessCreation,
+    handleSubmit: handleSubmitAccessCreation,
+    formState: { errors: accessCreationErrors },
+  } = useForm<
+    EmployeeAccessCreationFormData,
+    unknown,
+    EmployeeAccessCreationFormValues
+  >({
+    resolver: zodResolver(employeeAccessCreationSchema),
+    defaultValues: {
+      loginEmail: '',
+      profile: 'employee',
+      initialPassword: '',
+      confirmPassword: '',
+    },
+  })
+  const {
+    register: registerAccessUpdate,
+    handleSubmit: handleSubmitAccessUpdate,
+    formState: { errors: accessUpdateErrors },
+  } = useForm<
+    EmployeeAccessUpdateFormData,
+    unknown,
+    EmployeeAccessUpdateFormValues
+  >({
+    resolver: zodResolver(employeeAccessUpdateSchema),
+    defaultValues: {
+      loginEmail: employee?.access?.loginEmail ?? '',
+      profile: employee?.access?.profile ?? 'employee',
+    },
+  })
 
   function onSubmit() {
     if (employee) {
       navigate(`/employees/${employee.id}`)
     }
   }
+
+  function onCreateAccess() {}
+
+  function onUpdateAccess() {}
 
   if (!employee) {
     return (
@@ -75,9 +119,10 @@ function EmployeeEditPage() {
       <p className="text-neutral mt-1">{employee.name}</p>
 
       <form
+        id="employee-details-form"
         noValidate
         className="bg-surface mt-6 space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6"
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmitEmployee(onSubmit)}
       >
         <section aria-labelledby="edit-employee-data-title">
           <h2
@@ -93,16 +138,16 @@ function EmployeeEditPage() {
               <Input
                 id="edit-employee-name"
                 autoComplete="name"
-                aria-invalid={Boolean(errors.name)}
+                aria-invalid={Boolean(employeeErrors.name)}
                 aria-required="true"
                 aria-describedby={
-                  errors.name ? 'edit-employee-name-error' : undefined
+                  employeeErrors.name ? 'edit-employee-name-error' : undefined
                 }
-                {...register('name')}
+                {...registerEmployee('name')}
               />
-              {errors.name?.message && (
+              {employeeErrors.name?.message && (
                 <p id="edit-employee-name-error" className="text-error text-sm">
-                  {errors.name.message}
+                  {employeeErrors.name.message}
                 </p>
               )}
             </div>
@@ -113,22 +158,24 @@ function EmployeeEditPage() {
               </Label>
               <Select
                 id="edit-employee-status"
-                aria-invalid={Boolean(errors.status)}
+                aria-invalid={Boolean(employeeErrors.status)}
                 aria-required="true"
                 aria-describedby={
-                  errors.status ? 'edit-employee-status-error' : undefined
+                  employeeErrors.status
+                    ? 'edit-employee-status-error'
+                    : undefined
                 }
-                {...register('status')}
+                {...registerEmployee('status')}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
-              {errors.status?.message && (
+              {employeeErrors.status?.message && (
                 <p
                   id="edit-employee-status-error"
                   className="text-error text-sm"
                 >
-                  {errors.status.message}
+                  {employeeErrors.status.message}
                 </p>
               )}
             </div>
@@ -151,16 +198,16 @@ function EmployeeEditPage() {
                 type="tel"
                 autoComplete="tel"
                 inputMode="tel"
-                aria-invalid={Boolean(errors.phone)}
+                aria-invalid={Boolean(employeeErrors.phone)}
                 aria-required="true"
                 aria-describedby={
-                  errors.phone ? 'edit-employee-phone-error' : undefined
+                  employeeErrors.phone ? 'edit-employee-phone-error' : undefined
                 }
-                {...register('phone')}
+                {...registerEmployee('phone')}
               />
-              {errors.phone?.message && (
+              {employeeErrors.phone?.message && (
                 <p id="edit-employee-phone-error" className="text-error text-sm">
-                  {errors.phone.message}
+                  {employeeErrors.phone.message}
                 </p>
               )}
             </div>
@@ -171,26 +218,30 @@ function EmployeeEditPage() {
                 id="edit-employee-email"
                 type="email"
                 autoComplete="email"
-                aria-invalid={Boolean(errors.contactEmail)}
+                aria-invalid={Boolean(employeeErrors.contactEmail)}
                 aria-required="true"
                 aria-describedby={
-                  errors.contactEmail ? 'edit-employee-email-error' : undefined
+                  employeeErrors.contactEmail
+                    ? 'edit-employee-email-error'
+                    : undefined
                 }
-                {...register('contactEmail')}
+                {...registerEmployee('contactEmail')}
               />
-              {errors.contactEmail?.message && (
+              {employeeErrors.contactEmail?.message && (
                 <p id="edit-employee-email-error" className="text-error text-sm">
-                  {errors.contactEmail.message}
+                  {employeeErrors.contactEmail.message}
                 </p>
               )}
             </div>
           </div>
         </section>
+      </form>
 
-        <section
-          id="access-management"
-          aria-labelledby="edit-employee-access-title"
-        >
+      <section
+        id="access-management"
+        aria-labelledby="edit-employee-access-title"
+        className="bg-surface mt-6 rounded-ui border border-neutral-bg p-4 sm:p-6"
+      >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2
               id="edit-employee-access-title"
@@ -208,31 +259,72 @@ function EmployeeEditPage() {
           </div>
 
           {employee.access ? (
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="employee-login-email">E-mail de login</Label>
-                <Input
-                  id="employee-login-email"
-                  name="loginEmail"
-                  type="email"
-                  defaultValue={employee.access.loginEmail}
-                />
+            <form
+              noValidate
+              className="mt-4"
+              onSubmit={handleSubmitAccessUpdate(onUpdateAccess)}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="employee-login-email">E-mail de login</Label>
+                  <Input
+                    id="employee-login-email"
+                    type="email"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    aria-invalid={Boolean(accessUpdateErrors.loginEmail)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessUpdateErrors.loginEmail
+                        ? 'employee-login-email-error'
+                        : undefined
+                    }
+                    {...registerAccessUpdate('loginEmail')}
+                  />
+                  {accessUpdateErrors.loginEmail?.message && (
+                    <p
+                      id="employee-login-email-error"
+                      className="text-error text-sm"
+                    >
+                      {accessUpdateErrors.loginEmail.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="employee-profile">Perfil</Label>
+                  <Select
+                    id="employee-profile"
+                    aria-invalid={Boolean(accessUpdateErrors.profile)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessUpdateErrors.profile
+                        ? 'employee-profile-error'
+                        : undefined
+                    }
+                    {...registerAccessUpdate('profile')}
+                  >
+                    <option value="employee">Funcionário</option>
+                    <option value="administrator">Administrador</option>
+                  </Select>
+                  {accessUpdateErrors.profile?.message && (
+                    <p id="employee-profile-error" className="text-error text-sm">
+                      {accessUpdateErrors.profile.message}
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="employee-profile">Perfil</Label>
-                <Select
-                  id="employee-profile"
-                  name="profile"
-                  defaultValue={employee.access.profile}
-                >
-                  <option value="employee">Funcionário</option>
-                  <option value="administrator">Administrador</option>
-                </Select>
-              </div>
-            </div>
+              <Button className="mt-4" type="submit">
+                Salvar acesso
+              </Button>
+            </form>
           ) : (
-            <>
+            <form
+              noValidate
+              className="mt-4"
+              onSubmit={handleSubmitAccessCreation(onCreateAccess)}
+            >
               <p className="text-neutral mt-2">
                 Este funcionário ainda não possui uma conta de acesso.
               </p>
@@ -242,17 +334,49 @@ function EmployeeEditPage() {
                   <Label htmlFor="employee-login-email">E-mail de login</Label>
                   <Input
                     id="employee-login-email"
-                    name="loginEmail"
                     type="email"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    aria-invalid={Boolean(accessCreationErrors.loginEmail)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessCreationErrors.loginEmail
+                        ? 'employee-login-email-error'
+                        : undefined
+                    }
+                    {...registerAccessCreation('loginEmail')}
                   />
+                  {accessCreationErrors.loginEmail?.message && (
+                    <p
+                      id="employee-login-email-error"
+                      className="text-error text-sm"
+                    >
+                      {accessCreationErrors.loginEmail.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="employee-profile">Perfil</Label>
-                  <Select id="employee-profile" name="profile">
+                  <Select
+                    id="employee-profile"
+                    aria-invalid={Boolean(accessCreationErrors.profile)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessCreationErrors.profile
+                        ? 'employee-profile-error'
+                        : undefined
+                    }
+                    {...registerAccessCreation('profile')}
+                  >
                     <option value="employee">Funcionário</option>
                     <option value="administrator">Administrador</option>
                   </Select>
+                  {accessCreationErrors.profile?.message && (
+                    <p id="employee-profile-error" className="text-error text-sm">
+                      {accessCreationErrors.profile.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -261,9 +385,25 @@ function EmployeeEditPage() {
                   </Label>
                   <Input
                     id="employee-initial-password"
-                    name="initialPassword"
                     type="password"
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(accessCreationErrors.initialPassword)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessCreationErrors.initialPassword
+                        ? 'employee-initial-password-error'
+                        : undefined
+                    }
+                    {...registerAccessCreation('initialPassword')}
                   />
+                  {accessCreationErrors.initialPassword?.message && (
+                    <p
+                      id="employee-initial-password-error"
+                      className="text-error text-sm"
+                    >
+                      {accessCreationErrors.initialPassword.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -272,29 +412,46 @@ function EmployeeEditPage() {
                   </Label>
                   <Input
                     id="employee-confirm-password"
-                    name="confirmPassword"
                     type="password"
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(accessCreationErrors.confirmPassword)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessCreationErrors.confirmPassword
+                        ? 'employee-confirm-password-error'
+                        : undefined
+                    }
+                    {...registerAccessCreation('confirmPassword')}
                   />
+                  {accessCreationErrors.confirmPassword?.message && (
+                    <p
+                      id="employee-confirm-password-error"
+                      className="text-error text-sm"
+                    >
+                      {accessCreationErrors.confirmPassword.message}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <Button className="mt-4" type="button">
+              <Button className="mt-4" type="submit">
                 Criar acesso
               </Button>
-            </>
+            </form>
           )}
-        </section>
+      </section>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit">Salvar alterações</Button>
-          <Link
-            to={`/employees/${employee.id}`}
-            className="text-primary inline-flex rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            Cancelar
-          </Link>
-        </div>
-      </form>
+      <div className="mt-8 flex flex-wrap items-center gap-3">
+        <Button form="employee-details-form" type="submit">
+          Salvar alterações
+        </Button>
+        <Link
+          to={`/employees/${employee.id}`}
+          className="text-primary inline-flex rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Cancelar
+        </Link>
+      </div>
     </AppLayout>
   )
 }
