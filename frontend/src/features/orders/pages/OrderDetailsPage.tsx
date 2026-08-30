@@ -5,7 +5,7 @@ import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
-import { canViewOrder } from '../lib/orderVisibility'
+import { canViewOrder, getOrderEditPermissions } from '../lib/orderVisibility'
 import { mockOrderHistory } from '../mocks/orderHistory'
 import { mockOrders } from '../mocks/orders'
 import type { OrderStatus, OrderVisibility } from '../types/order'
@@ -69,6 +69,7 @@ function OrderDetailsPage() {
     )
   }
 
+  const editPermissions = getOrderEditPermissions(order, session.currentUser)
   const orderHistory = mockOrderHistory
     .filter((snapshot) => snapshot.orderId === order.id)
     .sort(
@@ -116,7 +117,7 @@ function OrderDetailsPage() {
           </div>
           <p className="text-neutral mt-1">{order.clientName}</p>
         </div>
-        {selectedSnapshot ? null : (
+        {selectedSnapshot || !editPermissions.canEdit ? null : (
           <div className="flex flex-wrap gap-3">
             <Link
               to={`/orders/${order.id}/edit`}

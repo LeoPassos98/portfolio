@@ -226,11 +226,11 @@ Exporta ordens de protótipo completas como `Order[]`, com vínculo do responsá
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem completa pela rota, apresenta seus dados de forma responsiva e permite consultar snapshots históricos em modo somente leitura, sem confundir ou alterar a versão atual.
+Obtém a ordem completa pela rota, aplica a política compartilhada de visibilidade e edição à ação disponível, apresenta seus dados de forma responsiva e permite consultar snapshots históricos em modo somente leitura, sem confundir ou alterar a versão atual.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Obtém a ordem pela rota, trata identificadores inexistentes e compõe o formulário compartilhado com cliente e número somente leitura, sem submissão ou persistência.
+Obtém a ordem pela rota, aplica as regras de visibilidade e edição antes de compor o formulário compartilhado e retorna aos Detalhes quando a edição não é permitida, mantendo cliente e número somente leitura e sem persistência.
 
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
@@ -246,7 +246,7 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; para Funcionário, define o responsável pela sessão na criação e apresenta o responsável vinculado como somente leitura na edição, preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; recebe as permissões centralizadas para manter responsável e status somente leitura quando necessário e, para Funcionário, define o responsável pela sessão na criação e o apresenta como somente leitura na edição.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
@@ -254,7 +254,7 @@ Define as validações compartilhadas e as restrições configuráveis de criaç
 
 ### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
 
-Centraliza a política mockada de consulta de OS: Administrador vê todas; Funcionário vê as próprias e as públicas de outros responsáveis. É reutilizada pela listagem e pelos Detalhes.
+Centraliza as políticas mockadas de consulta e edição de OS: Administrador vê todas e possui permissões de edição por status; Funcionário vê as próprias e as públicas de outros responsáveis e só edita as próprias em aberto. É reutilizada por listagem, Detalhes, rota e formulário de edição.
 
 ---
 

@@ -14,6 +14,7 @@ import { Textarea } from '../../../components/ui/Textarea'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
 import { mockClients } from '../../clients/mocks/clients'
 import { mockEmployees } from '../../employees/mocks/employees'
+import type { OrderEditPermissions } from '../lib/orderVisibility'
 import {
   createOrderFormSchema,
   type OrderFormData,
@@ -40,17 +41,16 @@ const employeeOptions: SearchableSelectOption[] = activeEmployees.map(
 
 type OrderFormProps = {
   order?: Order
+  editPermissions?: OrderEditPermissions
 }
 
-function OrderForm({ order }: OrderFormProps) {
+function OrderForm({ order, editPermissions }: OrderFormProps) {
   const session = useAuthSession()
   const isEditing = order !== undefined
   const isEmployee = session?.currentUser.profile === 'employee'
   const fieldPrefix = isEditing ? 'edit-order' : 'new-order'
   const cancelLink = isEditing ? `/orders/${order.id}` : '/orders'
-  const orderResponsibleId = activeEmployees.find(
-    (employee) => employee.name === order?.responsibleName,
-  )?.id
+  const orderResponsibleId = order?.responsibleEmployeeId
   const responsibleId = isEditing
     ? orderResponsibleId
     : isEmployee
@@ -62,6 +62,11 @@ function OrderForm({ order }: OrderFormProps) {
   const responsibleHelperText = isEditing
     ? 'O responsável não pode ser alterado por Funcionário.'
     : 'Definido automaticamente como responsável pela OS.'
+  const canChangeResponsible =
+    !isEmployee &&
+    (!isEditing || editPermissions?.canChangeResponsible === true)
+  const canChangeStatus =
+    isEditing && editPermissions?.canChangeStatus === true
   const orderFormSchema = createOrderFormSchema({
     clientIds: activeClients.map((client) => client.id),
     requiresClient: !isEditing,
@@ -225,16 +230,18 @@ function OrderForm({ order }: OrderFormProps) {
         </h2>
 
         <div className="mt-4 space-y-6">
-          {isEmployee ? (
+          {!canChangeResponsible ? (
             <dl className="rounded-ui bg-neutral-bg p-4">
               <div>
                 <dt className="text-neutral text-sm">Responsável</dt>
                 <dd className="text-foreground mt-1 font-medium">
                   {responsibleName}
                 </dd>
-                <p className="text-neutral mt-1 text-sm">
-                  {responsibleHelperText}
-                </p>
+                {isEmployee ? (
+                  <p className="text-neutral mt-1 text-sm">
+                    {responsibleHelperText}
+                  </p>
+                ) : null}
               </div>
             </dl>
           ) : (
@@ -270,7 +277,7 @@ function OrderForm({ order }: OrderFormProps) {
             </div>
           )}
 
-          {isEditing ? (
+          {isEditing && canChangeStatus ? (
             <div className="space-y-2">
               <Label htmlFor={`${fieldPrefix}-status`}>Status</Label>
               <Select
@@ -293,6 +300,21 @@ function OrderForm({ order }: OrderFormProps) {
                 </p>
               )}
             </div>
+          ) : isEditing ? (
+            <dl className="rounded-ui bg-neutral-bg p-4">
+              <div>
+                <dt className="text-neutral text-sm">Status</dt>
+                <dd className="mt-2">
+                  <StatusBadge
+                    variant={
+                      order.status === 'completed' ? 'success' : 'neutral'
+                    }
+                  >
+                    {order.status === 'completed' ? 'Concluída' : 'Cancelada'}
+                  </StatusBadge>
+                </dd>
+              </div>
+            </dl>
           ) : null}
 
           <fieldset>
