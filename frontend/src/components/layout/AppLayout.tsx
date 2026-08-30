@@ -7,7 +7,12 @@ const navigationItems = [
   { label: 'Dashboard', to: '/dashboard', icon: DashboardIcon },
   { label: 'Ordens de Serviço', to: '/orders', icon: OrdersIcon },
   { label: 'Clientes', to: '/clients', icon: ClientsIcon },
-  { label: 'Funcionários', to: '/employees', icon: EmployeesIcon },
+  {
+    label: 'Funcionários',
+    to: '/employees',
+    icon: EmployeesIcon,
+    requiresAdmin: true,
+  },
 ]
 
 const sidebarStorageKey = 'sistema-os-sidebar-collapsed'
@@ -321,16 +326,20 @@ function AppLayout({ children }: AppLayoutProps) {
     closeMenu = false,
     isCollapsed = false,
   }: NavigationOptions = {}) =>
-    navigationItems.map((item) => (
-      <NavigationLink
-        key={item.to}
-        icon={item.icon}
-        label={item.label}
-        to={item.to}
-        isCollapsed={isCollapsed}
-        onClick={closeMenu ? closeMobileNavigation : undefined}
-      />
-    ))
+    navigationItems
+      .filter(
+        (item) => !item.requiresAdmin || currentUser?.profile === 'admin',
+      )
+      .map((item) => (
+        <NavigationLink
+          key={item.to}
+          icon={item.icon}
+          label={item.label}
+          to={item.to}
+          isCollapsed={isCollapsed}
+          onClick={closeMenu ? closeMobileNavigation : undefined}
+        />
+      ))
 
   if (!currentUser) {
     return null

@@ -11,6 +11,7 @@ import {
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { Textarea } from '../../../components/ui/Textarea'
+import { useAuthSession } from '../../auth/hooks/useAuthSession'
 import { mockClients } from '../../clients/mocks/clients'
 import { mockEmployees } from '../../employees/mocks/employees'
 import {
@@ -42,12 +43,25 @@ type OrderFormProps = {
 }
 
 function OrderForm({ order }: OrderFormProps) {
+  const session = useAuthSession()
   const isEditing = order !== undefined
+  const isEmployee = session?.currentUser.profile === 'employee'
   const fieldPrefix = isEditing ? 'edit-order' : 'new-order'
   const cancelLink = isEditing ? `/orders/${order.id}` : '/orders'
-  const responsibleId = activeEmployees.find(
+  const orderResponsibleId = activeEmployees.find(
     (employee) => employee.name === order?.responsibleName,
   )?.id
+  const responsibleId = isEditing
+    ? orderResponsibleId
+    : isEmployee
+      ? session?.currentUser.employeeId
+      : undefined
+  const responsibleName =
+    activeEmployees.find((employee) => employee.id === responsibleId)?.name ??
+    order?.responsibleName
+  const responsibleHelperText = isEditing
+    ? 'O responsável não pode ser alterado por Funcionário.'
+    : 'Definido automaticamente como responsável pela OS.'
   const orderFormSchema = createOrderFormSchema({
     clientIds: activeClients.map((client) => client.id),
     requiresClient: !isEditing,
@@ -211,34 +225,50 @@ function OrderForm({ order }: OrderFormProps) {
         </h2>
 
         <div className="mt-4 space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor={`${fieldPrefix}-responsible`}>Responsável</Label>
-            <SearchableSelect
-              id={`${fieldPrefix}-responsible`}
-              name="responsibleId"
-              defaultValue={responsibleId}
-              options={employeeOptions}
-              placeholder="Pesquisar responsável"
-              emptyMessage="Nenhum funcionário ativo encontrado."
-              ariaInvalid={Boolean(errors.responsibleId)}
-              ariaDescribedBy={
-                errors.responsibleId
-                  ? `${fieldPrefix}-responsible-error`
-                  : undefined
-              }
-              onValueChange={(value) => {
-                setValue('responsibleId', value, { shouldValidate: true })
-              }}
-            />
-            {errors.responsibleId?.message && (
-              <p
-                id={`${fieldPrefix}-responsible-error`}
-                className="text-error text-sm"
-              >
-                {errors.responsibleId.message}
-              </p>
-            )}
-          </div>
+          {isEmployee ? (
+            <dl className="rounded-ui bg-neutral-bg p-4">
+              <div>
+                <dt className="text-neutral text-sm">Responsável</dt>
+                <dd className="text-foreground mt-1 font-medium">
+                  {responsibleName}
+                </dd>
+                <p className="text-neutral mt-1 text-sm">
+                  {responsibleHelperText}
+                </p>
+              </div>
+            </dl>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor={`${fieldPrefix}-responsible`}>
+                Responsável
+              </Label>
+              <SearchableSelect
+                id={`${fieldPrefix}-responsible`}
+                name="responsibleId"
+                defaultValue={responsibleId}
+                options={employeeOptions}
+                placeholder="Pesquisar responsável"
+                emptyMessage="Nenhum funcionário ativo encontrado."
+                ariaInvalid={Boolean(errors.responsibleId)}
+                ariaDescribedBy={
+                  errors.responsibleId
+                    ? `${fieldPrefix}-responsible-error`
+                    : undefined
+                }
+                onValueChange={(value) => {
+                  setValue('responsibleId', value, { shouldValidate: true })
+                }}
+              />
+              {errors.responsibleId?.message && (
+                <p
+                  id={`${fieldPrefix}-responsible-error`}
+                  className="text-error text-sm"
+                >
+                  {errors.responsibleId.message}
+                </p>
+              )}
+            </div>
+          )}
 
           {isEditing ? (
             <div className="space-y-2">

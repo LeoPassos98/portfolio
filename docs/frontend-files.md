@@ -126,7 +126,7 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e rolagem principal no documento; preserva a rolagem própria da sidebar e do drawer mobile.
+Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão; preserva a rolagem própria da sidebar e do drawer mobile.
 
 ### 3. `frontend/src/components/layout/AppBrand.tsx`
 
@@ -246,7 +246,7 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável, preenchendo dados mockados quando há uma ordem e preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; para Funcionário, define o responsável pela sessão na criação e apresenta o responsável vinculado como somente leitura na edição, preservando as diferenças de cliente, número e informações automáticas entre os fluxos.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
