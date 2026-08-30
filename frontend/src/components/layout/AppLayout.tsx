@@ -100,7 +100,7 @@ function SidebarToggleIcon({ isCollapsed }: { isCollapsed: boolean }) {
     >
       <rect x="3.5" y="4" width="17" height="16" rx="1.5" />
       <path d="M9 4v16" />
-      {isCollapsed ? <path d="m13 12 3-3m-3 3 3 3" /> : <path d="m16 12-3-3m3 3-3 3" />}
+      {isCollapsed ? <path d="m16 12-3-3m3 3-3 3" /> : <path d="m13 12 3-3m-3 3 3 3" />}
     </svg>
   )
 }
@@ -340,19 +340,7 @@ function AppLayout({ children }: AppLayoutProps) {
     <div className="bg-background min-h-screen">
       <header className="bg-surface hidden border-b border-neutral-bg md:sticky md:top-0 md:z-30 md:block">
         <div className="relative mx-auto flex h-16 max-w-[1180px] items-center">
-          <div
-            className={[
-              'flex',
-              'h-full',
-              'shrink-0',
-              'items-center',
-              'justify-center',
-              'transition-[width]',
-              'duration-200',
-              'ease-out',
-              sidebarWidthClass,
-            ].join(' ')}
-          >
+          <div className="flex h-full w-[240px] shrink-0 items-center justify-center">
             <button
               type="button"
               aria-label={
