@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso, validação, sessão mockada e proteção de rotas | 9 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
-| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 10 |
+| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
 | Funcionários | Listagem mockada, perfil, formulários validados e gestão de acesso | 8 |
 
@@ -218,11 +218,11 @@ Lista ordens em tabela desktop ou lista mobile, controla filtros, busca e pagina
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define `Order`, seus status e visibilidade, incluindo os dados de serviço, valor, observações e datas usados nos mocks, Detalhes e futura edição.
+Define `Order`, seus status e visibilidade, incluindo o vínculo ao funcionário responsável e os dados de serviço, valor, observações e datas usados nos mocks, Detalhes e futura edição.
 
 ### 3. `frontend/src/features/orders/mocks/orders.ts`
 
-Exporta ordens de protótipo completas como `Order[]`, com dados de serviço, valor, visibilidade, observações e datas para apresentação por rota.
+Exporta ordens de protótipo completas como `Order[]`, com vínculo do responsável, dados de serviço, valor, visibilidade, observações e datas para apresentação por rota e teste das regras de acesso.
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
@@ -251,6 +251,10 @@ Reúne a estrutura visual reutilizável e validada de criação e edição de OS
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
 Define as validações compartilhadas e as restrições configuráveis de criação ou edição de OS, usadas pelo `OrderForm` com React Hook Form.
+
+### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
+
+Centraliza a política mockada de consulta de OS: Administrador vê todas; Funcionário vê as próprias e as públicas de outros responsáveis. É reutilizada pela listagem e pelos Detalhes.
 
 ---
 

@@ -4,6 +4,8 @@ import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { useAuthSession } from '../../auth/hooks/useAuthSession'
+import { canViewOrder } from '../lib/orderVisibility'
 import { mockOrderHistory } from '../mocks/orderHistory'
 import { mockOrders } from '../mocks/orders'
 import type { OrderStatus, OrderVisibility } from '../types/order'
@@ -34,11 +36,16 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
 })
 
 function OrderDetailsPage() {
+  const session = useAuthSession()
   const { orderId } = useParams<{ orderId: string }>()
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
     null,
   )
   const order = mockOrders.find((item) => item.id === orderId)
+  const hasOrderAccess =
+    order !== undefined &&
+    session !== null &&
+    canViewOrder(order, session.currentUser)
   const backLink = (
     <Link
       to="/orders"
@@ -48,14 +55,14 @@ function OrderDetailsPage() {
     </Link>
   )
 
-  if (!order) {
+  if (!hasOrderAccess) {
     return (
       <AppLayout>
         {backLink}
         <div className="mt-6">
           <EmptyState
-            title="Ordem não encontrada"
-            description="Não foi possível localizar a ordem solicitada."
+            title="Ordem não encontrada ou sem acesso"
+            description="Não foi possível localizar a ordem solicitada ou ela não está acessível para você."
           />
         </div>
       </AppLayout>

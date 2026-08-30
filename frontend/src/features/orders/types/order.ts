@@ -10,6 +10,7 @@ type Order = {
   id: string
   number: string
   clientName: string
+  responsibleEmployeeId: string
   responsibleName: string
   status: OrderStatus
   description: string

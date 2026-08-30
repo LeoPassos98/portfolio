@@ -6,6 +6,8 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { useAuthSession } from '../../auth/hooks/useAuthSession'
+import { getVisibleOrders } from '../lib/orderVisibility'
 import { mockOrders } from '../mocks/orders'
 import type { OrderStatus } from '../types/order'
 
@@ -49,18 +51,22 @@ function isOrderListStatus(value: string | null): value is OrderListStatus {
 }
 
 function OrdersPage() {
+  const session = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
   const statusParam = searchParams.get('status')
   const status = isOrderListStatus(statusParam) ? statusParam : 'all'
   const search = searchParams.get('search') ?? ''
+  const visibleOrders = session
+    ? getVisibleOrders(mockOrders, session.currentUser)
+    : []
   const ordersFilteredByStatus = isOrderStatus(statusParam)
-    ? mockOrders.filter((order) => order.status === statusParam)
+    ? visibleOrders.filter((order) => order.status === statusParam)
     : statusParam === 'open'
-      ? mockOrders.filter(
+      ? visibleOrders.filter(
           (order) =>
             order.status === 'awaiting' || order.status === 'in-progress',
         )
-    : mockOrders
+    : visibleOrders
   const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
   const filteredOrders = normalizedSearch
     ? ordersFilteredByStatus.filter((order) =>
