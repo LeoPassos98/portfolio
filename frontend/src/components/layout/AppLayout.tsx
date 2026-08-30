@@ -163,7 +163,7 @@ function AppLayout({ children }: AppLayoutProps) {
   const navigate = useNavigate()
 
   const sidebarWidthClass = isSidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
-  const sidebarPaddingClass = isSidebarCollapsed ? 'p-3' : 'p-6'
+  const sidebarPaddingClass = 'p-3'
   const currentUser = session?.currentUser
   const profileLabel =
     currentUser?.profile === 'admin' ? 'Administradora' : 'Funcionário'
@@ -340,7 +340,7 @@ function AppLayout({ children }: AppLayoutProps) {
     <div className="bg-background min-h-screen">
       <header className="bg-surface hidden border-b border-neutral-bg md:sticky md:top-0 md:z-30 md:block">
         <div className="relative mx-auto flex h-16 max-w-[1180px] items-center">
-          <div className="flex h-full w-[240px] shrink-0 items-center justify-center">
+          <div className="flex h-full w-[240px] shrink-0 items-center justify-start px-3">
             <button
               type="button"
               aria-label={
@@ -547,6 +547,9 @@ function NavigationLink({
           'rounded-ui',
           'px-3',
           'py-2',
+          'md:h-10',
+          'md:px-[14px]',
+          'md:whitespace-nowrap',
           'text-sm',
           'font-medium',
           'focus-visible:outline-none',
@@ -554,6 +557,7 @@ function NavigationLink({
           'focus-visible:ring-primary',
           'focus-visible:ring-offset-2',
           isCollapsed && 'justify-center',
+          isCollapsed && 'md:justify-start',
           !isCollapsed && 'gap-3',
           isActive && 'bg-primary',
           isActive && 'text-white',
