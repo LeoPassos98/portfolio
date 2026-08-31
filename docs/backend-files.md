@@ -12,7 +12,8 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelo físico, migration inicial e acesso PostgreSQL injetável | 5 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
-| Testes | Cobertura das validações de ambiente e HTTP | 2 |
+| Tratamento de erros HTTP | Contrato público e normalização global de exceções | 2 |
+| Testes | Cobertura das validações de ambiente, HTTP e erros globais | 3 |
 
 ## Sumário
 
@@ -20,6 +21,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Validação HTTP](#validação-http)
+- [Tratamento de erros HTTP](#tratamento-de-erros-http)
 - [Testes](#testes)
 
 ---
@@ -32,7 +34,7 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule`, registra o filter global de exceções HTTP, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
 
 ### 2. `backend/src/app.module.ts`
 
@@ -94,13 +96,29 @@ Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índice
 
 ## Validação HTTP
 
-Conecta schemas Zod ao ciclo de entrada HTTP do NestJS, sem regras de domínio ou formatação global de erros.
+Conecta schemas Zod ao ciclo de entrada HTTP do NestJS e mantém as issues disponíveis para a normalização global de erros.
 
 Diretório principal: `backend/src/common/validation/`
 
 ### 1. `backend/src/common/validation/zod-validation.pipe.ts`
 
 Recebe um schema Zod, retorna seu valor parseado e transforma falhas em `BadRequestException` com as issues originais disponíveis para o futuro filtro global.
+
+---
+
+## Tratamento de erros HTTP
+
+Centraliza o contrato público de erros HTTP, sem regras de domínio específicas, para que services e policies futuros possam informar status, código, mensagem e details estruturados.
+
+Diretório principal: `backend/src/common/errors/`
+
+### 1. `backend/src/common/errors/http-error-response.interface.ts`
+
+Define o formato público e estável das respostas de erro: `statusCode`, `code`, `message` e `details` opcional.
+
+### 2. `backend/src/common/errors/http-exception.filter.ts`
+
+Normaliza globalmente exceções HTTP do NestJS, issues da validação Zod e falhas inesperadas sanitizadas; também preserva os campos públicos de exceções HTTP futuras.
 
 ---
 
@@ -117,3 +135,7 @@ Garante que a validação aceite a configuração mínima válida com padrões, 
 ### 2. `backend/src/common/validation/zod-validation.pipe.spec.ts`
 
 Garante o retorno de valores parseados, a preservação de transformações Zod, a rejeição HTTP de entradas inválidas e a disponibilidade das issues no response da exceção.
+
+### 3. `backend/src/common/errors/http-exception.filter.spec.ts`
+
+Verifica a normalização global para Zod, exceções HTTP conhecidas, exceções de domínio futuras, falhas inesperadas sanitizadas e os campos obrigatórios do contrato público.
