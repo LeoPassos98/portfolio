@@ -24,6 +24,10 @@ const allOrderStatuses: readonly OrderStatus[] = [
   'completed',
   'cancelled',
 ]
+const reopenableOrderStatuses: readonly OrderStatus[] = [
+  'awaiting',
+  'in-progress',
+]
 
 function canViewOrder(order: Order, viewer: OrderVisibilityViewer) {
   if (viewer.profile === 'admin') {
@@ -98,8 +102,21 @@ function getAllowedOrderStatusTransitions(
   return allOrderStatuses
 }
 
+function canReopenOrder(order: Order, viewer: OrderVisibilityViewer) {
+  return viewer.profile === 'admin' && order.status === 'cancelled'
+}
+
+function getAllowedOrderReopenStatuses(
+  order: Order,
+  viewer: OrderVisibilityViewer,
+): readonly OrderStatus[] {
+  return canReopenOrder(order, viewer) ? reopenableOrderStatuses : []
+}
+
 export {
+  canReopenOrder,
   canViewOrder,
+  getAllowedOrderReopenStatuses,
   getAllowedOrderStatusTransitions,
   getOrderEditPermissions,
   getVisibleOrders,

@@ -1,13 +1,23 @@
-import { Link, Navigate, useParams } from 'react-router'
+import { Link, Navigate, useLocation, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
 import { OrderForm } from '../components/OrderForm'
-import { canViewOrder, getOrderEditPermissions } from '../lib/orderVisibility'
+import {
+  canViewOrder,
+  getAllowedOrderReopenStatuses,
+  getOrderEditPermissions,
+} from '../lib/orderVisibility'
 import { mockOrders } from '../mocks/orders'
+import type { OrderStatus } from '../types/order'
+
+type ReopenOrderLocationState = {
+  reopenedStatus?: OrderStatus
+}
 
 function OrderEditPage() {
   const session = useAuthSession()
+  const location = useLocation()
   const { orderId } = useParams<{ orderId: string }>()
   const order = mockOrders.find((item) => item.id === orderId)
   const hasOrderAccess =
@@ -34,7 +44,21 @@ function OrderEditPage() {
     )
   }
 
-  const editPermissions = getOrderEditPermissions(order, session.currentUser)
+  const reopenLocationState = location.state as ReopenOrderLocationState | null
+  const allowedReopenStatuses = getAllowedOrderReopenStatuses(
+    order,
+    session.currentUser,
+  )
+  const reopenedStatus = reopenLocationState?.reopenedStatus
+  const editableOrder =
+    reopenedStatus !== undefined &&
+    allowedReopenStatuses.includes(reopenedStatus)
+      ? { ...order, status: reopenedStatus }
+      : order
+  const editPermissions = getOrderEditPermissions(
+    editableOrder,
+    session.currentUser,
+  )
 
   if (!editPermissions.canEdit) {
     return <Navigate to={`/orders/${order.id}`} replace />
@@ -43,9 +67,9 @@ function OrderEditPage() {
   return (
     <AppLayout>
       <h1 className="text-foreground text-2xl font-bold">
-        Editar {order.number}
+        Editar {editableOrder.number}
       </h1>
-      <OrderForm order={order} editPermissions={editPermissions} />
+      <OrderForm order={editableOrder} editPermissions={editPermissions} />
     </AppLayout>
   )
 }

@@ -1,11 +1,18 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
+import { Label } from '../../../components/ui/Label'
+import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
-import { canViewOrder, getOrderEditPermissions } from '../lib/orderVisibility'
+import {
+  canReopenOrder,
+  canViewOrder,
+  getAllowedOrderReopenStatuses,
+  getOrderEditPermissions,
+} from '../lib/orderVisibility'
 import { mockOrderHistory } from '../mocks/orderHistory'
 import { mockOrders } from '../mocks/orders'
 import type { OrderStatus, OrderVisibility } from '../types/order'
@@ -37,10 +44,13 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
 
 function OrderDetailsPage() {
   const session = useAuthSession()
+  const navigate = useNavigate()
   const { orderId } = useParams<{ orderId: string }>()
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
     null,
   )
+  const [isReopenFormOpen, setIsReopenFormOpen] = useState(false)
+  const [reopenStatus, setReopenStatus] = useState<OrderStatus>('awaiting')
   const order = mockOrders.find((item) => item.id === orderId)
   const hasOrderAccess =
     order !== undefined &&
@@ -70,6 +80,11 @@ function OrderDetailsPage() {
   }
 
   const editPermissions = getOrderEditPermissions(order, session.currentUser)
+  const canReopen = canReopenOrder(order, session.currentUser)
+  const allowedReopenStatuses = getAllowedOrderReopenStatuses(
+    order,
+    session.currentUser,
+  )
   const orderHistory = mockOrderHistory
     .filter((snapshot) => snapshot.orderId === order.id)
     .sort(
@@ -117,17 +132,81 @@ function OrderDetailsPage() {
           </div>
           <p className="text-neutral mt-1">{order.clientName}</p>
         </div>
-        {selectedSnapshot || !editPermissions.canEdit ? null : (
+        {selectedSnapshot ? null : (
           <div className="flex flex-wrap gap-3">
-            <Link
-              to={`/orders/${order.id}/edit`}
-              className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              Editar
-            </Link>
+            {editPermissions.canEdit ? (
+              <Link
+                to={`/orders/${order.id}/edit`}
+                className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Editar
+              </Link>
+            ) : null}
+            {canReopen && !isReopenFormOpen ? (
+              <Button
+                type="button"
+                onClick={() => setIsReopenFormOpen(true)}
+              >
+                Reabrir OS
+              </Button>
+            ) : null}
           </div>
         )}
       </header>
+
+      {isReopenFormOpen && !selectedSnapshot ? (
+        <section
+          aria-labelledby="reopen-order-title"
+          className="bg-neutral-bg mt-6 rounded-ui border border-neutral-bg p-4 sm:p-6"
+        >
+          <h2
+            id="reopen-order-title"
+            className="text-foreground text-lg font-bold"
+          >
+            Reabrir OS
+          </h2>
+          <p className="text-neutral mt-1 text-sm">
+            Escolha o status ativo que a ordem terá ao ser reaberta.
+          </p>
+
+          <div className="mt-4 max-w-xs space-y-2">
+            <Label htmlFor="reopen-order-status">Status após reabertura</Label>
+            <Select
+              id="reopen-order-status"
+              value={reopenStatus}
+              onChange={(event) => {
+                setReopenStatus(event.target.value as OrderStatus)
+              }}
+            >
+              {allowedReopenStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {statusDetails[status].label}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={() => {
+                navigate(`/orders/${order.id}/edit`, {
+                  state: { reopenedStatus: reopenStatus },
+                })
+              }}
+            >
+              Reabrir OS
+            </Button>
+            <button
+              type="button"
+              onClick={() => setIsReopenFormOpen(false)}
+              className="text-primary rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            >
+              Cancelar
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {selectedSnapshot ? (
         <section

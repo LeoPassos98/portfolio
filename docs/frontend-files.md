@@ -226,11 +226,11 @@ Exporta ordens de protótipo completas como `Order[]`, com vínculo do responsá
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem completa pela rota, aplica a política compartilhada de visibilidade e edição à ação disponível, apresenta seus dados de forma responsiva e permite consultar snapshots históricos em modo somente leitura, sem confundir ou alterar a versão atual.
+Obtém a ordem completa pela rota, aplica as políticas compartilhadas de visibilidade, edição e reabertura à ação disponível, apresenta os dados de forma responsiva e permite a reabertura conceitual de OS Cancelada por Administrador sem alterar mocks.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Obtém a ordem pela rota, aplica as regras de visibilidade e edição antes de compor o formulário compartilhado e retorna aos Detalhes quando a edição não é permitida, mantendo cliente e número somente leitura e sem persistência.
+Obtém a ordem pela rota, aplica as regras de visibilidade e edição antes de compor o formulário compartilhado e aceita o estado ativo conceitual vindo da reabertura de Cancelada, mantendo cliente e número somente leitura e sem persistência.
 
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
@@ -254,7 +254,7 @@ Define as validações compartilhadas e as restrições configuráveis de criaç
 
 ### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
 
-Centraliza as políticas mockadas de consulta, edição e transição de Status da OS: Administrador vê todas e possui permissões por status; Funcionário vê as próprias e as públicas de outros responsáveis e só edita as próprias em aberto. É reutilizada por listagem, Detalhes, rota e formulário de edição.
+Centraliza as políticas mockadas de consulta, edição, transição de Status e reabertura da OS: Administrador vê todas e pode reabrir Canceladas para estados ativos; Funcionário vê as próprias e as públicas de outros responsáveis e só edita as próprias em aberto. É reutilizada por listagem, Detalhes, rota e formulário de edição.
 
 ---
 
