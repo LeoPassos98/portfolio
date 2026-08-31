@@ -176,7 +176,10 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
                 errors.clientId ? `${fieldPrefix}-client-error` : undefined
               }
               onValueChange={(value) => {
-                setValue('clientId', value, { shouldValidate: true })
+                setValue('clientId', value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
               }}
             />
             {errors.clientId?.message && (
@@ -304,7 +307,10 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
                     : undefined
                 }
                 onValueChange={(value) => {
-                  setValue('responsibleId', value, { shouldValidate: true })
+                  setValue('responsibleId', value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
                 }}
               />
               {errors.responsibleId?.message && (

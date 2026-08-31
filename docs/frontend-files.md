@@ -42,7 +42,7 @@ Diretório principal: `frontend/`
 
 ### 1. `frontend/src/main.tsx`
 
-Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de sessão mockada e navegação com `AuthSessionProvider` e `BrowserRouter`.
+Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de sessão mockada, feedback de sucesso e navegação com `AuthSessionProvider`, `SuccessFeedbackProvider` e `BrowserRouter`.
 
 ### 2. `frontend/src/App.tsx`
 
