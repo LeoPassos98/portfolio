@@ -10,7 +10,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | --- | --- | ---: |
 | Entrada e composição | Inicialização do NestJS e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
-| Infraestrutura de banco | Configuração Prisma e acesso PostgreSQL injetável | 4 |
+| Infraestrutura de banco | Configuração Prisma, modelo físico, migration inicial e acesso PostgreSQL injetável | 5 |
 | Testes | Cobertura da validação do contrato de ambiente | 1 |
 
 ## Sumário
@@ -74,7 +74,7 @@ Configura o Prisma CLI, localiza o schema e recebe `DATABASE_URL` do ambiente pa
 
 ### 2. `backend/prisma/schema.prisma`
 
-Define o generator `prisma-client` com saída local e o provider PostgreSQL, sem modelos de domínio neste estágio.
+Define o modelo físico PostgreSQL do domínio, seus enums e relações, além do generator `prisma-client` com saída local.
 
 ### 3. `backend/src/database/database.module.ts`
 
@@ -83,6 +83,10 @@ Expõe `DatabaseService` para que futuros módulos de domínio recebam o acesso 
 ### 4. `backend/src/database/database.service.ts`
 
 Instancia o Prisma Client com o adapter PostgreSQL, obtém a URL pelo `ConfigService` e gerencia a conexão no ciclo de vida do NestJS.
+
+### 5. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
+
+Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índices, constraints de integridade e as chaves estrangeiras restritivas.
 
 ---
 

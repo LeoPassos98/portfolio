@@ -81,6 +81,16 @@ npm run prisma:validate
 npm run prisma:generate
 ```
 
+### Modelo físico e migration inicial do domínio
+
+O schema Prisma mapeia o modelo físico PostgreSQL de clientes, funcionários, usuários, ordens de serviço e seus snapshots históricos. A primeira migration foi produzida a partir de um schema vazio com `migrate diff`, sem conexão a um banco autenticado; o comando exige apenas que `DATABASE_URL` já esteja disponível para o `prisma.config.ts`, mas não acessa a URL quando as duas pontas do diff são schemas.
+
+```bash
+npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script
+```
+
+O SQL gerado recebeu manualmente as constraints `CHECK (valor >= 0)` em `ordem_servico` e `historico_ordem_servico`, pois o Prisma Schema não representa `CHECK` diretamente. A segunda constraint mantém o snapshot submetido à mesma integridade monetária da ordem original.
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.
