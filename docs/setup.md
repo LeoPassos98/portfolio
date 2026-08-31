@@ -91,6 +91,17 @@ npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script
 
 O SQL gerado recebeu manualmente as constraints `CHECK (valor >= 0)` em `ordem_servico` e `historico_ordem_servico`, pois o Prisma Schema não representa `CHECK` diretamente. A segunda constraint mantém o snapshot submetido à mesma integridade monetária da ordem original.
 
+### Documentação HTTP com OpenAPI
+
+O `@nestjs/swagger` integra o NestJS à especificação OpenAPI e disponibiliza uma Swagger UI navegável para os contratos HTTP da API.
+
+```bash
+cd backend
+npm install @nestjs/swagger@12.0.1
+```
+
+Com o backend em execução, a interface está em `http://localhost:3000/api/docs` e o documento OpenAPI JSON em `http://localhost:3000/api/docs/openapi.json`.
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.

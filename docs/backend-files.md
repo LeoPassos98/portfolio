@@ -12,7 +12,8 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelo físico, migration inicial e acesso PostgreSQL injetável | 5 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
-| Tratamento de erros HTTP | Contrato público e normalização global de exceções | 2 |
+| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
+| Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
 | Testes | Cobertura das validações de ambiente, HTTP e erros globais | 3 |
 
 ## Sumário
@@ -22,6 +23,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Validação HTTP](#validação-http)
 - [Tratamento de erros HTTP](#tratamento-de-erros-http)
+- [Documentação HTTP](#documentação-http)
 - [Testes](#testes)
 
 ---
@@ -34,7 +36,7 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, registra o filter global de exceções HTTP, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule`, registra o filter global de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
 
 ### 2. `backend/src/app.module.ts`
 
@@ -42,7 +44,7 @@ Compõe o módulo raiz: torna a configuração global com validação de ambient
 
 ### 3. `backend/src/app.controller.ts`
 
-Expõe temporariamente a rota raiz `GET /` e delega sua resposta a `AppService`.
+Expõe temporariamente a rota raiz `GET /`, delega sua resposta a `AppService` e a descreve na documentação OpenAPI como endpoint de verificação temporário.
 
 ### 4. `backend/src/app.service.ts`
 
@@ -119,6 +121,22 @@ Define o formato público e estável das respostas de erro: `statusCode`, `code`
 ### 2. `backend/src/common/errors/http-exception.filter.ts`
 
 Normaliza globalmente exceções HTTP do NestJS, issues da validação Zod e falhas inesperadas sanitizadas; também preserva os campos públicos de exceções HTTP futuras.
+
+### 3. `backend/src/common/errors/http-error-response.openapi.ts`
+
+Registra o schema OpenAPI reutilizável `HttpErrorResponse`, que representa `statusCode`, `code`, `message` e `details` opcional sem alterar o contrato runtime.
+
+---
+
+## Documentação HTTP
+
+Configura a geração do contrato OpenAPI e expõe a Swagger UI, mantendo o schema dos erros alinhado ao formato normalizado em runtime.
+
+Diretório principal: `backend/src/common/openapi/`
+
+### 1. `backend/src/common/openapi/openapi.setup.ts`
+
+Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o schema global de erros e publica a Swagger UI em `/api/docs` com o JSON em `/api/docs/openapi.json`.
 
 ---
 
