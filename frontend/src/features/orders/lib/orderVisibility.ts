@@ -1,5 +1,5 @@
 import type { MockSessionUser } from '../../auth/mocks/authenticatedSession'
-import type { Order } from '../types/order'
+import type { Order, OrderStatus } from '../types/order'
 
 type OrderVisibilityViewer = Pick<
   MockSessionUser,
@@ -17,6 +17,13 @@ const readOnlyOrderPermissions: OrderEditPermissions = {
   canChangeResponsible: false,
   canChangeStatus: false,
 }
+
+const allOrderStatuses: readonly OrderStatus[] = [
+  'awaiting',
+  'in-progress',
+  'completed',
+  'cancelled',
+]
 
 function canViewOrder(order: Order, viewer: OrderVisibilityViewer) {
   if (viewer.profile === 'admin') {
@@ -63,7 +70,7 @@ function getOrderEditPermissions(
     return {
       canEdit: true,
       canChangeResponsible: false,
-      canChangeStatus: false,
+      canChangeStatus: true,
     }
   }
 
@@ -74,5 +81,27 @@ function getOrderEditPermissions(
   }
 }
 
-export { canViewOrder, getOrderEditPermissions, getVisibleOrders }
+function getAllowedOrderStatusTransitions(
+  order: Order,
+  viewer: OrderVisibilityViewer,
+): readonly OrderStatus[] {
+  const editPermissions = getOrderEditPermissions(order, viewer)
+
+  if (!editPermissions.canChangeStatus) {
+    return []
+  }
+
+  if (order.status === 'completed') {
+    return ['awaiting', 'in-progress']
+  }
+
+  return allOrderStatuses
+}
+
+export {
+  canViewOrder,
+  getAllowedOrderStatusTransitions,
+  getOrderEditPermissions,
+  getVisibleOrders,
+}
 export type { OrderEditPermissions }

@@ -246,7 +246,7 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; recebe as permissões centralizadas para manter responsável e status somente leitura quando necessário e, para Funcionário, define o responsável pela sessão na criação e o apresenta como somente leitura na edição.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; consome as permissões e transições centralizadas para manter campos somente leitura quando necessário e montar somente as opções válidas de Status.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
@@ -254,7 +254,7 @@ Define as validações compartilhadas e as restrições configuráveis de criaç
 
 ### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
 
-Centraliza as políticas mockadas de consulta e edição de OS: Administrador vê todas e possui permissões de edição por status; Funcionário vê as próprias e as públicas de outros responsáveis e só edita as próprias em aberto. É reutilizada por listagem, Detalhes, rota e formulário de edição.
+Centraliza as políticas mockadas de consulta, edição e transição de Status da OS: Administrador vê todas e possui permissões por status; Funcionário vê as próprias e as públicas de outros responsáveis e só edita as próprias em aberto. É reutilizada por listagem, Detalhes, rota e formulário de edição.
 
 ---
 

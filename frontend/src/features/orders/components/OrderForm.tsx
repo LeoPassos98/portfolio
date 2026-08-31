@@ -14,7 +14,10 @@ import { Textarea } from '../../../components/ui/Textarea'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
 import { mockClients } from '../../clients/mocks/clients'
 import { mockEmployees } from '../../employees/mocks/employees'
-import type { OrderEditPermissions } from '../lib/orderVisibility'
+import {
+  getAllowedOrderStatusTransitions,
+  type OrderEditPermissions,
+} from '../lib/orderVisibility'
 import {
   createOrderFormSchema,
   type OrderFormData,
@@ -38,6 +41,12 @@ const employeeOptions: SearchableSelectOption[] = activeEmployees.map(
     value: employee.id,
   }),
 )
+const orderStatusLabels = {
+  awaiting: 'Aguardando',
+  'in-progress': 'Em andamento',
+  completed: 'Concluída',
+  cancelled: 'Cancelada',
+} as const
 
 type OrderFormProps = {
   order?: Order
@@ -65,8 +74,20 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
   const canChangeResponsible =
     !isEmployee &&
     (!isEditing || editPermissions?.canChangeResponsible === true)
-  const canChangeStatus =
-    isEditing && editPermissions?.canChangeStatus === true
+  const allowedStatusTransitions =
+    isEditing && session
+      ? getAllowedOrderStatusTransitions(order, session.currentUser)
+      : []
+  const statusOptions =
+    order !== undefined && allowedStatusTransitions.length > 0
+    ? [
+        order.status,
+        ...allowedStatusTransitions.filter(
+          (status) => status !== order.status,
+        ),
+      ]
+    : []
+  const canChangeStatus = statusOptions.length > 0
   const orderFormSchema = createOrderFormSchema({
     clientIds: activeClients.map((client) => client.id),
     requiresClient: !isEditing,
@@ -289,10 +310,11 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
                 }
                 {...register('status')}
               >
-                <option value="awaiting">Aguardando</option>
-                <option value="in-progress">Em andamento</option>
-                <option value="completed">Concluída</option>
-                <option value="cancelled">Cancelada</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {orderStatusLabels[status]}
+                  </option>
+                ))}
               </Select>
               {errors.status?.message && (
                 <p id={`${fieldPrefix}-status-error`} className="text-error text-sm">
