@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
+import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -12,11 +13,10 @@ import {
 } from '../schemas/clientSchema'
 
 function ClientCreatePage() {
-  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<ClientFormData, unknown, ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -33,9 +33,12 @@ function ClientCreatePage() {
       state: '',
     },
   })
+  const { confirmationDialog, requestNavigation } = useUnsavedChangesGuard(
+    isDirty,
+  )
 
   function onSubmit() {
-    navigate('/clients')
+    requestNavigation('/clients')
   }
 
   return (
@@ -284,6 +287,7 @@ function ClientCreatePage() {
           </Link>
         </div>
       </form>
+      {confirmationDialog}
     </AppLayout>
   )
 }

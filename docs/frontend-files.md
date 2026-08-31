@@ -11,7 +11,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
-| Componentes de feedback | Comunicação de estados e confirmações da interface | 2 |
+| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 3 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso, validação, sessão mockada e proteção de rotas | 9 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
@@ -115,6 +115,10 @@ Apresenta uma mensagem acessível para ausência de conteúdo, com título e des
 ### 2. `frontend/src/components/feedback/ConfirmationDialog.tsx`
 
 Apresenta confirmação explícita reutilizável para ações críticas, com modal acessível, foco contido, suporte a Escape e retorno do foco ao controle de origem; usado no cancelamento de OS e na exclusão de Cliente.
+
+### 3. `frontend/src/components/feedback/useUnsavedChangesGuard.tsx`
+
+Expõe a proteção reutilizável contra abandono de formulários alterados: usa `isDirty`, intercepta links internos compatíveis com o roteamento declarativo, mantém o destino pendente até confirmação e registra o aviso nativo de `beforeunload`.
 
 ---
 
@@ -250,7 +254,7 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; consome as permissões e transições centralizadas para manter campos somente leitura, montar somente as opções válidas de Status e confirmar o cancelamento antes de continuar o fluxo mockado.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; consome as permissões e transições centralizadas para manter campos somente leitura, montar somente as opções válidas de Status, confirmar o cancelamento e proteger alterações pendentes antes de abandonar o formulário.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
@@ -282,11 +286,11 @@ Exibe em `AppLayout` a consulta mockada responsiva de clientes, com busca por no
 
 ### 4. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
-Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, validação compartilhada com Zod, erros associados aos campos e retorno mockado à listagem após um envio válido.
+Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, validação compartilhada com Zod, erros associados aos campos e proteção contra abandono quando houver alterações não salvas.
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod e permite ao Administrador ajustar visualmente a situação Ativo/Inativo e iniciar a exclusão com confirmação quando não houver OS vinculada; Funcionário edita os dados cadastrais, inclusive de inativos, sem acesso a controles administrativos e sem persistência.
+Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod, protege alterações pendentes e permite ao Administrador ajustar visualmente a situação Ativo/Inativo e iniciar a exclusão com confirmação quando não houver OS vinculada; Funcionário edita os dados cadastrais, inclusive de inativos, sem acesso a controles administrativos e sem persistência.
 
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
@@ -306,11 +310,11 @@ Exibe em `AppLayout` a consulta mockada responsiva de funcionários, com busca p
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
-Implementa no `AppLayout` o cadastro responsivo do funcionário com React Hook Form, validação compartilhada com Zod e retorno mockado à listagem após envio válido; a conta de acesso continua separada.
+Implementa no `AppLayout` o cadastro responsivo do funcionário com React Hook Form, validação compartilhada com Zod e proteção contra abandono quando houver alterações não salvas; a conta de acesso continua separada.
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Carrega o funcionário mockado pela rota para validar os valores cadastrais e os formulários de criação ou alteração da conta de acesso, mantendo separados e-mail de contato e e-mail de login; aplica visualmente as regras de situação e preservação da última conta ativa de Administrador, sem persistência.
+Carrega o funcionário mockado pela rota para validar os valores cadastrais e os formulários de criação ou alteração da conta de acesso, mantendo separados e-mail de contato e e-mail de login; protege qualquer alteração pendente desses formulários e aplica visualmente as regras de situação e preservação da última conta ativa de Administrador, sem persistência.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 

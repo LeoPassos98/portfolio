@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
 import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
+import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
@@ -101,7 +102,7 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<OrderFormData, unknown, OrderFormValues>({
     resolver: zodResolver(orderFormSchema),
     defaultValues: {
@@ -114,6 +115,7 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
       visibility: order?.visibility ?? 'private',
     },
   })
+  const { confirmationDialog } = useUnsavedChangesGuard(isDirty)
 
   function submitOrder() {}
 
@@ -445,6 +447,7 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
           submitOrder()
         }}
       />
+      {confirmationDialog}
     </form>
   )
 }

@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { EmptyState } from '../../../components/feedback/EmptyState'
+import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -28,7 +29,6 @@ const clientStatusDetails = {
 function ClientEditPage() {
   const session = useAuthSession()
   const { clientId } = useParams<{ clientId: string }>()
-  const navigate = useNavigate()
   const client = mockClients.find((item) => item.id === clientId)
   const [clientStatus, setClientStatus] = useState<ClientStatus>(
     client?.status ?? 'active',
@@ -39,7 +39,8 @@ function ClientEditPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    setValue,
+    formState: { errors, isDirty },
   } = useForm<ClientFormData, unknown, ClientFormValues>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -54,11 +55,15 @@ function ClientEditPage() {
       neighborhood: client?.address.neighborhood ?? '',
       city: client?.address.city ?? '',
       state: client?.address.state ?? '',
+      status: client?.status ?? 'active',
     },
   })
+  const { confirmationDialog, requestNavigation } = useUnsavedChangesGuard(
+    isDirty,
+  )
 
   function onSubmit() {
-    navigate('/clients')
+    requestNavigation('/clients')
   }
 
   if (!client) {
@@ -342,11 +347,17 @@ function ClientEditPage() {
 
             <div className="mt-4 max-w-xs space-y-2">
               <Label htmlFor="edit-client-status">Situação</Label>
+              <input type="hidden" {...register('status')} />
               <Select
                 id="edit-client-status"
                 value={clientStatus}
                 onChange={(event) => {
-                  setClientStatus(event.target.value as ClientStatus)
+                  const status = event.target.value as ClientStatus
+
+                  setClientStatus(status)
+                  setValue('status', status, {
+                    shouldDirty: true,
+                  })
                 }}
               >
                 <option value="active">Ativo</option>
@@ -417,6 +428,7 @@ function ClientEditPage() {
         onCancel={() => setIsDeleteConfirmationOpen(false)}
         onConfirm={() => setIsDeleteConfirmationOpen(false)}
       />
+      {confirmationDialog}
     </AppLayout>
   )
 }

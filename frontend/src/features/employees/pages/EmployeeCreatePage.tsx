@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router'
+import { Link } from 'react-router'
+import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -13,11 +14,10 @@ import {
 } from '../schemas/employeeSchema'
 
 function EmployeeCreatePage() {
-  const navigate = useNavigate()
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
@@ -27,9 +27,12 @@ function EmployeeCreatePage() {
       status: 'active',
     },
   })
+  const { confirmationDialog, requestNavigation } = useUnsavedChangesGuard(
+    isDirty,
+  )
 
   function onSubmit() {
-    navigate('/employees')
+    requestNavigation('/employees')
   }
 
   return (
@@ -169,6 +172,7 @@ function EmployeeCreatePage() {
           </Link>
         </div>
       </form>
+      {confirmationDialog}
     </AppLayout>
   )
 }

@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
+import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
@@ -43,13 +44,12 @@ const accessStatusDetails = {
 
 function EmployeeEditPage() {
   const { employeeId } = useParams<{ employeeId: string }>()
-  const navigate = useNavigate()
   const employee = mockEmployees.find((item) => item.id === employeeId)
   const {
     register: registerEmployee,
     handleSubmit: handleSubmitEmployee,
     setValue: setEmployeeValue,
-    formState: { errors: employeeErrors },
+    formState: { errors: employeeErrors, isDirty: isEmployeeDirty },
   } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
@@ -62,7 +62,10 @@ function EmployeeEditPage() {
   const {
     register: registerAccessCreation,
     handleSubmit: handleSubmitAccessCreation,
-    formState: { errors: accessCreationErrors },
+    formState: {
+      errors: accessCreationErrors,
+      isDirty: isAccessCreationDirty,
+    },
   } = useForm<
     EmployeeAccessCreationFormData,
     unknown,
@@ -94,7 +97,10 @@ function EmployeeEditPage() {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
     setValue: setAccessUpdateValue,
-    formState: { errors: accessUpdateErrors },
+    formState: {
+      errors: accessUpdateErrors,
+      isDirty: isAccessUpdateDirty,
+    },
   } = useForm<
     EmployeeAccessUpdateFormData,
     unknown,
@@ -111,10 +117,13 @@ function EmployeeEditPage() {
         ) ?? 'inactive',
     },
   })
+  const { confirmationDialog, requestNavigation } = useUnsavedChangesGuard(
+    isEmployeeDirty || isAccessCreationDirty || isAccessUpdateDirty,
+  )
 
   function onSubmit() {
     if (employee) {
-      navigate(`/employees/${employee.id}`)
+      requestNavigation(`/employees/${employee.id}`)
     }
   }
 
@@ -640,6 +649,7 @@ function EmployeeEditPage() {
           Cancelar
         </Link>
       </div>
+      {confirmationDialog}
     </AppLayout>
   )
 }
