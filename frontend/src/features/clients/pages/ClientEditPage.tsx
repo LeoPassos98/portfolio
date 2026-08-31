@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
@@ -6,13 +7,16 @@ import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
+import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { useAuthSession } from '../../auth/hooks/useAuthSession'
 import { mockClients } from '../mocks/clients'
 import {
   clientSchema,
   type ClientFormData,
   type ClientFormValues,
 } from '../schemas/clientSchema'
+import type { ClientStatus } from '../types/client'
 
 const clientStatusDetails = {
   active: { label: 'Ativo', variant: 'success' },
@@ -20,9 +24,14 @@ const clientStatusDetails = {
 } as const
 
 function ClientEditPage() {
+  const session = useAuthSession()
   const { clientId } = useParams<{ clientId: string }>()
   const navigate = useNavigate()
   const client = mockClients.find((item) => item.id === clientId)
+  const [clientStatus, setClientStatus] = useState<ClientStatus>(
+    client?.status ?? 'active',
+  )
+  const canChangeClientStatus = session?.currentUser.profile === 'admin'
   const {
     register,
     handleSubmit,
@@ -67,7 +76,7 @@ function ClientEditPage() {
     )
   }
 
-  const clientStatus = clientStatusDetails[client.status]
+  const clientStatusDetail = clientStatusDetails[clientStatus]
 
   return (
     <AppLayout>
@@ -78,8 +87,8 @@ function ClientEditPage() {
           </h1>
           <p className="text-neutral mt-1">{client.name}</p>
         </div>
-        <StatusBadge variant={clientStatus.variant}>
-          {clientStatus.label}
+        <StatusBadge variant={clientStatusDetail.variant}>
+          {clientStatusDetail.label}
         </StatusBadge>
       </header>
 
@@ -314,6 +323,31 @@ function ClientEditPage() {
             </div>
           </div>
         </section>
+
+        {canChangeClientStatus ? (
+          <section aria-labelledby="edit-client-status-title">
+            <h2
+              id="edit-client-status-title"
+              className="text-foreground text-lg font-bold"
+            >
+              Situação do cliente
+            </h2>
+
+            <div className="mt-4 max-w-xs space-y-2">
+              <Label htmlFor="edit-client-status">Situação</Label>
+              <Select
+                id="edit-client-status"
+                value={clientStatus}
+                onChange={(event) => {
+                  setClientStatus(event.target.value as ClientStatus)
+                }}
+              >
+                <option value="active">Ativo</option>
+                <option value="inactive">Inativo</option>
+              </Select>
+            </div>
+          </section>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit">Salvar alterações</Button>

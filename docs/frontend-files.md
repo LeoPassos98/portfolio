@@ -282,7 +282,7 @@ Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, 
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod, identifica a situação ativo/inativo, retorna à listagem após envio válido e trata registros inexistentes, sem persistência.
+Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod e permite ao Administrador ajustar visualmente a situação Ativo/Inativo; Funcionário edita os dados cadastrais, inclusive de inativos, sem acesso a esse controle e sem persistência.
 
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
