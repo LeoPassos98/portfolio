@@ -10,8 +10,13 @@ import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { mockOrders } from '../../orders/mocks/orders'
+import {
+  getEmployeeAccessStatus,
+  getEmployeeAccessStatusAvailability,
+} from '../lib/employeeAccessStatus'
 import { getEmployeeStatusChangeAvailability } from '../lib/employeeStatus'
 import { mockEmployees } from '../mocks/employees'
+import type { EmployeeAccessStatus } from '../types/employee'
 import {
   employeeSchema,
   type EmployeeFormData,
@@ -69,9 +74,17 @@ function EmployeeEditPage() {
   const [employeeStatus, setEmployeeStatus] = useState(
     employee?.status ?? 'active',
   )
+  const [employeeAccessStatus, setEmployeeAccessStatus] =
+    useState<EmployeeAccessStatus | null>(() =>
+      getEmployeeAccessStatus(
+        employee?.status ?? 'active',
+        employee?.access?.status ?? null,
+      ),
+    )
   const {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
+    setValue: setAccessUpdateValue,
     formState: { errors: accessUpdateErrors },
   } = useForm<
     EmployeeAccessUpdateFormData,
@@ -82,6 +95,11 @@ function EmployeeEditPage() {
     defaultValues: {
       loginEmail: employee?.access?.loginEmail ?? '',
       profile: employee?.access?.profile ?? 'employee',
+      status:
+        getEmployeeAccessStatus(
+          employee?.status ?? 'active',
+          employee?.access?.status ?? null,
+        ) ?? 'inactive',
     },
   })
 
@@ -114,9 +132,17 @@ function EmployeeEditPage() {
     )
   }
 
-  const accessStatus = employee.access
-    ? accessStatusDetails[employee.access.status]
+  const currentEmployeeAccessStatus = getEmployeeAccessStatus(
+    employeeStatus,
+    employeeAccessStatus,
+  )
+  const accessStatus = currentEmployeeAccessStatus
+    ? accessStatusDetails[currentEmployeeAccessStatus]
     : null
+  const accessStatusAvailability = getEmployeeAccessStatusAvailability(
+    employeeStatus,
+    currentEmployeeAccessStatus,
+  )
   const statusChangeAvailability = getEmployeeStatusChangeAvailability(
     employee,
     mockOrders,
@@ -125,6 +151,14 @@ function EmployeeEditPage() {
     employeeErrors.status ? 'edit-employee-status-error' : null,
     statusChangeAvailability.description
       ? 'edit-employee-status-description'
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const employeeAccessStatusDescriptionIds = [
+    accessUpdateErrors.status ? 'employee-access-status-error' : null,
+    accessStatusAvailability.description
+      ? 'employee-access-status-description'
       : null,
   ]
     .filter(Boolean)
@@ -185,8 +219,19 @@ function EmployeeEditPage() {
                 aria-describedby={employeeStatusDescriptionIds || undefined}
                 onChange={(event) => {
                   const status = event.target.value as EmployeeFormData['status']
+                  const nextAccessStatus = getEmployeeAccessStatus(
+                    status,
+                    employeeAccessStatus,
+                  )
 
                   setEmployeeStatus(status)
+                  setEmployeeAccessStatus(nextAccessStatus)
+                  if (nextAccessStatus) {
+                    setAccessUpdateValue('status', nextAccessStatus, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
                   setEmployeeValue(
                     'status',
                     status,
@@ -348,6 +393,52 @@ function EmployeeEditPage() {
                   {accessUpdateErrors.profile?.message && (
                     <p id="employee-profile-error" className="text-error text-sm">
                       {accessUpdateErrors.profile.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="employee-access-status">
+                    Situação da conta
+                  </Label>
+                  <input type="hidden" {...registerAccessUpdate('status')} />
+                  <Select
+                    id="employee-access-status"
+                    value={currentEmployeeAccessStatus ?? 'inactive'}
+                    disabled={!accessStatusAvailability.canChangeAccessStatus}
+                    aria-invalid={Boolean(accessUpdateErrors.status)}
+                    aria-required="true"
+                    aria-describedby={
+                      employeeAccessStatusDescriptionIds || undefined
+                    }
+                    onChange={(event) => {
+                      const status = event.target
+                        .value as EmployeeAccessStatus
+
+                      setEmployeeAccessStatus(status)
+                      setAccessUpdateValue('status', status, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }}
+                  >
+                    <option value="active">Ativa</option>
+                    <option value="inactive">Inativa</option>
+                  </Select>
+                  {accessUpdateErrors.status?.message && (
+                    <p
+                      id="employee-access-status-error"
+                      className="text-error text-sm"
+                    >
+                      {accessUpdateErrors.status.message}
+                    </p>
+                  )}
+                  {accessStatusAvailability.description && (
+                    <p
+                      id="employee-access-status-description"
+                      className="text-neutral text-sm"
+                    >
+                      {accessStatusAvailability.description}
                     </p>
                   )}
                 </div>

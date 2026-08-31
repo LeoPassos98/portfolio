@@ -17,7 +17,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
-| Funcionários | Listagem mockada, perfil, formulários validados, situação e gestão de acesso | 9 |
+| Funcionários | Listagem mockada, perfil, formulários validados, situação e gestão de acesso | 10 |
 
 ## Sumário
 
@@ -306,7 +306,7 @@ Implementa no `AppLayout` o cadastro responsivo do funcionário com React Hook F
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Carrega o funcionário mockado pela rota para validar os valores cadastrais e os formulários de criação ou alteração da conta de acesso, mantendo separados e-mail de contato e e-mail de login; consome a regra de situação para bloquear visualmente a inativação quando houver OS ativa.
+Carrega o funcionário mockado pela rota para validar os valores cadastrais e os formulários de criação ou alteração da conta de acesso, mantendo separados e-mail de contato e e-mail de login; aplica visualmente a relação entre as situações do cadastro e da conta, sem persistência.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
@@ -326,8 +326,12 @@ Define com Zod as validações e normalizações reutilizadas nos dados cadastra
 
 ### 8. `frontend/src/features/employees/schemas/employeeAccessSchema.ts`
 
-Define com Zod as validações reutilizadas da criação e alteração de contas de acesso, incluindo normalização do e-mail de login e confirmação da senha temporária.
+Define com Zod as validações reutilizadas da criação e alteração de contas de acesso, incluindo normalização do e-mail de login, situação da conta existente e confirmação da senha temporária.
 
 ### 9. `frontend/src/features/employees/lib/employeeStatus.ts`
 
 Centraliza a disponibilidade mockada de alteração da situação do Funcionário a partir das OS sob sua responsabilidade, bloqueando somente a inativação enquanto existir OS Aguardando ou Em andamento e preservando a independência da conta de acesso na reativação.
+
+### 10. `frontend/src/features/employees/lib/employeeAccessStatus.ts`
+
+Centraliza a relação mockada entre as situações do cadastro e da conta de acesso: cadastro inativo força a conta associada a Inativa, enquanto a reativação preserva conta inativa ou ausência de conta.

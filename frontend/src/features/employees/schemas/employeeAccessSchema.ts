@@ -8,6 +8,7 @@ const loginEmailSchema = z
   .email('Informe um e-mail de login válido')
 
 const accessProfileSchema = z.enum(['administrator', 'employee'])
+const accessStatusSchema = z.enum(['active', 'inactive'])
 
 const temporaryPasswordSchema = z
   .string()
@@ -18,9 +19,11 @@ const temporaryPasswordSchema = z
 const employeeAccessUpdateSchema = z.object({
   loginEmail: loginEmailSchema,
   profile: accessProfileSchema,
+  status: accessStatusSchema,
 })
 
 const employeeAccessCreationSchema = employeeAccessUpdateSchema
+  .omit({ status: true })
   .extend({
     initialPassword: temporaryPasswordSchema,
     confirmPassword: z.string().min(1, 'Confirme a senha temporária'),
