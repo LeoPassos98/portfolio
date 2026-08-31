@@ -36,7 +36,7 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, registra o filter global de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` nativo com JSON em produção e saída legível nos demais ambientes, registra o filter global de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
 
 ### 2. `backend/src/app.module.ts`
 
@@ -88,7 +88,7 @@ Expõe `DatabaseService` para que futuros módulos de domínio recebam o acesso 
 
 ### 4. `backend/src/database/database.service.ts`
 
-Instancia o Prisma Client com o adapter PostgreSQL, obtém a URL pelo `ConfigService` e gerencia a conexão no ciclo de vida do NestJS.
+Instancia o Prisma Client com o adapter PostgreSQL, obtém a URL pelo `ConfigService`, gerencia a conexão no ciclo de vida do NestJS e registra apenas os eventos seguros de conexão e desconexão.
 
 ### 5. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
 
@@ -120,7 +120,7 @@ Define o formato público e estável das respostas de erro: `statusCode`, `code`
 
 ### 2. `backend/src/common/errors/http-exception.filter.ts`
 
-Normaliza globalmente exceções HTTP do NestJS, issues da validação Zod e falhas inesperadas sanitizadas; também preserva os campos públicos de exceções HTTP futuras.
+Normaliza globalmente exceções HTTP do NestJS, issues da validação Zod e falhas inesperadas sanitizadas; registra a ocorrência interna de falhas inesperadas sem serializar detalhes potencialmente sensíveis e preserva os campos públicos de exceções HTTP futuras.
 
 ### 3. `backend/src/common/errors/http-error-response.openapi.ts`
 

@@ -102,6 +102,17 @@ npm install @nestjs/swagger@12.0.1
 
 Com o backend em execução, a interface está em `http://localhost:3000/api/docs` e o documento OpenAPI JSON em `http://localhost:3000/api/docs/openapi.json`.
 
+### Logs nativos do NestJS
+
+O bootstrap usa exclusivamente `ConsoleLogger` e `Logger` nativos do NestJS. Em desenvolvimento e testes, os logs permanecem legíveis no terminal; em produção, a saída é estruturada em JSON para consumo pelo ambiente de execução.
+
+```bash
+cd backend
+NODE_ENV=production npm run start:prod
+```
+
+Não são registrados segredos, credenciais, URLs de conexão completas, cookies, tokens ou corpos completos de requisições. Falhas internas retornam uma resposta HTTP sanitizada, enquanto a ocorrência é registrada internamente sem anexar mensagem ou stack arbitrárias.
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.

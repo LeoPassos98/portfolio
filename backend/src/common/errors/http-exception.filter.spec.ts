@@ -125,10 +125,7 @@ describe('HttpExceptionFilter', () => {
       code: ERROR_CODES.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
     });
-    expect(Logger.prototype.error).toHaveBeenCalledWith(
-      'Unhandled exception',
-      expect.any(String),
-    );
+    expect(Logger.prototype.error).toHaveBeenCalledWith('Unhandled exception');
   });
 
   it('always returns the required public contract fields', () => {

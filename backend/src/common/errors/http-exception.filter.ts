@@ -41,10 +41,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   private toErrorResponse(exception: unknown): HttpErrorResponse {
     if (!(exception instanceof HttpException)) {
-      this.logger.error(
-        'Unhandled exception',
-        exception instanceof Error ? exception.stack : undefined,
-      );
+      this.logger.error('Unhandled exception');
 
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
