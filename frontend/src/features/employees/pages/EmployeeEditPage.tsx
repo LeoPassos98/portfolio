@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
@@ -8,6 +9,8 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { mockOrders } from '../../orders/mocks/orders'
+import { getEmployeeStatusChangeAvailability } from '../lib/employeeStatus'
 import { mockEmployees } from '../mocks/employees'
 import {
   employeeSchema,
@@ -35,6 +38,7 @@ function EmployeeEditPage() {
   const {
     register: registerEmployee,
     handleSubmit: handleSubmitEmployee,
+    setValue: setEmployeeValue,
     formState: { errors: employeeErrors },
   } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -62,6 +66,9 @@ function EmployeeEditPage() {
       confirmPassword: '',
     },
   })
+  const [employeeStatus, setEmployeeStatus] = useState(
+    employee?.status ?? 'active',
+  )
   const {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
@@ -110,6 +117,18 @@ function EmployeeEditPage() {
   const accessStatus = employee.access
     ? accessStatusDetails[employee.access.status]
     : null
+  const statusChangeAvailability = getEmployeeStatusChangeAvailability(
+    employee,
+    mockOrders,
+  )
+  const employeeStatusDescriptionIds = [
+    employeeErrors.status ? 'edit-employee-status-error' : null,
+    statusChangeAvailability.description
+      ? 'edit-employee-status-description'
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <AppLayout>
@@ -156,16 +175,27 @@ function EmployeeEditPage() {
               <Label htmlFor="edit-employee-status">
                 Situação do funcionário
               </Label>
+              <input type="hidden" {...registerEmployee('status')} />
               <Select
                 id="edit-employee-status"
+                value={employeeStatus}
+                disabled={!statusChangeAvailability.canChangeStatus}
                 aria-invalid={Boolean(employeeErrors.status)}
                 aria-required="true"
-                aria-describedby={
-                  employeeErrors.status
-                    ? 'edit-employee-status-error'
-                    : undefined
-                }
-                {...registerEmployee('status')}
+                aria-describedby={employeeStatusDescriptionIds || undefined}
+                onChange={(event) => {
+                  const status = event.target.value as EmployeeFormData['status']
+
+                  setEmployeeStatus(status)
+                  setEmployeeValue(
+                    'status',
+                    status,
+                    {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    },
+                  )
+                }}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
@@ -176,6 +206,14 @@ function EmployeeEditPage() {
                   className="text-error text-sm"
                 >
                   {employeeErrors.status.message}
+                </p>
+              )}
+              {statusChangeAvailability.description && (
+                <p
+                  id="edit-employee-status-description"
+                  className="text-neutral text-sm"
+                >
+                  {statusChangeAvailability.description}
                 </p>
               )}
             </div>
