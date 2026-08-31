@@ -1,6 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router'
+import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
@@ -55,6 +57,8 @@ type OrderFormProps = {
 
 function OrderForm({ order, editPermissions }: OrderFormProps) {
   const session = useAuthSession()
+  const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] =
+    useState(false)
   const isEditing = order !== undefined
   const isEmployee = session?.currentUser.profile === 'employee'
   const fieldPrefix = isEditing ? 'edit-order' : 'new-order'
@@ -111,7 +115,21 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
     },
   })
 
-  function onSubmit() {}
+  function submitOrder() {}
+
+  function onSubmit(values: OrderFormValues) {
+    const isCancellingOrder =
+      isEditing &&
+      order?.status !== 'cancelled' &&
+      values.status === 'cancelled'
+
+    if (isCancellingOrder) {
+      setIsCancelConfirmationOpen(true)
+      return
+    }
+
+    submitOrder()
+  }
 
   return (
     <form
@@ -413,6 +431,20 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
           Cancelar
         </Link>
       </div>
+
+      <ConfirmationDialog
+        isOpen={isCancelConfirmationOpen}
+        title="Cancelar esta OS?"
+        description={
+          'Após o cancelamento, ela ficará somente leitura e apenas um administrador poderá reabri-la.'
+        }
+        confirmLabel="Confirmar cancelamento"
+        onCancel={() => setIsCancelConfirmationOpen(false)}
+        onConfirm={() => {
+          setIsCancelConfirmationOpen(false)
+          submitOrder()
+        }}
+      />
     </form>
   )
 }

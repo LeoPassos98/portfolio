@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
+import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -10,6 +11,7 @@ import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
+import { mockOrders } from '../../orders/mocks/orders'
 import { mockClients } from '../mocks/clients'
 import {
   clientSchema,
@@ -31,6 +33,8 @@ function ClientEditPage() {
   const [clientStatus, setClientStatus] = useState<ClientStatus>(
     client?.status ?? 'active',
   )
+  const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] =
+    useState(false)
   const canChangeClientStatus = session?.currentUser.profile === 'admin'
   const {
     register,
@@ -77,6 +81,9 @@ function ClientEditPage() {
   }
 
   const clientStatusDetail = clientStatusDetails[clientStatus]
+  const hasLinkedOrders = mockOrders.some(
+    (order) => order.clientId === client.id,
+  )
 
   return (
     <AppLayout>
@@ -349,6 +356,48 @@ function ClientEditPage() {
           </section>
         ) : null}
 
+        {canChangeClientStatus ? (
+          <section aria-labelledby="delete-client-title">
+            <h2
+              id="delete-client-title"
+              className="text-foreground text-lg font-bold"
+            >
+              Excluir cliente
+            </h2>
+            {hasLinkedOrders ? (
+              <>
+                <p
+                  id="delete-client-description"
+                  className="text-neutral mt-2 text-sm"
+                >
+                  Este cliente possui OS vinculada e deve ser desativado.
+                </p>
+                <Button
+                  type="button"
+                  disabled
+                  aria-describedby="delete-client-description"
+                  className="mt-4"
+                >
+                  Excluir cliente
+                </Button>
+              </>
+            ) : (
+              <>
+                <p className="text-neutral mt-2 text-sm">
+                  Esta ação será permanente quando a exclusão estiver integrada.
+                </p>
+                <Button
+                  type="button"
+                  className="mt-4"
+                  onClick={() => setIsDeleteConfirmationOpen(true)}
+                >
+                  Excluir cliente
+                </Button>
+              </>
+            )}
+          </section>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-3">
           <Button type="submit">Salvar alterações</Button>
           <Link
@@ -359,6 +408,15 @@ function ClientEditPage() {
           </Link>
         </div>
       </form>
+
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmationOpen}
+        title="Excluir este cliente?"
+        description="Esta ação é permanente e não poderá ser desfeita."
+        confirmLabel="Confirmar exclusão"
+        onCancel={() => setIsDeleteConfirmationOpen(false)}
+        onConfirm={() => setIsDeleteConfirmationOpen(false)}
+      />
     </AppLayout>
   )
 }

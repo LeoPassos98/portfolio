@@ -9,6 +9,7 @@ type OrderVisibility = 'public' | 'private'
 type Order = {
   id: string
   number: string
+  clientId: string
   clientName: string
   responsibleEmployeeId: string
   responsibleName: string

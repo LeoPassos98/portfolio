@@ -69,6 +69,23 @@ const mockClients: Client[] = [
       state: 'SP',
     },
   },
+  {
+    id: 'client-5',
+    name: 'Isabela Nunes',
+    phone: '(11) 94444-7788',
+    email: 'isabela.nunes@example.com',
+    document: null,
+    status: 'active',
+    address: {
+      postalCode: '04094-050',
+      street: 'Rua dos Lírios',
+      number: '85',
+      complement: null,
+      neighborhood: 'Vila Clementino',
+      city: 'São Paulo',
+      state: 'SP',
+    },
+  },
 ]
 
 export { mockClients }

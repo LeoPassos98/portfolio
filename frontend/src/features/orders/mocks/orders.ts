@@ -4,6 +4,7 @@ const mockOrders: Order[] = [
   {
     id: '1',
     number: 'OS-1001',
+    clientId: 'client-1',
     clientName: 'Mariana Costa',
     responsibleEmployeeId: 'employee-1',
     responsibleName: 'Carlos Lima',
@@ -18,6 +19,7 @@ const mockOrders: Order[] = [
   {
     id: '2',
     number: 'OS-1002',
+    clientId: 'client-2',
     clientName: 'Empresa Horizonte',
     responsibleEmployeeId: 'employee-2',
     responsibleName: 'Ana Souza',
@@ -32,6 +34,7 @@ const mockOrders: Order[] = [
   {
     id: '3',
     number: 'OS-1003',
+    clientId: 'client-3',
     clientName: 'Rafael Martins',
     responsibleEmployeeId: 'employee-1',
     responsibleName: 'Carlos Lima',
@@ -46,6 +49,7 @@ const mockOrders: Order[] = [
   {
     id: '4',
     number: 'OS-1004',
+    clientId: 'client-4',
     clientName: 'Clínica Central',
     responsibleEmployeeId: 'employee-3',
     responsibleName: 'Beatriz Alves',
@@ -60,7 +64,8 @@ const mockOrders: Order[] = [
   {
     id: '5',
     number: 'OS-1005',
-    clientName: 'Oficina União',
+    clientId: 'client-2',
+    clientName: 'Empresa Horizonte',
     responsibleEmployeeId: 'employee-2',
     responsibleName: 'Ana Souza',
     status: 'in-progress',
@@ -74,7 +79,8 @@ const mockOrders: Order[] = [
   {
     id: '6',
     number: 'OS-1006',
-    clientName: 'Paulo Mendes',
+    clientId: 'client-4',
+    clientName: 'Clínica Central',
     responsibleEmployeeId: 'employee-3',
     responsibleName: 'Beatriz Alves',
     status: 'awaiting',

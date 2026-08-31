@@ -11,7 +11,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
-| Componentes de feedback | Comunicação de estados da interface | 1 |
+| Componentes de feedback | Comunicação de estados e confirmações da interface | 2 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso, validação, sessão mockada e proteção de rotas | 9 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
@@ -111,6 +111,10 @@ Diretório principal: `frontend/src/components/feedback/`
 ### 1. `frontend/src/components/feedback/EmptyState.tsx`
 
 Apresenta uma mensagem acessível para ausência de conteúdo, com título e descrição opcional.
+
+### 2. `frontend/src/components/feedback/ConfirmationDialog.tsx`
+
+Apresenta confirmação explícita reutilizável para ações críticas, com modal acessível, foco contido, suporte a Escape e retorno do foco ao controle de origem; usado no cancelamento de OS e na exclusão de Cliente.
 
 ---
 
@@ -218,11 +222,11 @@ Lista ordens em tabela desktop ou lista mobile, controla filtros, busca e pagina
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define `Order`, seus status e visibilidade, incluindo o vínculo ao funcionário responsável e os dados de serviço, valor, observações e datas usados nos mocks, Detalhes e futura edição.
+Define `Order`, seus status e visibilidade, incluindo os vínculos imutáveis ao Cliente e ao funcionário responsável e os dados de serviço, valor, observações e datas usados nos mocks, Detalhes e futura edição.
 
 ### 3. `frontend/src/features/orders/mocks/orders.ts`
 
-Exporta ordens de protótipo completas como `Order[]`, com vínculo do responsável, dados de serviço, valor, visibilidade, observações e datas para apresentação por rota e teste das regras de acesso.
+Exporta ordens de protótipo completas como `Order[]`, com vínculos de Cliente e responsável, dados de serviço, valor, visibilidade, observações e datas para apresentação por rota, regras de acesso e bloqueio da exclusão de Clientes vinculados.
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
@@ -246,7 +250,7 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; consome as permissões e transições centralizadas para manter campos somente leitura quando necessário e montar somente as opções válidas de Status.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; consome as permissões e transições centralizadas para manter campos somente leitura, montar somente as opções válidas de Status e confirmar o cancelamento antes de continuar o fluxo mockado.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
@@ -270,7 +274,7 @@ Define o formato, a situação e os dados cadastrais completos usados pela consu
 
 ### 2. `frontend/src/features/clients/mocks/clients.ts`
 
-Exporta clientes representativos, ativos e inativos, com dados cadastrais completos para a listagem e edição mockadas.
+Exporta clientes representativos, ativos e inativos, incluindo um cliente sem OS vinculada para o fluxo mockado de confirmação de exclusão.
 
 ### 3. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
@@ -282,7 +286,7 @@ Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, 
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod e permite ao Administrador ajustar visualmente a situação Ativo/Inativo; Funcionário edita os dados cadastrais, inclusive de inativos, sem acesso a esse controle e sem persistência.
+Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod e permite ao Administrador ajustar visualmente a situação Ativo/Inativo e iniciar a exclusão com confirmação quando não houver OS vinculada; Funcionário edita os dados cadastrais, inclusive de inativos, sem acesso a controles administrativos e sem persistência.
 
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
