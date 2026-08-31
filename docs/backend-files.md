@@ -11,13 +11,15 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição | Inicialização do NestJS e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelo físico, migration inicial e acesso PostgreSQL injetável | 5 |
-| Testes | Cobertura da validação do contrato de ambiente | 1 |
+| Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
+| Testes | Cobertura das validações de ambiente e HTTP | 2 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
+- [Validação HTTP](#validação-http)
 - [Testes](#testes)
 
 ---
@@ -90,12 +92,28 @@ Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índice
 
 ---
 
+## Validação HTTP
+
+Conecta schemas Zod ao ciclo de entrada HTTP do NestJS, sem regras de domínio ou formatação global de erros.
+
+Diretório principal: `backend/src/common/validation/`
+
+### 1. `backend/src/common/validation/zod-validation.pipe.ts`
+
+Recebe um schema Zod, retorna seu valor parseado e transforma falhas em `BadRequestException` com as issues originais disponíveis para o futuro filtro global.
+
+---
+
 ## Testes
 
-Verifica o comportamento autoral de configuração que já participa da inicialização do backend.
+Verifica os comportamentos autorais de validação que já participam ou participarão da aplicação.
 
-Diretório principal: `backend/src/config/`
+Diretórios principais: `backend/src/config/` e `backend/src/common/validation/`
 
 ### 1. `backend/src/config/environment.validation.spec.ts`
 
 Garante que a validação aceite a configuração mínima válida com padrões, rejeite variáveis obrigatórias ausentes e rejeite valores inválidos.
+
+### 2. `backend/src/common/validation/zod-validation.pipe.spec.ts`
+
+Garante o retorno de valores parseados, a preservação de transformações Zod, a rejeição HTTP de entradas inválidas e a disponibilidade das issues no response da exceção.
