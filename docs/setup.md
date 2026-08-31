@@ -61,6 +61,26 @@ npm install @nestjs/config zod
 
 Copie `backend/.env.example` para `backend/.env` e preencha os valores locais. O arquivo `.env` é ignorado pelo Git; o `.env.example` versionado define apenas nomes e valores seguros de exemplo.
 
+### Prisma e PostgreSQL
+
+O Prisma ORM fornece o Client tipado para acesso ao PostgreSQL. O adapter oficial `@prisma/adapter-pg` integra esse Client ao driver `pg`, enquanto o NestJS concentra esse acesso em `DatabaseModule` e `DatabaseService`.
+
+```bash
+cd backend
+npm install @prisma/client@7.10.0 @prisma/adapter-pg@7.10.0 pg@8.23.0
+npm install --save-dev prisma@7.10.0 dotenv@17.2.4
+npx prisma init --datasource-provider postgresql --output ../src/generated/prisma --no-skills
+```
+
+`prisma.config.ts` usa `DATABASE_URL` para os comandos do Prisma. Em runtime, a mesma variável é carregada e validada pela configuração central do NestJS e chega ao `DatabaseService` pelo `ConfigService`.
+
+Após alterar o schema ou a configuração do generator, valide-o e gere novamente o Prisma Client:
+
+```bash
+npm run prisma:validate
+npm run prisma:generate
+```
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.

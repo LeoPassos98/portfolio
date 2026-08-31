@@ -10,12 +10,14 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | --- | --- | ---: |
 | Entrada e composição | Inicialização do NestJS e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
+| Infraestrutura de banco | Configuração Prisma e acesso PostgreSQL injetável | 4 |
 | Testes | Cobertura da validação do contrato de ambiente | 1 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
 - [Configuração de ambiente](#configuração-de-ambiente)
+- [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Testes](#testes)
 
 ---
@@ -28,11 +30,11 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule`, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz: torna a configuração global com validação de ambiente e registra o controller e o serviço atuais.
+Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco e registra o controller e o serviço atuais.
 
 ### 3. `backend/src/app.controller.ts`
 
@@ -57,6 +59,30 @@ Disponibiliza valores de referência para ambiente de desenvolvimento, porta, co
 ### 2. `backend/src/config/environment.validation.ts`
 
 Declara com Zod o schema das variáveis de ambiente, aplica valores padrão para ambiente e porta e interrompe o bootstrap com mensagens detalhadas quando a configuração é inválida.
+
+---
+
+## Infraestrutura de banco
+
+Centraliza a configuração do Prisma e disponibiliza o acesso tipado ao PostgreSQL para os módulos NestJS que importarem `DatabaseModule`.
+
+Diretórios principais: `backend/prisma/` e `backend/src/database/`
+
+### 1. `backend/prisma.config.ts`
+
+Configura o Prisma CLI, localiza o schema e recebe `DATABASE_URL` do ambiente para os comandos de banco.
+
+### 2. `backend/prisma/schema.prisma`
+
+Define o generator `prisma-client` com saída local e o provider PostgreSQL, sem modelos de domínio neste estágio.
+
+### 3. `backend/src/database/database.module.ts`
+
+Expõe `DatabaseService` para que futuros módulos de domínio recebam o acesso ao banco por injeção de dependência.
+
+### 4. `backend/src/database/database.service.ts`
+
+Instancia o Prisma Client com o adapter PostgreSQL, obtém a URL pelo `ConfigService` e gerencia a conexão no ciclo de vida do NestJS.
 
 ---
 
