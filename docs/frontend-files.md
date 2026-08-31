@@ -11,7 +11,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
-| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 3 |
+| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 6 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
 | Autenticação | Login, primeiro acesso, validação, sessão mockada e proteção de rotas | 9 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
@@ -119,6 +119,18 @@ Apresenta confirmação explícita reutilizável para ações críticas, com mod
 ### 3. `frontend/src/components/feedback/useUnsavedChangesGuard.tsx`
 
 Expõe a proteção reutilizável contra abandono de formulários alterados: usa `isDirty`, intercepta links internos compatíveis com o roteamento declarativo, mantém o destino pendente até confirmação e registra o aviso nativo de `beforeunload`.
+
+### 4. `frontend/src/components/feedback/SuccessFeedbackContext.ts`
+
+Declara o contrato e o Context tipado da API global de feedback de sucesso, mantendo Provider e consumidores no mesmo contrato.
+
+### 5. `frontend/src/components/feedback/SuccessFeedbackProvider.tsx`
+
+Mantém o toast de sucesso textual, não bloqueante e dispensável, expondo a API global que será chamada por mutations confirmadas.
+
+### 6. `frontend/src/components/feedback/useSuccessFeedback.ts`
+
+Expõe o hook de consumo seguro de `showSuccess` e `dismissSuccess` para fluxos futuros de mutation bem-sucedida.
 
 ---
 
