@@ -36,6 +36,21 @@ O build foi executado para confirmar que a base do frontend compila corretamente
 npm run build
 ```
 
+## Backend
+
+O backend foi criado como uma aplicação NestJS independente no diretório `backend/`, mantendo sua instalação, execução e compilação separadas do frontend.
+
+```bash
+npx @nestjs/cli@latest new backend --package-manager npm --skip-git --skip-install
+```
+
+As dependências do backend foram instaladas no próprio diretório da aplicação.
+
+```bash
+cd backend
+npm install
+```
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.
