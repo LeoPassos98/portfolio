@@ -14,6 +14,7 @@ const activeOrderStatuses: readonly OrderStatus[] = [
 function getEmployeeStatusChangeAvailability(
   employee: Pick<Employee, 'id' | 'status'>,
   orders: readonly Order[],
+  wouldRemoveLastActiveAdmin: boolean,
 ): EmployeeStatusChangeAvailability {
   if (employee.status === 'inactive') {
     return {
@@ -29,11 +30,19 @@ function getEmployeeStatusChangeAvailability(
       activeOrderStatuses.includes(order.status),
   )
 
-  if (hasActiveOrder) {
+  const blockingDescriptions = [
+    hasActiveOrder
+      ? 'Não é possível inativar este funcionário porque possui uma OS aguardando ou em andamento sob sua responsabilidade.'
+      : null,
+    wouldRemoveLastActiveAdmin
+      ? 'Não é possível inativar este funcionário porque sua conta é a última conta ativa de Administrador.'
+      : null,
+  ].filter(Boolean)
+
+  if (blockingDescriptions.length > 0) {
     return {
       canChangeStatus: false,
-      description:
-        'Não é possível inativar este funcionário porque possui uma OS aguardando ou em andamento sob sua responsabilidade.',
+      description: blockingDescriptions.join(' '),
     }
   }
 

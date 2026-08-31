@@ -11,12 +11,17 @@ import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { mockOrders } from '../../orders/mocks/orders'
 import {
+  getEmployeeAccessProfileAvailability,
   getEmployeeAccessStatus,
   getEmployeeAccessStatusAvailability,
 } from '../lib/employeeAccessStatus'
+import { wouldRemoveLastActiveAdmin } from '../lib/employeeAdministrator'
 import { getEmployeeStatusChangeAvailability } from '../lib/employeeStatus'
 import { mockEmployees } from '../mocks/employees'
-import type { EmployeeAccessStatus } from '../types/employee'
+import type {
+  EmployeeAccessProfile,
+  EmployeeAccessStatus,
+} from '../types/employee'
 import {
   employeeSchema,
   type EmployeeFormData,
@@ -81,6 +86,10 @@ function EmployeeEditPage() {
         employee?.access?.status ?? null,
       ),
     )
+  const [employeeAccessProfile, setEmployeeAccessProfile] =
+    useState<EmployeeAccessProfile | null>(
+      employee?.access?.profile ?? null,
+    )
   const {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
@@ -139,13 +148,37 @@ function EmployeeEditPage() {
   const accessStatus = currentEmployeeAccessStatus
     ? accessStatusDetails[currentEmployeeAccessStatus]
     : null
+  const wouldInactivateEmployeeRemoveLastActiveAdmin =
+    wouldRemoveLastActiveAdmin(
+      mockEmployees,
+      employee.id,
+      getEmployeeAccessStatus('inactive', currentEmployeeAccessStatus),
+      employeeAccessProfile,
+    )
+  const wouldInactivateAccessRemoveLastActiveAdmin = wouldRemoveLastActiveAdmin(
+    mockEmployees,
+    employee.id,
+    'inactive',
+    employeeAccessProfile,
+  )
+  const wouldRemoveProfileFromLastActiveAdmin = wouldRemoveLastActiveAdmin(
+    mockEmployees,
+    employee.id,
+    currentEmployeeAccessStatus,
+    'employee',
+  )
   const accessStatusAvailability = getEmployeeAccessStatusAvailability(
     employeeStatus,
     currentEmployeeAccessStatus,
+    wouldInactivateAccessRemoveLastActiveAdmin,
+  )
+  const accessProfileAvailability = getEmployeeAccessProfileAvailability(
+    wouldRemoveProfileFromLastActiveAdmin,
   )
   const statusChangeAvailability = getEmployeeStatusChangeAvailability(
     employee,
     mockOrders,
+    wouldInactivateEmployeeRemoveLastActiveAdmin,
   )
   const employeeStatusDescriptionIds = [
     employeeErrors.status ? 'edit-employee-status-error' : null,
@@ -159,6 +192,14 @@ function EmployeeEditPage() {
     accessUpdateErrors.status ? 'employee-access-status-error' : null,
     accessStatusAvailability.description
       ? 'employee-access-status-description'
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const employeeAccessProfileDescriptionIds = [
+    accessUpdateErrors.profile ? 'employee-profile-error' : null,
+    accessProfileAvailability.description
+      ? 'employee-profile-description'
       : null,
   ]
     .filter(Boolean)
@@ -376,16 +417,26 @@ function EmployeeEditPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="employee-profile">Perfil</Label>
+                  <input type="hidden" {...registerAccessUpdate('profile')} />
                   <Select
                     id="employee-profile"
+                    value={employeeAccessProfile ?? 'employee'}
+                    disabled={!accessProfileAvailability.canChangeAccessProfile}
                     aria-invalid={Boolean(accessUpdateErrors.profile)}
                     aria-required="true"
                     aria-describedby={
-                      accessUpdateErrors.profile
-                        ? 'employee-profile-error'
-                        : undefined
+                      employeeAccessProfileDescriptionIds || undefined
                     }
-                    {...registerAccessUpdate('profile')}
+                    onChange={(event) => {
+                      const profile = event.target
+                        .value as EmployeeAccessProfile
+
+                      setEmployeeAccessProfile(profile)
+                      setAccessUpdateValue('profile', profile, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }}
                   >
                     <option value="employee">Funcionário</option>
                     <option value="administrator">Administrador</option>
@@ -393,6 +444,14 @@ function EmployeeEditPage() {
                   {accessUpdateErrors.profile?.message && (
                     <p id="employee-profile-error" className="text-error text-sm">
                       {accessUpdateErrors.profile.message}
+                    </p>
+                  )}
+                  {accessProfileAvailability.description && (
+                    <p
+                      id="employee-profile-description"
+                      className="text-neutral text-sm"
+                    >
+                      {accessProfileAvailability.description}
                     </p>
                   )}
                 </div>
