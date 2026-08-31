@@ -51,7 +51,7 @@ const classes = [
 ]
 ```
 
-## Mapa de arquivos do frontend
+## Mapas de arquivos do frontend e backend
 
 Sempre que um novo arquivo ou diretório autoral do frontend tiver responsabilidade relevante na estrutura, no comportamento ou na interface da aplicação, atualize `docs/frontend-files.md`.
 
@@ -77,3 +77,41 @@ Não registrar:
 - assets ou arquivos sem função arquitetural relevante.
 
 O objetivo de `docs/frontend-files.md` é servir como um mapa do estado atual do frontend, sem explicar implementações linha por linha.
+
+## Mapa de arquivos do backend
+
+Sempre que um novo arquivo ou diretório autoral relevante do backend tiver responsabilidade criada ou alterada na estrutura, no comportamento ou na infraestrutura técnica da aplicação, atualize `docs/backend-files.md`.
+
+Esta regra abrange arquivos relacionados a:
+
+- backend NestJS;
+- banco de dados e persistência;
+- autenticação e segurança;
+- integrações externas;
+- infraestrutura técnica relacionada ao backend;
+- módulos e features do backend;
+- testes autorais relevantes.
+
+O documento deve:
+
+- registrar o caminho completo;
+- organizar as entradas por famílias funcionais ou estruturais;
+- possuir uma visão rápida com as quantidades de arquivos e um sumário para as famílias;
+- usar diretórios como contexto para organizar as seções, sem numerá-los como arquivos;
+- documentar e numerar os arquivos relevantes dentro de suas respectivas famílias;
+- manter descrições curtas e orientadas à responsabilidade atual de cada arquivo;
+- quando fizer sentido, mencionar onde ele é utilizado ou como participa da aplicação;
+- dentro de cada família, preservar a ordem de criação;
+- atualizar a entrada existente quando a responsabilidade mudar, sem criar um histórico de alterações.
+
+Não registrar:
+
+- `node_modules`;
+- `dist`;
+- arquivos gerados automaticamente por instalação;
+- `package.json` ou `package-lock.json`;
+- artefatos de build, caches ou arquivos temporários;
+- arquivos puramente padrões ou de infraestrutura sem responsabilidade específica na aplicação;
+- assets ou arquivos sem função arquitetural relevante.
+
+O objetivo de `docs/backend-files.md` é servir como um mapa do estado atual do backend, sem explicar implementações linha por linha.
