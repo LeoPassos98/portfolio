@@ -51,6 +51,16 @@ cd backend
 npm install
 ```
 
+### Configuração de ambiente
+
+O `@nestjs/config` carrega e disponibiliza as variáveis de ambiente por meio do `ConfigService`, enquanto o Zod valida esse contrato no startup do backend.
+
+```bash
+npm install @nestjs/config zod
+```
+
+Copie `backend/.env.example` para `backend/.env` e preencha os valores locais. O arquivo `.env` é ignorado pelo Git; o `.env.example` versionado define apenas nomes e valores seguros de exemplo.
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.
