@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { DatabaseService } from '../database/database.service.js';
+import type { EmployeeCreateInput } from './employee-create.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
 import { EmployeeListItemResponse } from './employee-list-item-response.dto.js';
@@ -43,6 +44,26 @@ const employeeDetailSelect = {
 @Injectable()
 export class EmployeesService {
   constructor(private readonly database: DatabaseService) {}
+
+  async create({
+    status,
+    ...employeeData
+  }: EmployeeCreateInput): Promise<EmployeeDetailResponse> {
+    const employee = await this.database.funcionario.create({
+      data: {
+        ...employeeData,
+        ativo: status === 'active',
+      },
+      select: employeeDetailSelect,
+    });
+
+    const { usuario, ...employeeDetail } = employee;
+
+    return {
+      ...employeeDetail,
+      conta: usuario,
+    };
+  }
 
   async findAll({
     status,

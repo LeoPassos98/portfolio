@@ -1,7 +1,18 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
   ApiBadRequestResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -17,8 +28,15 @@ import { SessionGuard } from '../auth/guards/session.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
+import {
+  employeeCreateSchema,
+  type EmployeeCreateInput,
+} from './employee-create.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
-import { employeeIdSchema, type EmployeeIdInput } from './employee-id.schema.js';
+import {
+  employeeIdSchema,
+  type EmployeeIdInput,
+} from './employee-id.schema.js';
 import {
   employeeListQuerySchema,
   type EmployeeListQuery,
@@ -42,12 +60,59 @@ const forbiddenResponse = {
   schema: getHttpErrorResponseSchemaReference(),
 };
 
+const csrfHeader = {
+  name: 'X-CSRF-Token',
+  required: true,
+  description: 'Token CSRF retornado por GET /auth/csrf para a sessão atual.',
+} as const;
+
 @Controller('employees')
 @ApiTags('Funcionários')
 @UseGuards(SessionGuard, FirstAccessCompletedGuard, RoleGuard)
 @Roles(Perfil.ADMINISTRADOR)
 export class EmployeesController {
   constructor(private readonly employeesService: EmployeesService) {}
+
+  @Post()
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Cria um funcionário sem conta de acesso' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['nome', 'telefone', 'email', 'status'],
+      properties: {
+        nome: { type: 'string', minLength: 2, maxLength: 120 },
+        telefone: { type: 'string', example: '+55 (11) 99999-9999' },
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@example.com',
+        },
+        status: { type: 'string', enum: ['active', 'inactive'] },
+      },
+    },
+  })
+  @ApiCreatedResponse({
+    type: EmployeeDetailResponse,
+    description: 'Funcionário criado sem conta de acesso (conta: null).',
+  })
+  @ApiBadRequestResponse({
+    description: 'Corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  create(
+    @Body(new ZodValidationPipe(employeeCreateSchema))
+    input: EmployeeCreateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.create(input);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Lista funcionários para administração' })

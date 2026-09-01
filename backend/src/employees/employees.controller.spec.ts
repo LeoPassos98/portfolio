@@ -202,6 +202,243 @@ describe('EmployeesController', () => {
     };
   }
 
+  function createEmployeeBody(overrides: Record<string, unknown> = {}) {
+    return {
+      nome: 'Maria da Silva',
+      telefone: '11999999999',
+      email: 'maria@example.test',
+      status: 'active',
+      ...overrides,
+    };
+  }
+
+  async function createAuthenticatedAgentWithCsrf(
+    options: Partial<{
+      perfil: 'ADMINISTRADOR' | 'FUNCIONARIO';
+      deveAlterarSenha: boolean;
+    }> = {},
+  ): Promise<{ agent: SuperAgentTest; csrfToken: string }> {
+    const agent = await createAuthenticatedAgent(options);
+    const response = await agent.get('/auth/csrf').expect(HttpStatus.OK);
+
+    return { agent, csrfToken: response.body.csrfToken as string };
+  }
+
+  it('allows an administrator to create an active employee without an account', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const response = await agent
+      .post('/employees')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createEmployeeBody())
+      .expect(HttpStatus.CREATED);
+    employeeIds.push(response.body.id as string);
+
+    const persisted = await database.funcionario.findUniqueOrThrow({
+      where: { id: response.body.id as string },
+    });
+
+    expect(response.body).toEqual({
+      id: persisted.id,
+      nome: 'Maria da Silva',
+      telefone: '11999999999',
+      email: 'maria@example.test',
+      ativo: true,
+      criadoEm: persisted.criadoEm.toISOString(),
+      conta: null,
+    });
+    await expect(
+      database.usuario.findUnique({
+        where: { funcionarioId: persisted.id },
+      }),
+    ).resolves.toBeNull();
+    expect(response.body).not.toHaveProperty('senha');
+    expect(response.body).not.toHaveProperty('senhaHash');
+    expect(response.body).not.toHaveProperty('emailLogin');
+  });
+
+  it('allows an administrator to create an inactive employee', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const response = await agent
+      .post('/employees')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeBody({ nome: 'Funcionário Inativo', status: 'inactive' }),
+      )
+      .expect(HttpStatus.CREATED);
+    employeeIds.push(response.body.id as string);
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({
+        where: { id: response.body.id as string },
+      }),
+    ).resolves.toMatchObject({ ativo: false });
+    expect(response.body).toMatchObject({ ativo: false, conta: null });
+  });
+
+  it('normalizes employee creation input before persisting it', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const response = await agent
+      .post('/employees')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeBody({
+          nome: '  Maria Normalizada  ',
+          telefone: '+55 (11) 99999-9999',
+          email: '  Maria.Contato@Example.test  ',
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    employeeIds.push(response.body.id as string);
+
+    expect(response.body).toMatchObject({
+      nome: 'Maria Normalizada',
+      telefone: '11999999999',
+      email: 'Maria.Contato@Example.test',
+    });
+  });
+
+  it('allows duplicate employee contact phones and emails', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const sharedContact = {
+      telefone: '11999999999',
+      email: 'contato-compartilhado@example.test',
+    };
+    const firstResponse = await agent
+      .post('/employees')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeBody({ nome: 'Primeiro Funcionário', ...sharedContact }),
+      )
+      .expect(HttpStatus.CREATED);
+    const secondResponse = await agent
+      .post('/employees')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeBody({ nome: 'Segundo Funcionário', ...sharedContact }),
+      )
+      .expect(HttpStatus.CREATED);
+    employeeIds.push(
+      firstResponse.body.id as string,
+      secondResponse.body.id as string,
+    );
+
+    expect(firstResponse.body.id).not.toBe(secondResponse.body.id);
+    await expect(
+      database.funcionario.count({ where: sharedContact }),
+    ).resolves.toBe(2);
+  });
+
+  it.each([
+    ['empty name', { nome: '   ' }],
+    ['name shorter than two characters', { nome: ' A ' }],
+    ['name longer than 120 characters', { nome: 'a'.repeat(121) }],
+    ['invalid phone', { telefone: '119999999' }],
+    ['empty email', { email: '   ' }],
+    ['invalid email', { email: 'email-inválido' }],
+    ['invalid status', { status: 'pending' }],
+  ])('rejects creation with %s', async (_description, overrides) => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+    await agent
+      .post('/employees')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createEmployeeBody(overrides))
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+      });
+  });
+
+  it.each([
+    ['ativo', false],
+    ['conta', { emailLogin: 'indevido@example.test' }],
+    ['perfil', 'ADMINISTRADOR'],
+    ['senhaHash', 'indevido'],
+    ['campoInesperado', 'valor'],
+  ])(
+    'rejects administrative, credential, or unexpected field %s',
+    async (field, value) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+      await agent
+        .post('/employees')
+        .set('X-CSRF-Token', csrfToken)
+        .send({ ...createEmployeeBody(), [field]: value })
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => {
+          expect(body).toMatchObject({
+            statusCode: HttpStatus.BAD_REQUEST,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          });
+        });
+    },
+  );
+
+  it('requires a session, completed first access, an administrator role, and CSRF to create', async () => {
+    const unauthenticatedAgent = request.agent(app);
+    const unauthenticatedCsrf = await unauthenticatedAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(unauthenticatedCsrf.headers['set-cookie']?.[0]),
+    );
+
+    await unauthenticatedAgent
+      .post('/employees')
+      .set('X-CSRF-Token', unauthenticatedCsrf.body.csrfToken as string)
+      .send(createEmployeeBody())
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+
+    const pending = await createAuthenticatedAgentWithCsrf({
+      deveAlterarSenha: true,
+    });
+    await pending.agent
+      .post('/employees')
+      .set('X-CSRF-Token', pending.csrfToken)
+      .send(createEmployeeBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+
+    const employee = await createAuthenticatedAgentWithCsrf({
+      perfil: 'FUNCIONARIO',
+    });
+    await employee.agent
+      .post('/employees')
+      .set('X-CSRF-Token', employee.csrfToken)
+      .send(createEmployeeBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_FORBIDDEN',
+        message: 'You do not have permission to access this resource',
+      });
+
+    const administrator = await createAuthenticatedAgent();
+    await administrator
+      .post('/employees')
+      .send(createEmployeeBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+  });
+
   it('allows an administrator to list active employees by default', async () => {
     const agent = await createAuthenticatedAgent();
     const activeEmployee = await createEmployeeFixture({
@@ -424,11 +661,14 @@ describe('EmployeesController', () => {
   });
 
   it('requires a session, completed first access, and an administrator role', async () => {
-    await request(app).get('/employees').expect(HttpStatus.UNAUTHORIZED).expect({
-      statusCode: HttpStatus.UNAUTHORIZED,
-      code: 'AUTH_UNAUTHENTICATED',
-      message: 'Authentication required',
-    });
+    await request(app)
+      .get('/employees')
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
 
     const pendingAgent = await createAuthenticatedAgent({
       deveAlterarSenha: true,
@@ -463,15 +703,49 @@ describe('EmployeesController', () => {
     await agent.get('/employees').expect(HttpStatus.OK);
   });
 
-  it('documents employee reads and nullable account DTOs in OpenAPI', async () => {
+  it('documents employee creation, reads, and nullable account DTOs in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
     const listOperation = response.body.paths['/employees'].get;
+    const createOperation = response.body.paths['/employees'].post;
     const detailOperation = response.body.paths['/employees/{id}'].get;
 
-    expect(Object.keys(response.body.paths['/employees'])).toEqual(['get']);
-    expect(Object.keys(response.body.paths['/employees/{id}'])).toEqual(['get']);
+    expect(Object.keys(response.body.paths['/employees']).sort()).toEqual([
+      'get',
+      'post',
+    ]);
+    expect(Object.keys(response.body.paths['/employees/{id}'])).toEqual([
+      'get',
+    ]);
+    expect(createOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      createOperation.requestBody.content['application/json'].schema,
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['nome', 'telefone', 'email', 'status'],
+      properties: {
+        nome: { type: 'string', minLength: 2, maxLength: 120 },
+        telefone: { type: 'string', example: '+55 (11) 99999-9999' },
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@example.com',
+        },
+        status: { type: 'string', enum: ['active', 'inactive'] },
+      },
+    });
+    for (const status of ['201', '400', '401', '403']) {
+      expect(createOperation.responses).toHaveProperty(status);
+    }
+    expect(createOperation.responses['201'].description).toContain(
+      'conta: null',
+    );
     expect(listOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'status', in: 'query' }),
@@ -499,6 +773,9 @@ describe('EmployeesController', () => {
     ).toMatchObject({ nullable: true });
     expect(
       response.body.components.schemas.EmployeeDetailResponse.properties.conta,
-    ).toMatchObject({ nullable: true });
+    ).toMatchObject({
+      nullable: true,
+      description: expect.stringContaining('cadastro inicial'),
+    });
   });
 });

@@ -14,7 +14,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
 | Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
 | Clientes | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend | 16 |
-| Funcionários | Consultas administrativas reais de funcionários e suas contas de acesso opcionais | 7 |
+| Funcionários | Criação e consultas administrativas reais de funcionários e suas contas de acesso opcionais | 8 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Proteção de origem | CORS restritivo para o frontend configurado | 1 |
@@ -270,7 +270,7 @@ Orquestra a consulta de CEP sem acessar persistência e converte as saídas do p
 
 ## Funcionários
 
-Expõe as consultas administrativas reais de Funcionários no PostgreSQL. A relação `Funcionario.usuario?` é 1:0..1: um funcionário pode não ter conta, ou ter uma conta ativa ou inativa. As consultas retornam somente projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
+Expõe a criação e as consultas administrativas reais de Funcionários no PostgreSQL. A relação `Funcionario.usuario?` é 1:0..1: um funcionário pode não ter conta, ou ter uma conta ativa ou inativa. O cadastro cria somente `Funcionario`, portanto retorna `conta: null`; as consultas retornam somente projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
 
 Diretório principal: `backend/src/employees/`
 
@@ -296,11 +296,15 @@ Consulta `Funcionario` e a conta `Usuario` opcional diretamente pelo `DatabaseSe
 
 ### 6. `backend/src/employees/employees.controller.ts`
 
-Define `GET /employees` e `GET /employees/:id`, aplica `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` no controller, valida entradas com Zod e documenta DTOs e erros no OpenAPI.
+Define `POST /employees`, `GET /employees` e `GET /employees/:id`, aplica `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` no controller, recebe o token CSRF global nas mutações, valida entradas com Zod e documenta DTOs e erros no OpenAPI.
 
 ### 7. `backend/src/employees/employees.module.ts`
 
 Agrupa o domínio de Funcionários, importando autenticação e banco e registrando controller e service.
+
+### 8. `backend/src/employees/employee-create.schema.ts`
+
+Declara o body estrito de criação, normaliza nome, telefone e e-mail de contato, aceita a situação inicial e impede campos administrativos ou de credencial antes da persistência.
 
 ---
 
@@ -460,4 +464,4 @@ Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da 
 
 ### 14. `backend/src/employees/employees.controller.spec.ts`
 
-Executa as consultas administrativas de Funcionários contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre filtros, busca, ordenação, relação opcional de conta, perfis, DTOs sem dados sensíveis, guards, ausência de CSRF em GET, erros e OpenAPI.
+Executa a criação e as consultas administrativas de Funcionários contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre criação real sem `Usuario`, situação inicial, normalizações, contatos não únicos, schema estrito, guards, CSRF, filtros, busca, ordenação, relação opcional de conta, DTOs sem dados sensíveis, erros e OpenAPI.

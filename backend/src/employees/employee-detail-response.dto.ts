@@ -31,6 +31,11 @@ export class EmployeeDetailResponse {
   @ApiProperty({ format: 'date-time' })
   criadoEm!: Date;
 
-  @ApiProperty({ type: EmployeeDetailAccountResponse, nullable: true })
+  @ApiProperty({
+    type: EmployeeDetailAccountResponse,
+    nullable: true,
+    description:
+      'Conta de acesso opcional. No cadastro inicial de funcionário, é sempre null.',
+  })
   conta!: EmployeeDetailAccountResponse | null;
 }
