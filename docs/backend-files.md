@@ -11,18 +11,20 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição | Inicialização do NestJS, sessão global e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
+| Autenticação | Login, reconstrução da sessão autenticada e contrato seguro da resposta | 5 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
-| Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 3 |
+| Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas e sessões | 6 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação e sessões | 7 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
+- [Autenticação](#autenticação)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Validação HTTP](#validação-http)
@@ -44,7 +46,7 @@ Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` n
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco e registra o controller e o serviço atuais.
+Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação e sessão, e registra o endpoint temporário atual.
 
 ### 3. `backend/src/app.controller.ts`
 
@@ -104,6 +106,34 @@ Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com
 
 ---
 
+## Autenticação
+
+Implementa o login e a consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e reconstruindo os dados seguros pelo PostgreSQL.
+
+Diretório principal: `backend/src/auth/`
+
+### 1. `backend/src/auth/auth-session-response.dto.ts`
+
+Define o contrato seguro retornado no login e na sessão atual: identidade, perfil, funcionário e estado de troca obrigatória, sem hash, senha ou identificador de sessão.
+
+### 2. `backend/src/auth/auth-login.schema.ts`
+
+Declara o schema Zod de login, removendo espaços externos e normalizando maiúsculas/minúsculas apenas no e-mail; a senha permanece inalterada.
+
+### 3. `backend/src/auth/auth.service.ts`
+
+Consulta o usuário e seu funcionário no PostgreSQL, exige conta ativa, delega a verificação ao `PasswordService` e projeta a resposta segura da sessão.
+
+### 4. `backend/src/auth/auth.controller.ts`
+
+Expõe `POST /auth/login` e `GET /auth/session`, regenera e salva a sessão antes de gravar `usuarioId`, invalida sessões associadas a contas inativas e documenta ambos os contratos OpenAPI.
+
+### 5. `backend/src/auth/auth.module.ts`
+
+Compõe controller e service de autenticação com a infraestrutura de banco e de senhas.
+
+---
+
 ## Segurança de credenciais
 
 Disponibiliza o hash persistível e a verificação segura de senhas para os futuros fluxos de autenticação, sem criar endpoints ou sessões.
@@ -137,6 +167,10 @@ Cria o pool e o store `connect-pg-simple` sobre a tabela `session`, desabilita a
 ### 3. `backend/src/auth/session/session.module.ts`
 
 Registra e exporta `SessionStoreService` para a composição do módulo raiz e o bootstrap da aplicação.
+
+### 4. `backend/src/auth/session/session-data.d.ts`
+
+Amplia o tipo de sessão do `express-session` com `usuarioId`, único dado de identidade próprio persistido pelo fluxo de autenticação.
 
 ---
 
@@ -213,3 +247,7 @@ Verifica as opções do cookie, incluindo `HttpOnly`, `SameSite=Lax`, duração,
 ### 6. `backend/src/auth/session/session-store.service.spec.ts`
 
 Usa uma fixture HTTP somente de teste para verificar criação, persistência, recuperação e expiração fixa da sessão no PostgreSQL, a limpeza dos dados de validação e o fechamento do store e pool.
+
+### 7. `backend/src/auth/auth.controller.spec.ts`
+
+Executa login e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre resposta genérica de falha, normalização de e-mail, senha exata, regeneração do identificador, persistência PostgreSQL, conta inativada e ausência de dados sensíveis nas respostas.

@@ -1,0 +1,59 @@
+import { Injectable } from '@nestjs/common';
+import { PasswordService } from './password/password.service.js';
+import { DatabaseService } from '../database/database.service.js';
+import { AuthSessionResponse } from './auth-session-response.dto.js';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly passwordService: PasswordService,
+  ) {}
+
+  async authenticate(email: string, password: string) {
+    const usuario = await this.database.usuario.findUnique({
+      where: { emailLogin: email },
+      include: { funcionario: true },
+    });
+
+    if (!usuario || !usuario.ativo) {
+      return null;
+    }
+
+    const passwordMatches = await this.passwordService.verify(
+      usuario.senhaHash,
+      password,
+    );
+
+    if (!passwordMatches) {
+      return null;
+    }
+
+    return usuario;
+  }
+
+  async getAuthenticatedUser(usuarioId: string) {
+    return this.database.usuario.findUnique({
+      where: { id: usuarioId },
+      include: { funcionario: true },
+    });
+  }
+
+  toSessionResponse(usuario: {
+    id: string;
+    perfil: AuthSessionResponse['perfil'];
+    funcionarioId: string;
+    funcionario: { nome: string } | null;
+    deveAlterarSenha: boolean;
+  }): AuthSessionResponse {
+    return {
+      id: usuario.id,
+      perfil: usuario.perfil,
+      funcionarioId: usuario.funcionarioId,
+      ...(usuario.funcionario
+        ? { funcionarioNome: usuario.funcionario.nome }
+        : {}),
+      deveAlterarSenha: usuario.deveAlterarSenha,
+    };
+  }
+}
