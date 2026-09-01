@@ -11,16 +11,18 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição | Inicialização do NestJS e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelo físico, migration inicial e acesso PostgreSQL injetável | 5 |
+| Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura das validações de ambiente, HTTP e erros globais | 3 |
+| Testes | Cobertura das validações de ambiente, HTTP, erros globais e senhas | 4 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
+- [Segurança de credenciais](#segurança-de-credenciais)
 - [Validação HTTP](#validação-http)
 - [Tratamento de erros HTTP](#tratamento-de-erros-http)
 - [Documentação HTTP](#documentação-http)
@@ -96,6 +98,22 @@ Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índice
 
 ---
 
+## Segurança de credenciais
+
+Disponibiliza o hash persistível e a verificação segura de senhas para os futuros fluxos de autenticação, sem criar endpoints ou sessões.
+
+Diretório principal: `backend/src/auth/password/`
+
+### 1. `backend/src/auth/password/password.module.ts`
+
+Registra e exporta `PasswordService` para que módulos futuros possam receber a infraestrutura de senhas por injeção de dependência; é composto pelo módulo raiz sem expor rotas.
+
+### 2. `backend/src/auth/password/password.service.ts`
+
+Gera hashes Argon2id com salt automático e parâmetros seguros, e verifica a senha recebida pelo mecanismo seguro da própria biblioteca, sem armazenar ou registrar a senha original.
+
+---
+
 ## Validação HTTP
 
 Conecta schemas Zod ao ciclo de entrada HTTP do NestJS e mantém as issues disponíveis para a normalização global de erros.
@@ -157,3 +175,7 @@ Garante o retorno de valores parseados, a preservação de transformações Zod,
 ### 3. `backend/src/common/errors/http-exception.filter.spec.ts`
 
 Verifica a normalização global para Zod, exceções HTTP conhecidas, exceções de domínio futuras, falhas inesperadas sanitizadas e os campos obrigatórios do contrato público.
+
+### 4. `backend/src/auth/password/password.service.spec.ts`
+
+Verifica a geração de hashes Argon2id sem senha em texto puro, a validação correta e incorreta e o salt automático que gera hashes distintos para a mesma senha.

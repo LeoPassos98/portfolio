@@ -121,6 +121,15 @@ NODE_ENV=production npm run start:prod
 
 Não são registrados segredos, credenciais, URLs de conexão completas, cookies, tokens ou corpos completos de requisições. Falhas internas retornam uma resposta HTTP sanitizada, enquanto a ocorrência é registrada internamente sem anexar mensagem ou stack arbitrárias.
 
+### Hash de senhas com Argon2id
+
+O pacote `argon2` fornece ao `PasswordService` uma infraestrutura reutilizável para gerar o hash persistível em `Usuario.senha_hash` e verificar senhas sem descriptografar ou armazenar a senha original. O algoritmo Argon2id usa salt gerado e incorporado automaticamente ao hash; o serviço adota uma configuração base de 19 MiB de memória, duas iterações e paralelismo 1.
+
+```bash
+cd backend
+npm install argon2@0.45.1
+```
+
 ## Tailwind CSS
 
 O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.
