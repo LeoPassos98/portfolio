@@ -218,7 +218,7 @@ Centraliza as opções do `express-session`: cookie `HttpOnly`, `SameSite=Lax`, 
 
 ### 2. `backend/src/auth/session/session-store.service.ts`
 
-Cria o pool e o store `connect-pg-simple` sobre a tabela `session`, desabilita a criação automática da tabela e o touch renovável, fornece o middleware global e encerra store e pool no shutdown.
+Cria o pool e o store `connect-pg-simple` sobre a tabela `session`, desabilita a criação automática da tabela e o touch renovável, fornece o middleware global, revoga parametrizadamente todas as sessões de um usuário pelo `usuarioId` persistido no JSON e encerra store e pool no shutdown.
 
 ### 3. `backend/src/auth/session/session.module.ts`
 
@@ -314,11 +314,11 @@ Verifica as opções do cookie, incluindo `HttpOnly`, `SameSite=Lax`, duração,
 
 ### 6. `backend/src/auth/session/session-store.service.spec.ts`
 
-Usa uma fixture HTTP somente de teste para verificar criação, persistência, recuperação e expiração fixa da sessão no PostgreSQL, a limpeza dos dados de validação e o fechamento do store e pool.
+Usa fixtures HTTP somente de teste para verificar criação, persistência, recuperação, expiração fixa e revogação de sessões no PostgreSQL, incluindo múltiplas sessões, isolamento entre usuários, invalidação de CSRF, limpeza dos dados de validação e fechamento do store e pool.
 
 ### 7. `backend/src/auth/auth.controller.spec.ts`
 
-Executa token CSRF, login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre persistência server-side e rotação do token, CORS restritivo, resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, conta inativada, invalidação de logout e ausência de dados sensíveis nas respostas.
+Executa token CSRF, login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre persistência server-side e rotação do token, CORS restritivo, resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, conta inativada, revogação de sessão, invalidação de logout e ausência de dados sensíveis nas respostas.
 
 ### 8. `backend/src/auth/guards/session.guard.spec.ts`
 

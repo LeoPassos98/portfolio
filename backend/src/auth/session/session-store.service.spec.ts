@@ -42,8 +42,40 @@ function createFixtureApp(sessionStoreService: SessionStoreService) {
     request.session.sessionFixtureId ??= crypto.randomUUID();
     response.json({ fixtureId: request.session.sessionFixtureId });
   });
+  app.get('/user-session-fixture/:usuarioId', (request: Request, response) => {
+    request.session.usuarioId = request.params.usuarioId;
+    request.session.csrfToken = crypto.randomUUID();
+    response.json({ csrfToken: request.session.csrfToken });
+  });
+  app.get('/current-user-session', (request: Request, response) => {
+    response.json({
+      usuarioId: request.session.usuarioId,
+      csrfToken: request.session.csrfToken,
+    });
+  });
 
   return app;
+}
+
+function getSessionId(cookie: string | undefined): string {
+  if (!cookie) {
+    throw new Error('Expected a session cookie.');
+  }
+
+  const cookieValue = cookie.split(';', 1)[0]?.replace('connect.sid=', '');
+
+  if (!cookieValue) {
+    throw new Error('Expected a connect.sid cookie.');
+  }
+
+  const signedSessionId = decodeURIComponent(cookieValue);
+  const sessionId = signedSessionId.slice(2).split('.', 1)[0];
+
+  if (!signedSessionId.startsWith('s:') || !sessionId) {
+    throw new Error('Expected a signed session cookie.');
+  }
+
+  return sessionId;
 }
 
 async function removeFixtureSessions(pool: Pool, fixtureIds: string[]) {
@@ -55,6 +87,14 @@ async function removeFixtureSessions(pool: Pool, fixtureIds: string[]) {
     'DELETE FROM "session" WHERE "sess" ->> \'sessionFixtureId\' = ANY($1::text[])',
     [fixtureIds],
   );
+}
+
+async function removeSessionsById(pool: Pool, sessionIds: string[]) {
+  if (sessionIds.length === 0) {
+    return;
+  }
+
+  await pool.query('DELETE FROM "session" WHERE "sid" = ANY($1)', [sessionIds]);
 }
 
 describe('SessionStoreService', () => {
@@ -132,6 +172,115 @@ describe('SessionStoreService', () => {
       await removeFixtureSessions(verificationPool, fixtureIds);
       await sessionStoreService.onModuleDestroy();
       await verificationPool.end();
+    }
+  });
+
+  it('revokes one user session without affecting another user', async () => {
+    const sessionStoreService = new SessionStoreService(createConfigService());
+    const verificationPool = new Pool({ connectionString: databaseUrl });
+    const app = createFixtureApp(sessionStoreService);
+    const revokedUserId = crypto.randomUUID();
+    const otherUserId = crypto.randomUUID();
+    const sessionIds: string[] = [];
+
+    try {
+      const revokedResponse = await request(app)
+        .get(`/user-session-fixture/${revokedUserId}`)
+        .expect(200);
+      const otherResponse = await request(app)
+        .get(`/user-session-fixture/${otherUserId}`)
+        .expect(200);
+      const revokedCookie = revokedResponse.headers['set-cookie']?.[0];
+      const otherCookie = otherResponse.headers['set-cookie']?.[0];
+
+      sessionIds.push(getSessionId(revokedCookie), getSessionId(otherCookie));
+
+      await expect(
+        sessionStoreService.revokeUserSessions(revokedUserId),
+      ).resolves.toBe(1);
+      await expect(
+        verificationPool.query(
+          'SELECT 1 FROM "session" WHERE "sess" ->> \'usuarioId\' = $1',
+          [revokedUserId],
+        ),
+      ).resolves.toMatchObject({ rowCount: 0 });
+      await expect(
+        verificationPool.query(
+          'SELECT 1 FROM "session" WHERE "sess" ->> \'usuarioId\' = $1',
+          [otherUserId],
+        ),
+      ).resolves.toMatchObject({ rowCount: 1 });
+      await request(app)
+        .get('/current-user-session')
+        .set('Cookie', revokedCookie ?? '')
+        .expect(200)
+        .expect({});
+      await request(app)
+        .get('/current-user-session')
+        .set('Cookie', otherCookie ?? '')
+        .expect(200)
+        .expect({
+          usuarioId: otherUserId,
+          csrfToken: otherResponse.body.csrfToken,
+        });
+    } finally {
+      await removeSessionsById(verificationPool, sessionIds);
+      await sessionStoreService.onModuleDestroy();
+      await verificationPool.end();
+    }
+  });
+
+  it('revokes every session and CSRF token associated with a user', async () => {
+    const sessionStoreService = new SessionStoreService(createConfigService());
+    const verificationPool = new Pool({ connectionString: databaseUrl });
+    const app = createFixtureApp(sessionStoreService);
+    const usuarioId = crypto.randomUUID();
+    const sessionIds: string[] = [];
+
+    try {
+      const [firstResponse, secondResponse] = await Promise.all([
+        request(app).get(`/user-session-fixture/${usuarioId}`).expect(200),
+        request(app).get(`/user-session-fixture/${usuarioId}`).expect(200),
+      ]);
+      const firstCookie = firstResponse.headers['set-cookie']?.[0];
+      const secondCookie = secondResponse.headers['set-cookie']?.[0];
+
+      sessionIds.push(getSessionId(firstCookie), getSessionId(secondCookie));
+      await expect(
+        sessionStoreService.revokeUserSessions(usuarioId),
+      ).resolves.toBe(2);
+      await expect(
+        verificationPool.query(
+          'SELECT 1 FROM "session" WHERE "sess" ->> \'usuarioId\' = $1',
+          [usuarioId],
+        ),
+      ).resolves.toMatchObject({ rowCount: 0 });
+      await request(app)
+        .get('/current-user-session')
+        .set('Cookie', firstCookie ?? '')
+        .expect(200)
+        .expect({});
+      await request(app)
+        .get('/current-user-session')
+        .set('Cookie', secondCookie ?? '')
+        .expect(200)
+        .expect({});
+    } finally {
+      await removeSessionsById(verificationPool, sessionIds);
+      await sessionStoreService.onModuleDestroy();
+      await verificationPool.end();
+    }
+  });
+
+  it('safely reports no revocation for a user without sessions', async () => {
+    const sessionStoreService = new SessionStoreService(createConfigService());
+
+    try {
+      await expect(
+        sessionStoreService.revokeUserSessions(crypto.randomUUID()),
+      ).resolves.toBe(0);
+    } finally {
+      await sessionStoreService.onModuleDestroy();
     }
   });
 

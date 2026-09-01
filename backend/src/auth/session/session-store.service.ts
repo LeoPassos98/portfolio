@@ -47,6 +47,15 @@ export class SessionStoreService implements OnModuleDestroy {
     });
   }
 
+  async revokeUserSessions(usuarioId: string): Promise<number> {
+    const result = await this.pool.query(
+      'DELETE FROM "session" WHERE "sess" ->> \'usuarioId\' = $1',
+      [usuarioId],
+    );
+
+    return result.rowCount ?? 0;
+  }
+
   async onModuleDestroy(): Promise<void> {
     try {
       await this.store.close();

@@ -78,6 +78,7 @@ describe('AuthController', () => {
   let passwordService: PasswordService;
   let testingModule: TestingModule;
   let nestApplication: INestApplication;
+  let sessionStoreService: SessionStoreService;
   let verificationPool: Pool;
   const fixtures: UserFixture[] = [];
   const csrfSessionIds: string[] = [];
@@ -87,7 +88,7 @@ describe('AuthController', () => {
       imports: [AppModule],
     }).compile();
     nestApplication = testingModule.createNestApplication();
-    const sessionStoreService = nestApplication.get(SessionStoreService);
+    sessionStoreService = nestApplication.get(SessionStoreService);
 
     nestApplication.use(sessionStoreService.middleware);
     nestApplication.useGlobalFilters(new HttpExceptionFilter());
@@ -430,6 +431,25 @@ describe('AuthController', () => {
       message: 'Authentication required',
     });
     expect(persistedSession.rowCount).toBe(0);
+  });
+
+  it('does not authenticate a cookie after its user sessions are revoked', async () => {
+    const fixture = await createUserFixture();
+    const { response: loginResponse } = await loginWithCsrf(fixture);
+    const cookie = loginResponse.headers['set-cookie']?.[0];
+
+    await expect(
+      sessionStoreService.revokeUserSessions(fixture.userId),
+    ).resolves.toBe(1);
+    await request(app)
+      .get('/auth/session')
+      .set('Cookie', cookie ?? '')
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
   });
 
   it('changes the required first access password, preserves spaces, and regenerates the session', async () => {
