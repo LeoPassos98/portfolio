@@ -15,6 +15,8 @@ import {
   ApiBody,
   ApiBadRequestResponse,
   ApiConflictResponse,
+  ApiForbiddenResponse,
+  ApiHeader,
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
@@ -25,6 +27,8 @@ import type { Request, Response } from 'express';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import { AuthSessionResponse } from './auth-session-response.dto.js';
+import { createCsrfToken } from './csrf-token.js';
+import { CsrfTokenResponse } from './csrf-token-response.dto.js';
 import {
   firstAccessPasswordSchema,
   type FirstAccessPasswordInput,
@@ -41,6 +45,17 @@ const INVALID_CREDENTIALS_ERROR = {
 const FIRST_ACCESS_PASSWORD_NOT_REQUIRED_ERROR = {
   code: 'AUTH_FIRST_ACCESS_PASSWORD_NOT_REQUIRED',
   message: 'First access password change is not required',
+} as const;
+
+const CSRF_HEADER = {
+  name: 'X-CSRF-Token',
+  required: true,
+  description: 'Token CSRF retornado por GET /auth/csrf para a sessão atual.',
+} as const;
+
+const CSRF_INVALID_TOKEN_RESPONSE = {
+  description: 'Token CSRF ausente ou inválido (CSRF_INVALID_TOKEN).',
+  schema: getHttpErrorResponseSchemaReference(),
 } as const;
 
 function regenerateSession(request: Request): Promise<void> {
@@ -99,8 +114,21 @@ function clearSessionCookie(
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Get('csrf')
+  @ApiOperation({ summary: 'Obtém o token CSRF da sessão atual' })
+  @ApiOkResponse({ type: CsrfTokenResponse })
+  async getCsrfToken(@Req() request: Request): Promise<CsrfTokenResponse> {
+    if (!request.session.csrfToken) {
+      request.session.csrfToken = createCsrfToken();
+      await saveSession(request);
+    }
+
+    return { csrfToken: request.session.csrfToken };
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @ApiHeader(CSRF_HEADER)
   @ApiOperation({ summary: 'Autentica credenciais e inicia uma sessão' })
   @ApiBody({
     schema: {
@@ -121,6 +149,7 @@ export class AuthController {
     description: 'Credenciais inválidas ou conta inativa.',
     schema: getHttpErrorResponseSchemaReference(),
   })
+  @ApiForbiddenResponse(CSRF_INVALID_TOKEN_RESPONSE)
   async login(
     @Body(new ZodValidationPipe(loginSchema)) input: LoginInput,
     @Req() request: Request,
@@ -146,6 +175,7 @@ export class AuthController {
   @Post('first-access/password')
   @UseGuards(SessionGuard)
   @HttpCode(HttpStatus.OK)
+  @ApiHeader(CSRF_HEADER)
   @ApiOperation({
     summary: 'Troca a senha temporária obrigatória do primeiro acesso',
   })
@@ -182,6 +212,7 @@ export class AuthController {
     description: 'A conta não possui troca obrigatória de senha pendente.',
     schema: getHttpErrorResponseSchemaReference(),
   })
+  @ApiForbiddenResponse(CSRF_INVALID_TOKEN_RESPONSE)
   async changeFirstAccessPassword(
     @Body(new ZodValidationPipe(firstAccessPasswordSchema))
     input: FirstAccessPasswordInput,
@@ -221,8 +252,10 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiHeader(CSRF_HEADER)
   @ApiOperation({ summary: 'Encerra a sessão atual no servidor' })
   @ApiNoContentResponse({ description: 'Sessão encerrada.' })
+  @ApiForbiddenResponse(CSRF_INVALID_TOKEN_RESPONSE)
   async logout(
     @Req() request: Request,
     @Res() response: Response,

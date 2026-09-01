@@ -8,17 +8,18 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área | Responsabilidade | Arquivos |
 | --- | --- | ---: |
-| Entrada e composição | Inicialização do NestJS, sessão global e endpoint raiz atual | 4 |
-| Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
+| Entrada e composição | Inicialização do NestJS, sessão global, CORS e endpoint raiz atual | 4 |
+| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
-| Autenticação | Login, troca obrigatória de senha, logout e respostas da sessão autenticada | 10 |
-| Guards de acesso | Autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 3 |
+| Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
+| Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
+| Proteção de origem | CORS restritivo para o frontend configurado | 1 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards e sessões | 10 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards e sessões | 11 |
 
 ## Sumário
 
@@ -29,6 +30,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Guards de acesso](#guards-de-acesso)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
+- [Proteção de origem](#proteção-de-origem)
 - [Validação HTTP](#validação-http)
 - [Tratamento de erros HTTP](#tratamento-de-erros-http)
 - [Documentação HTTP](#documentação-http)
@@ -44,11 +46,11 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` nativo com JSON em produção e saída legível nos demais ambientes, registra globalmente o middleware de sessão, o filter de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` nativo com JSON em produção e saída legível nos demais ambientes, habilita CORS restritivo para `FRONTEND_ORIGIN` com credenciais, registra globalmente o middleware de sessão, o filter de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação e sessão, e registra o endpoint temporário atual.
+Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação e sessão, registra o `CsrfGuard` global e fornece o endpoint temporário atual.
 
 ### 3. `backend/src/app.controller.ts`
 
@@ -68,7 +70,7 @@ Diretório principal: `backend/src/config/`
 
 ### 1. `backend/.env.example`
 
-Disponibiliza valores de referência para ambiente de desenvolvimento, porta, bancos PostgreSQL de desenvolvimento e shadow, segredo e duração da sessão e origem do frontend.
+Disponibiliza valores de referência para ambiente de desenvolvimento, porta, bancos PostgreSQL de desenvolvimento e shadow, segredo e duração da sessão e origem única permitida do frontend no CORS.
 
 ### 2. `backend/src/config/environment.validation.ts`
 
@@ -110,7 +112,7 @@ Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com
 
 ## Autenticação
 
-Implementa login, troca obrigatória da senha inicial, logout e consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e retornando o contexto seguro autenticado.
+Implementa token CSRF, login, troca obrigatória da senha inicial, logout e consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e o token anti-CSRF, e retornando o contexto seguro autenticado.
 
 Diretório principal: `backend/src/auth/`
 
@@ -132,7 +134,7 @@ Declara o schema Zod da troca obrigatória de senha: exige senha entre 8 e 128 c
 
 ### 5. `backend/src/auth/auth.controller.ts`
 
-Expõe `POST /auth/login`, `POST /auth/first-access/password`, `POST /auth/logout` e `GET /auth/session`; aplica `SessionGuard` às duas rotas autenticadas, regenera e salva a sessão antes de gravar `usuarioId` no login e após a troca obrigatória, e encerra sessões no PostgreSQL durante o logout.
+Expõe `GET /auth/csrf`, `POST /auth/login`, `POST /auth/first-access/password`, `POST /auth/logout` e `GET /auth/session`; entrega o token CSRF ligado à sessão, documenta o cabeçalho obrigatório das mutações, aplica `SessionGuard` às duas rotas autenticadas, regenera e salva a sessão antes de gravar `usuarioId` no login e após a troca obrigatória, e encerra sessões no PostgreSQL durante o logout.
 
 ### 6. `backend/src/auth/auth.module.ts`
 
@@ -148,17 +150,25 @@ Amplia o tipo de `Express.Request` com `authenticatedUser`, o contexto seguro da
 
 ### 9. `backend/src/auth/auth-errors.ts`
 
-Centraliza os códigos e mensagens estáveis usados pelos guards de sessão, primeiro acesso e perfil.
+Centraliza os códigos e mensagens estáveis usados pelos guards CSRF, de sessão, primeiro acesso e perfil.
 
 ### 10. `backend/src/auth/roles.decorator.ts`
 
 Declara a metadata reutilizável de perfis permitidos para handlers e controllers, usando exclusivamente o enum `Perfil` do Prisma.
 
+### 11. `backend/src/auth/csrf-token.ts`
+
+Gera tokens CSRF aleatórios com `crypto` nativo e compara os valores recebidos em tempo seguro, sem registrar ou transferir o token por cookie próprio.
+
+### 12. `backend/src/auth/csrf-token-response.dto.ts`
+
+Define a resposta documentada de `GET /auth/csrf`, expondo somente o token vinculado à sessão server-side atual.
+
 ---
 
 ## Guards de acesso
 
-Reúne guards reutilizáveis que separam autenticação, bloqueio de primeiro acesso e autorização por perfil das futuras policies de recurso.
+Reúne guards reutilizáveis que separam a validação CSRF, autenticação, bloqueio de primeiro acesso e autorização por perfil das futuras policies de recurso.
 
 Diretório principal: `backend/src/auth/guards/`
 
@@ -173,6 +183,10 @@ Usa o principal já carregado pelo `SessionGuard` para bloquear o acesso normal 
 ### 3. `backend/src/auth/guards/role.guard.ts`
 
 Lê com `Reflector` os perfis declarados por `@Roles(...)` e compara-os somente com o perfil do principal autenticado no request, sem aplicar regras de recurso ou consultar o PostgreSQL.
+
+### 4. `backend/src/auth/guards/csrf.guard.ts`
+
+Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalho `X-CSRF-Token` ao token da sessão; permite somente `GET`, `HEAD` e `OPTIONS` sem token.
 
 ---
 
@@ -212,7 +226,19 @@ Registra e exporta `SessionStoreService` para a composição do módulo raiz e o
 
 ### 4. `backend/src/auth/session/session-data.d.ts`
 
-Amplia o tipo de sessão do `express-session` com `usuarioId`, único dado de identidade próprio persistido pelo fluxo de autenticação.
+Amplia o tipo de sessão do `express-session` com `usuarioId` e `csrfToken`, os únicos dados próprios persistidos pelo fluxo de autenticação e proteção CSRF.
+
+---
+
+## Proteção de origem
+
+Define o CORS do backend para o frontend configurado, independente da validação CSRF e das regras de autorização do servidor.
+
+Diretório principal: `backend/src/common/http/`
+
+### 1. `backend/src/common/http/cors.options.ts`
+
+Centraliza a origem explícita, credenciais, métodos e cabeçalhos permitidos pelo CORS, incluindo `X-CSRF-Token` e sem usar wildcard.
 
 ---
 
@@ -292,7 +318,7 @@ Usa uma fixture HTTP somente de teste para verificar criação, persistência, r
 
 ### 7. `backend/src/auth/auth.controller.spec.ts`
 
-Executa login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, persistência PostgreSQL, conta inativada, invalidação de logout e ausência de dados sensíveis nas respostas.
+Executa token CSRF, login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre persistência server-side e rotação do token, CORS restritivo, resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, conta inativada, invalidação de logout e ausência de dados sensíveis nas respostas.
 
 ### 8. `backend/src/auth/guards/session.guard.spec.ts`
 
@@ -305,3 +331,7 @@ Verifica o bloqueio de acesso normal quando a troca obrigatória de senha está 
 ### 10. `backend/src/auth/guards/role.guard.spec.ts`
 
 Verifica o decorator `@Roles(...)` e o `RoleGuard` para perfis permitidos, negados, múltiplos e ausentes, incluindo a resposta estável de acesso proibido sem consulta adicional ao banco.
+
+### 11. `backend/src/auth/guards/csrf.guard.spec.ts`
+
+Verifica os métodos seguros liberados, a rejeição uniforme de token ausente ou inválido e a validação obrigatória para `POST`, `PUT`, `PATCH` e `DELETE`.

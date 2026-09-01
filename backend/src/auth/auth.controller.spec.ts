@@ -4,9 +4,11 @@ import { Test, type TestingModule } from '@nestjs/testing';
 import type { Express, Request, Response } from 'express';
 import { Pool } from 'pg';
 import request from 'supertest';
+import type { SuperAgentTest } from 'supertest';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AppModule } from '../app.module.js';
 import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
+import { createCorsOptions } from '../common/http/cors.options.js';
 import { DatabaseService } from '../database/database.service.js';
 import { PasswordService } from './password/password.service.js';
 import { SessionStoreService } from './session/session-store.service.js';
@@ -28,6 +30,14 @@ const invalidCredentialsResponse = {
   code: 'AUTH_INVALID_CREDENTIALS',
   message: 'Invalid email or password',
 };
+
+const csrfInvalidTokenResponse = {
+  statusCode: HttpStatus.FORBIDDEN,
+  code: 'CSRF_INVALID_TOKEN',
+  message: 'CSRF token is invalid',
+};
+
+const frontendOrigin = 'http://localhost:5173';
 
 type UserFixture = {
   userId: string;
@@ -70,6 +80,7 @@ describe('AuthController', () => {
   let nestApplication: INestApplication;
   let verificationPool: Pool;
   const fixtures: UserFixture[] = [];
+  const csrfSessionIds: string[] = [];
 
   beforeAll(async () => {
     testingModule = await Test.createTestingModule({
@@ -80,6 +91,7 @@ describe('AuthController', () => {
 
     nestApplication.use(sessionStoreService.middleware);
     nestApplication.useGlobalFilters(new HttpExceptionFilter());
+    nestApplication.enableCors(createCorsOptions(frontendOrigin));
     app = nestApplication.getHttpAdapter().getInstance() as Express;
     app.get(
       '/auth-test-session',
@@ -110,7 +122,15 @@ describe('AuthController', () => {
       });
     }
 
+    if (csrfSessionIds.length > 0) {
+      await verificationPool.query(
+        'DELETE FROM "session" WHERE "sid" = ANY($1)',
+        [csrfSessionIds],
+      );
+    }
+
     fixtures.length = 0;
+    csrfSessionIds.length = 0;
   });
 
   afterAll(async () => {
@@ -158,12 +178,101 @@ describe('AuthController', () => {
     return fixture;
   }
 
-  it('authenticates valid credentials and persists only usuarioId in PostgreSQL', async () => {
-    const fixture = await createUserFixture({ deveAlterarSenha: true });
-    const response = await request(app)
+  async function getCsrfToken(agent: SuperAgentTest): Promise<string> {
+    const response = await agent.get('/auth/csrf').expect(HttpStatus.OK);
+    const cookie = response.headers['set-cookie']?.[0];
+
+    if (cookie) {
+      csrfSessionIds.push(getSessionId(cookie));
+    }
+
+    expect(response.body.csrfToken).toEqual(expect.any(String));
+
+    return response.body.csrfToken as string;
+  }
+
+  async function createCsrfSession(): Promise<{
+    agent: SuperAgentTest;
+    csrfToken: string;
+  }> {
+    const agent = request.agent(app);
+
+    return { agent, csrfToken: await getCsrfToken(agent) };
+  }
+
+  async function loginWithCsrf(fixture: UserFixture) {
+    const { agent, csrfToken } = await createCsrfSession();
+    const response = await agent
       .post('/auth/login')
+      .set('X-CSRF-Token', csrfToken)
       .send({ email: fixture.email, password: fixture.password })
       .expect(HttpStatus.OK);
+
+    return { agent, csrfToken, response };
+  }
+
+  it('creates, persists, and reuses a CSRF token without a dedicated cookie', async () => {
+    const agent = request.agent(app);
+    const firstResponse = await agent
+      .get('/auth/csrf')
+      .set('Origin', frontendOrigin)
+      .expect(HttpStatus.OK);
+    const csrfToken = firstResponse.body.csrfToken as string;
+    const cookie = firstResponse.headers['set-cookie']?.[0];
+    const sessionId = getSessionId(cookie);
+    const persistedSession = await verificationPool.query<{
+      sess: Record<string, unknown>;
+    }>('SELECT "sess" FROM "session" WHERE "sid" = $1', [sessionId]);
+    const secondResponse = await agent.get('/auth/csrf').expect(HttpStatus.OK);
+
+    csrfSessionIds.push(sessionId);
+    expect(csrfToken).toEqual(expect.any(String));
+    expect(firstResponse.headers['access-control-allow-origin']).toBe(
+      frontendOrigin,
+    );
+    expect(firstResponse.headers['access-control-allow-credentials']).toBe(
+      'true',
+    );
+    expect(firstResponse.headers['access-control-allow-origin']).not.toBe('*');
+    expect(cookie).toMatch(/^connect\.sid=/);
+    expect(cookie).not.toContain(csrfToken);
+    expect(persistedSession.rows[0]?.sess).toMatchObject({ csrfToken });
+    expect(secondResponse.body).toEqual({ csrfToken });
+
+    const preflightResponse = await request(app)
+      .options('/auth/login')
+      .set('Origin', frontendOrigin)
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'Content-Type, X-CSRF-Token')
+      .expect(HttpStatus.NO_CONTENT);
+
+    expect(preflightResponse.headers['access-control-allow-origin']).toBe(
+      frontendOrigin,
+    );
+    expect(preflightResponse.headers['access-control-allow-credentials']).toBe(
+      'true',
+    );
+    expect(
+      preflightResponse.headers['access-control-allow-headers']?.toLowerCase(),
+    ).toContain('x-csrf-token');
+    expect(preflightResponse.headers['access-control-allow-origin']).not.toBe(
+      '*',
+    );
+  });
+
+  it('requires a CSRF token to login', async () => {
+    const fixture = await createUserFixture();
+
+    await request(app)
+      .post('/auth/login')
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(csrfInvalidTokenResponse);
+  });
+
+  it('authenticates valid credentials and persists only usuarioId in PostgreSQL', async () => {
+    const fixture = await createUserFixture({ deveAlterarSenha: true });
+    const { response } = await loginWithCsrf(fixture);
     const cookie = response.headers['set-cookie']?.[0];
     const persistedSession = await verificationPool.query<{
       sid: string;
@@ -202,18 +311,31 @@ describe('AuthController', () => {
   it('returns the same public response for invalid password, unknown email, and inactive account', async () => {
     const activeFixture = await createUserFixture();
     const inactiveFixture = await createUserFixture({ ativo: false });
+    const [wrongPasswordSession, unknownEmailSession, inactiveSession] =
+      await Promise.all([
+        createCsrfSession(),
+        createCsrfSession(),
+        createCsrfSession(),
+      ]);
     const responses = await Promise.all([
-      request(app)
+      wrongPasswordSession.agent
         .post('/auth/login')
+        .set('X-CSRF-Token', wrongPasswordSession.csrfToken)
         .send({ email: activeFixture.email, password: 'senha-incorreta' }),
-      request(app).post('/auth/login').send({
-        email: 'inexistente@example.test',
-        password: activeFixture.password,
-      }),
-      request(app).post('/auth/login').send({
-        email: inactiveFixture.email,
-        password: inactiveFixture.password,
-      }),
+      unknownEmailSession.agent
+        .post('/auth/login')
+        .set('X-CSRF-Token', unknownEmailSession.csrfToken)
+        .send({
+          email: 'inexistente@example.test',
+          password: activeFixture.password,
+        }),
+      inactiveSession.agent
+        .post('/auth/login')
+        .set('X-CSRF-Token', inactiveSession.csrfToken)
+        .send({
+          email: inactiveFixture.email,
+          password: inactiveFixture.password,
+        }),
     ]);
 
     for (const response of responses) {
@@ -224,9 +346,11 @@ describe('AuthController', () => {
 
   it('normalizes only the email and keeps the password exact', async () => {
     const fixture = await createUserFixture({ password: ' senha exata ' });
+    const { agent, csrfToken } = await createCsrfSession();
 
-    await request(app)
+    await agent
       .post('/auth/login')
+      .set('X-CSRF-Token', csrfToken)
       .send({
         email: `  ${fixture.email.toUpperCase()}  `,
         password: fixture.password.trim(),
@@ -234,8 +358,9 @@ describe('AuthController', () => {
       .expect(HttpStatus.UNAUTHORIZED)
       .expect(invalidCredentialsResponse);
 
-    const response = await request(app)
+    const response = await agent
       .post('/auth/login')
+      .set('X-CSRF-Token', csrfToken)
       .send({
         email: `  ${fixture.email.toUpperCase()}  `,
         password: fixture.password,
@@ -252,8 +377,10 @@ describe('AuthController', () => {
       .get('/auth-test-session')
       .expect(HttpStatus.NO_CONTENT);
     const initialCookie = initialResponse.headers['set-cookie']?.[0];
+    const csrfToken = await getCsrfToken(agent);
     const loginResponse = await agent
       .post('/auth/login')
+      .set('X-CSRF-Token', csrfToken)
       .send({ email: fixture.email, password: fixture.password })
       .expect(HttpStatus.OK);
     const authenticatedCookie = loginResponse.headers['set-cookie']?.[0];
@@ -267,15 +394,10 @@ describe('AuthController', () => {
 
   it('reconstructs the current user from the PostgreSQL session', async () => {
     const fixture = await createUserFixture();
-    const loginResponse = await request(app)
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
-    const cookie = loginResponse.headers['set-cookie']?.[0];
+    const { agent, response: loginResponse } = await loginWithCsrf(fixture);
 
-    const sessionResponse = await request(app)
+    const sessionResponse = await agent
       .get('/auth/session')
-      .set('Cookie', cookie ?? '')
       .expect(HttpStatus.OK);
 
     expect(sessionResponse.body).toEqual(loginResponse.body);
@@ -285,10 +407,7 @@ describe('AuthController', () => {
 
   it('invalidates a session when its user becomes inactive', async () => {
     const fixture = await createUserFixture();
-    const loginResponse = await request(app)
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
+    const { response: loginResponse } = await loginWithCsrf(fixture);
     const cookie = loginResponse.headers['set-cookie']?.[0];
 
     await database.usuario.update({
@@ -324,15 +443,17 @@ describe('AuthController', () => {
       })
     ).senhaHash;
     const newPassword = ' senha nova ';
-    const agent = request.agent(app);
-    const loginResponse = await agent
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
+    const {
+      agent,
+      csrfToken: preLoginCsrfToken,
+      response: loginResponse,
+    } = await loginWithCsrf(fixture);
     const initialCookie = loginResponse.headers['set-cookie']?.[0];
     const initialSessionId = getSessionId(initialCookie);
+    const csrfToken = await getCsrfToken(agent);
     const changeResponse = await agent
       .post('/auth/first-access/password')
+      .set('X-CSRF-Token', csrfToken)
       .send({
         password: newPassword,
         passwordConfirmation: newPassword,
@@ -351,13 +472,14 @@ describe('AuthController', () => {
       id: fixture.userId,
       deveAlterarSenha: false,
     });
+    expect(csrfToken).not.toBe(preLoginCsrfToken);
     expect(regeneratedCookie?.split(';', 1)[0]).not.toBe(
       initialCookie?.split(';', 1)[0],
     );
     expect(persistedUser.senhaHash).not.toBe(initialHash);
-    await expect(passwordService.verify(persistedUser.senhaHash, newPassword)).resolves.toBe(
-      true,
-    );
+    await expect(
+      passwordService.verify(persistedUser.senhaHash, newPassword),
+    ).resolves.toBe(true);
     await expect(
       passwordService.verify(persistedUser.senhaHash, newPassword.trim()),
     ).resolves.toBe(false);
@@ -366,7 +488,9 @@ describe('AuthController', () => {
       { sid: expect.not.stringMatching(new RegExp(`^${initialSessionId}$`)) },
     ]);
 
-    const sessionResponse = await agent.get('/auth/session').expect(HttpStatus.OK);
+    const sessionResponse = await agent
+      .get('/auth/session')
+      .expect(HttpStatus.OK);
 
     expect(sessionResponse.body).toEqual({
       id: fixture.userId,
@@ -383,12 +507,8 @@ describe('AuthController', () => {
 
   it('rejects first access password values outside the limits and different confirmations', async () => {
     const fixture = await createUserFixture({ deveAlterarSenha: true });
-    const agent = request.agent(app);
-
-    await agent
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
+    const { agent } = await loginWithCsrf(fixture);
+    const csrfToken = await getCsrfToken(agent);
 
     for (const input of [
       { password: 'a'.repeat(7), passwordConfirmation: 'a'.repeat(7) },
@@ -400,6 +520,7 @@ describe('AuthController', () => {
     ]) {
       await agent
         .post('/auth/first-access/password')
+        .set('X-CSRF-Token', csrfToken)
         .send(input)
         .expect(HttpStatus.BAD_REQUEST)
         .expect(({ body }) => {
@@ -409,8 +530,11 @@ describe('AuthController', () => {
   });
 
   it('requires a session to change the first access password', async () => {
-    await request(app)
+    const { agent, csrfToken } = await createCsrfSession();
+
+    await agent
       .post('/auth/first-access/password')
+      .set('X-CSRF-Token', csrfToken)
       .send({
         password: 'senha válida',
         passwordConfirmation: 'senha válida',
@@ -425,12 +549,8 @@ describe('AuthController', () => {
 
   it('rejects an inactive account during the first access password change', async () => {
     const fixture = await createUserFixture({ deveAlterarSenha: true });
-    const agent = request.agent(app);
-
-    await agent
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
+    const { agent } = await loginWithCsrf(fixture);
+    const csrfToken = await getCsrfToken(agent);
     await database.usuario.update({
       where: { id: fixture.userId },
       data: { ativo: false },
@@ -438,6 +558,7 @@ describe('AuthController', () => {
 
     await agent
       .post('/auth/first-access/password')
+      .set('X-CSRF-Token', csrfToken)
       .send({
         password: 'senha válida',
         passwordConfirmation: 'senha válida',
@@ -463,14 +584,11 @@ describe('AuthController', () => {
         where: { id: fixture.userId },
       })
     ).senhaHash;
-    const agent = request.agent(app);
-
-    await agent
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
+    const { agent } = await loginWithCsrf(fixture);
+    const csrfToken = await getCsrfToken(agent);
     await agent
       .post('/auth/first-access/password')
+      .set('X-CSRF-Token', csrfToken)
       .send({
         password: 'senha válida',
         passwordConfirmation: 'senha válida',
@@ -492,11 +610,11 @@ describe('AuthController', () => {
 
   it('destroys the PostgreSQL session and clears the cookie on logout', async () => {
     const fixture = await createUserFixture();
-    const agent = request.agent(app);
-    const loginResponse = await agent
-      .post('/auth/login')
-      .send({ email: fixture.email, password: fixture.password })
-      .expect(HttpStatus.OK);
+    const {
+      agent,
+      csrfToken: previousCsrfToken,
+      response: loginResponse,
+    } = await loginWithCsrf(fixture);
     const cookie = loginResponse.headers['set-cookie']?.[0];
     const sessionId = getSessionId(cookie);
 
@@ -506,11 +624,21 @@ describe('AuthController', () => {
       ]),
     ).resolves.toMatchObject({ rowCount: 1 });
 
+    await agent
+      .post('/auth/logout')
+      .set('X-CSRF-Token', previousCsrfToken)
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(csrfInvalidTokenResponse);
+
+    const csrfToken = await getCsrfToken(agent);
     const logoutResponse = await agent
       .post('/auth/logout')
+      .set('X-CSRF-Token', csrfToken)
       .expect(HttpStatus.NO_CONTENT);
 
-    expect(logoutResponse.headers['set-cookie']?.[0]).toMatch(/^connect\.sid=;/);
+    expect(logoutResponse.headers['set-cookie']?.[0]).toMatch(
+      /^connect\.sid=;/,
+    );
     await expect(
       verificationPool.query('SELECT 1 FROM "session" WHERE "sid" = $1', [
         sessionId,
@@ -522,8 +650,18 @@ describe('AuthController', () => {
       .expect(HttpStatus.UNAUTHORIZED);
 
     await request(app)
-      .post('/auth/logout')
+      .post('/auth/login')
       .set('Cookie', cookie ?? '')
+      .set('X-CSRF-Token', csrfToken)
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(csrfInvalidTokenResponse);
+
+    const postLogoutCsrfToken = await getCsrfToken(agent);
+
+    await agent
+      .post('/auth/logout')
+      .set('X-CSRF-Token', postLogoutCsrfToken)
       .expect(HttpStatus.NO_CONTENT)
       .expect(({ headers }) => {
         expect(headers['set-cookie']?.[0]).toMatch(/^connect\.sid=;/);

@@ -114,6 +114,14 @@ A migration cria `session` com `sid` como chave primária, `sess` em JSON e `exp
 
 O cookie tem `HttpOnly`, `SameSite=Lax`, caminho `/` e `maxAge` configurável; `Secure` é habilitado somente em produção. Não há domínio configurado e nem dados de usuário no cookie. `SESSION_SECRET` assina o identificador de sessão e deve continuar sendo um segredo longo fora do controle de versão.
 
+### Proteção CSRF e CORS
+
+O backend usa o Synchronizer Token Pattern: `GET /auth/csrf` cria, persiste e retorna um token aleatório associado apenas à sessão server-side. O cliente deve enviar esse valor no cabeçalho `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`; o token não é gravado em cookie próprio nem registrado em logs.
+
+O token é invalidado naturalmente quando a sessão é regenerada no login ou na troca obrigatória de senha, ou destruída no logout. Após essas operações, obtenha um novo token com `GET /auth/csrf` antes de executar outra mutação.
+
+O CORS usa a variável já obrigatória `FRONTEND_ORIGIN` como origem explícita, habilita `credentials: true` para o cookie de sessão e permite o cabeçalho `X-CSRF-Token`. Não use `origin: '*'` com autenticação por cookie. CORS controla quais origens o navegador pode chamar; CSRF valida que uma mutação apresentou o token ligado à sessão, e nenhum deles substitui a autorização do NestJS ou o `SameSite=Lax` do cookie.
+
 ### Documentação HTTP com OpenAPI
 
 O `@nestjs/swagger` integra o NestJS à especificação OpenAPI e disponibiliza uma Swagger UI navegável para os contratos HTTP da API.
