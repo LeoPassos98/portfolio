@@ -11,14 +11,14 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição | Inicialização do NestJS, sessão global e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
-| Autenticação | Login, troca obrigatória de senha, logout e respostas da sessão autenticada | 9 |
-| Guards de acesso | Validação de sessão e bloqueio de acesso normal durante a troca obrigatória | 2 |
+| Autenticação | Login, troca obrigatória de senha, logout e respostas da sessão autenticada | 10 |
+| Guards de acesso | Autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 3 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards e sessões | 9 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards e sessões | 10 |
 
 ## Sumário
 
@@ -148,13 +148,17 @@ Amplia o tipo de `Express.Request` com `authenticatedUser`, o contexto seguro da
 
 ### 9. `backend/src/auth/auth-errors.ts`
 
-Centraliza os códigos e mensagens estáveis usados pelos guards de sessão e de bloqueio da troca obrigatória de senha.
+Centraliza os códigos e mensagens estáveis usados pelos guards de sessão, primeiro acesso e perfil.
+
+### 10. `backend/src/auth/roles.decorator.ts`
+
+Declara a metadata reutilizável de perfis permitidos para handlers e controllers, usando exclusivamente o enum `Perfil` do Prisma.
 
 ---
 
 ## Guards de acesso
 
-Reúne guards reutilizáveis que separam a confirmação da sessão autenticada das futuras regras de autorização por perfil e recurso.
+Reúne guards reutilizáveis que separam autenticação, bloqueio de primeiro acesso e autorização por perfil das futuras policies de recurso.
 
 Diretório principal: `backend/src/auth/guards/`
 
@@ -165,6 +169,10 @@ Exige `session.usuarioId`, recarrega a conta ativa, destrói sessões inválidas
 ### 2. `backend/src/auth/guards/first-access-completed.guard.ts`
 
 Usa o principal já carregado pelo `SessionGuard` para bloquear o acesso normal enquanto `deveAlterarSenha` estiver ativo, sem nova consulta ao PostgreSQL.
+
+### 3. `backend/src/auth/guards/role.guard.ts`
+
+Lê com `Reflector` os perfis declarados por `@Roles(...)` e compara-os somente com o perfil do principal autenticado no request, sem aplicar regras de recurso ou consultar o PostgreSQL.
 
 ---
 
@@ -293,3 +301,7 @@ Verifica a rejeição de sessão ausente, a reconstrução do principal seguro, 
 ### 9. `backend/src/auth/guards/first-access-completed.guard.spec.ts`
 
 Verifica o bloqueio de acesso normal quando a troca obrigatória de senha está pendente e a liberação quando ela foi concluída, reutilizando somente o usuário já presente no request.
+
+### 10. `backend/src/auth/guards/role.guard.spec.ts`
+
+Verifica o decorator `@Roles(...)` e o `RoleGuard` para perfis permitidos, negados, múltiplos e ausentes, incluindo a resposta estável de acesso proibido sem consulta adicional ao banco.

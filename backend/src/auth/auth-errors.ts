@@ -7,3 +7,8 @@ export const PASSWORD_CHANGE_REQUIRED_ERROR = {
   code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
   message: 'Password change is required before accessing the application',
 } as const;
+
+export const FORBIDDEN_ERROR = {
+  code: 'AUTH_FORBIDDEN',
+  message: 'You do not have permission to access this resource',
+} as const;
