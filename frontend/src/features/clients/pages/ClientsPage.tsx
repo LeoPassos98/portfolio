@@ -11,9 +11,11 @@ import { clientsQueryKeys } from '../api/clientQueryKeys'
 import { listClients } from '../api/clientsApi'
 import type { ClientStatus } from '../types/client'
 
-const clientStatuses: readonly ClientStatus[] = ['active', 'inactive']
+const clientStatuses = ['active', 'inactive', 'all'] as const
 
-function isClientStatus(value: string | null): value is ClientStatus {
+type ClientListStatus = ClientStatus | 'all'
+
+function isClientStatus(value: string | null): value is ClientListStatus {
   return value !== null && clientStatuses.some((status) => status === value)
 }
 
@@ -60,7 +62,7 @@ function ClientsPage() {
   const status = isClientStatus(statusParam) ? statusParam : 'active'
   const search = searchParams.get('search') ?? ''
   const listParams = {
-    status: statusParam === 'all' ? 'all' : status,
+    status,
     ...(search.trim() === '' ? {} : { search: search.trim() }),
   } as const
   const {
@@ -72,7 +74,7 @@ function ClientsPage() {
     queryKey: clientsQueryKeys.list(listParams),
     queryFn: () => listClients(listParams),
   })
-  const hasActiveFilters = statusParam === 'inactive' || search.trim() !== ''
+  const hasActiveFilters = status !== 'active' || search.trim() !== ''
 
   function clearFilters() {
     setSearchParams({})
