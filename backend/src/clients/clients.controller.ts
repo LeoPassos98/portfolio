@@ -1,7 +1,19 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBody,
   ApiBadRequestResponse,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -14,6 +26,10 @@ import { FirstAccessCompletedGuard } from '../auth/guards/first-access-completed
 import { SessionGuard } from '../auth/guards/session.guard.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
+import {
+  clientCreateSchema,
+  type ClientCreateInput,
+} from './client-create.schema.js';
 import { clientIdSchema, type ClientIdInput } from './client-id.schema.js';
 import {
   clientListQuerySchema,
@@ -38,11 +54,71 @@ const passwordChangeRequiredResponse = {
   schema: getHttpErrorResponseSchemaReference(),
 };
 
+const csrfHeader = {
+  name: 'X-CSRF-Token',
+  required: true,
+  description: 'Token CSRF retornado por GET /auth/csrf para a sessão atual.',
+} as const;
+
 @Controller('clients')
 @ApiTags('Clientes')
 @UseGuards(SessionGuard, FirstAccessCompletedGuard)
 export class ClientsController {
   constructor(private readonly clientsService: ClientsService) {}
+
+  @Post()
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Cria um cliente' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'nome',
+        'telefone',
+        'cep',
+        'logradouro',
+        'numero',
+        'bairro',
+        'cidade',
+        'uf',
+      ],
+      properties: {
+        nome: { type: 'string', minLength: 2, maxLength: 120 },
+        telefone: { type: 'string', example: '+55 (11) 99999-9999' },
+        documento: { type: 'string', example: '529.982.247-25' },
+        email: { type: 'string', format: 'email' },
+        cep: { type: 'string', example: '01001-000' },
+        logradouro: { type: 'string', example: 'Praça da Sé' },
+        numero: { type: 'string', example: '100' },
+        complemento: { type: 'string', example: 'Sala 10' },
+        bairro: { type: 'string', example: 'Sé' },
+        cidade: { type: 'string', example: 'São Paulo' },
+        uf: { type: 'string', minLength: 2, maxLength: 2, example: 'SP' },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: ClientDetailResponse })
+  @ApiBadRequestResponse({
+    description: 'Corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, ou troca obrigatória de senha pendente.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'CPF/CNPJ já pertence a outro cliente (CLIENT_DOCUMENT_ALREADY_EXISTS).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  create(
+    @Body(new ZodValidationPipe(clientCreateSchema)) input: ClientCreateInput,
+  ): Promise<ClientDetailResponse> {
+    return this.clientsService.create(input);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Lista clientes consultáveis' })

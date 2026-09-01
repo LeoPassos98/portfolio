@@ -13,7 +13,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
 | Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
 | Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
-| Consulta de clientes | Listagem e detalhe de clientes com filtros, busca e proteção de sessão | 7 |
+| Clientes | Criação, listagem e detalhe de clientes com validação, normalização e proteção de sessão | 9 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Proteção de origem | CORS restritivo para o frontend configurado | 1 |
@@ -29,7 +29,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Autenticação](#autenticação)
 - [Guards de acesso](#guards-de-acesso)
-- [Consulta de clientes](#consulta-de-clientes)
+- [Clientes](#clientes)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Proteção de origem](#proteção-de-origem)
@@ -192,9 +192,9 @@ Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalh
 
 ---
 
-## Consulta de clientes
+## Clientes
 
-Expõe a consulta real de clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
+Expõe a criação, a listagem e o detalhe reais de clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
 
 Diretório principal: `backend/src/clients/`
 
@@ -216,15 +216,23 @@ Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Or
 
 ### 5. `backend/src/clients/clients.service.ts`
 
-Orquestra consultas reais via `DatabaseService`: transforma filtro e busca em `where` do Prisma, normaliza dígitos de CPF/CNPJ para documento, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
+Orquestra criação e consultas reais via `DatabaseService`: persiste Clientes normalizados e ativos por padrão, converte a violação `P2002` da constraint única de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, transforma filtro e busca em `where` do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/clients/clients.controller.ts`
 
-Define a fronteira HTTP `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, valida entrada com Zod e descreve DTOs e respostas de erro no OpenAPI.
+Define a fronteira HTTP `POST /clients`, `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, valida entrada com Zod e descreve DTOs e respostas de erro no OpenAPI.
 
 ### 7. `backend/src/clients/clients.module.ts`
 
 Agrupa o domínio de Clientes, importando banco e autenticação e registrando controller e service.
+
+### 8. `backend/src/clients/client-document.validator.ts`
+
+Centraliza a validação reutilizável dos dígitos verificadores de CPF e CNPJ, incluindo a rejeição de sequências repetidas.
+
+### 9. `backend/src/clients/client-create.schema.ts`
+
+Declara o body estrito de criação de Cliente e normaliza nomes, endereço, telefone, CPF/CNPJ, CEP, e-mail, complemento e UF antes do service, impedindo mass assignment de campos administrativos.
 
 ---
 
@@ -376,4 +384,4 @@ Verifica os métodos seguros liberados, a rejeição uniforme de token ausente o
 
 ### 12. `backend/src/clients/clients.controller.spec.ts`
 
-Executa as consultas de Clientes contra `portfolio_dev` com fixtures removidas ao final; cobre filtros, busca por nome e documento normalizado, ordenação, DTOs sem relações, erros, guards, os dois perfis e a documentação OpenAPI.
+Executa criação e consultas de Clientes contra `portfolio_dev` com fixtures removidas ao final; cobre persistência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, filtros, busca, ordenação, DTOs sem relações, erros e OpenAPI.

@@ -197,7 +197,11 @@ describe('ClientsController', () => {
   }: Partial<{
     perfil: 'ADMINISTRADOR' | 'FUNCIONARIO';
     deveAlterarSenha: boolean;
-  }> = {}): Promise<{ agent: SuperAgentTest; user: UserFixture }> {
+  }> = {}): Promise<{
+    agent: SuperAgentTest;
+    csrfToken: string;
+    user: UserFixture;
+  }> {
     const user = await createUserFixture({ perfil, deveAlterarSenha });
     const agent = request.agent(app);
     const response = await agent.get('/auth/csrf').expect(HttpStatus.OK);
@@ -210,8 +214,295 @@ describe('ClientsController', () => {
 
     expect(update.rowCount).toBe(1);
 
-    return { agent, user };
+    return { agent, csrfToken: response.body.csrfToken as string, user };
   }
+
+  function createClientBody(overrides: Record<string, unknown> = {}) {
+    return {
+      nome: 'Maria da Silva',
+      telefone: '11999999999',
+      documento: '529.982.247-25',
+      email: 'maria@example.test',
+      cep: '01001-000',
+      logradouro: 'Praça da Sé',
+      numero: '100',
+      complemento: 'Sala 10',
+      bairro: 'Sé',
+      cidade: 'São Paulo',
+      uf: 'SP',
+      ...overrides,
+    };
+  }
+
+  function trackCreatedClient(response: request.Response): void {
+    clientIds.push(response.body.id as string);
+  }
+
+  it('allows an administrator to create and persists an active client', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const response = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createClientBody())
+      .expect(HttpStatus.CREATED);
+    trackCreatedClient(response);
+
+    const persisted = await database.cliente.findUniqueOrThrow({
+      where: { id: response.body.id as string },
+    });
+
+    expect(response.body).toEqual({
+      id: persisted.id,
+      nome: persisted.nome,
+      telefone: persisted.telefone,
+      documento: persisted.documento,
+      email: persisted.email,
+      cep: persisted.cep,
+      logradouro: persisted.logradouro,
+      numero: persisted.numero,
+      complemento: persisted.complemento,
+      bairro: persisted.bairro,
+      cidade: persisted.cidade,
+      uf: persisted.uf,
+      ativo: true,
+      criadoEm: persisted.criadoEm.toISOString(),
+    });
+    expect(persisted.ativo).toBe(true);
+    expect(response.body).not.toHaveProperty('ordens');
+  });
+
+  it('allows an employee to create a client', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'FUNCIONARIO',
+    });
+    const response = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createClientBody({
+          nome: 'João Funcionário',
+          documento: '04.252.011/0001-10',
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    trackCreatedClient(response);
+
+    expect(response.body).toMatchObject({
+      nome: 'João Funcionário',
+      documento: '04252011000110',
+      ativo: true,
+    });
+  });
+
+  it('normalizes client creation input before persisting it', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent();
+    const response = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createClientBody({
+          nome: '  Maria Normalizada  ',
+          telefone: '+55 (11) 99999-9999',
+          documento: '529.982.247-25',
+          email: '   ',
+          cep: '01001-000',
+          logradouro: '  Praça da Sé  ',
+          numero: '  S/N  ',
+          complemento: '   ',
+          bairro: '  Sé  ',
+          cidade: '  São Paulo  ',
+          uf: ' sp ',
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    trackCreatedClient(response);
+
+    expect(response.body).toMatchObject({
+      nome: 'Maria Normalizada',
+      telefone: '11999999999',
+      documento: '52998224725',
+      email: null,
+      cep: '01001000',
+      logradouro: 'Praça da Sé',
+      numero: 'S/N',
+      complemento: null,
+      bairro: 'Sé',
+      cidade: 'São Paulo',
+      uf: 'SP',
+    });
+  });
+
+  it('accepts a valid CNPJ and stores only its digits', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent();
+    const response = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createClientBody({
+          nome: 'Empresa Válida',
+          documento: '04.252.011/0001-10',
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    trackCreatedClient(response);
+
+    expect(response.body.documento).toBe('04252011000110');
+  });
+
+  it('allows multiple clients without a document', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent();
+    const firstResponse = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createClientBody({
+          nome: 'Cliente Sem Documento 1',
+          documento: ' .-/',
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    const secondResponse = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createClientBody({
+          nome: 'Cliente Sem Documento 2',
+          documento: undefined,
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    trackCreatedClient(firstResponse);
+    trackCreatedClient(secondResponse);
+
+    expect(firstResponse.body.documento).toBeNull();
+    expect(secondResponse.body.documento).toBeNull();
+  });
+
+  it('returns CLIENT_DOCUMENT_ALREADY_EXISTS from the database unique constraint', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent();
+    const firstResponse = await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createClientBody({ nome: 'Documento Único' }))
+      .expect(HttpStatus.CREATED);
+    trackCreatedClient(firstResponse);
+
+    await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createClientBody({ nome: 'Documento Duplicado' }))
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'CLIENT_DOCUMENT_ALREADY_EXISTS',
+        message: 'Client document already exists',
+      });
+  });
+
+  it.each([
+    ['invalid CPF', { documento: '529.982.247-24' }],
+    ['invalid CNPJ', { documento: '04.252.011/0001-11' }],
+    ['repeated document digits', { documento: '111.111.111-11' }],
+    ['name shorter than two characters', { nome: ' A ' }],
+    ['name longer than 120 characters', { nome: 'a'.repeat(121) }],
+    ['invalid phone', { telefone: '119999999' }],
+    ['invalid postal code', { cep: '01001-00' }],
+    ['invalid UF', { uf: 'SPA' }],
+    ['empty street', { logradouro: '   ' }],
+    ['empty number', { numero: '   ' }],
+    ['empty neighborhood', { bairro: '   ' }],
+    ['empty city', { cidade: '   ' }],
+    ['invalid email', { email: 'email-inválido' }],
+  ])('rejects %s', async (_description, overrides) => {
+    const { agent, csrfToken } = await createAuthenticatedAgent();
+
+    await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createClientBody(overrides))
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+        expect(body.details).toEqual(expect.any(Array));
+      });
+  });
+
+  it('requires a session to create a client', async () => {
+    const agent = request.agent(app);
+    const csrfResponse = await agent.get('/auth/csrf').expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(csrfResponse.headers['set-cookie']?.[0]));
+
+    await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfResponse.body.csrfToken as string)
+      .send(createClientBody())
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+  });
+
+  it('requires first access password completion to create a client', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      deveAlterarSenha: true,
+    });
+
+    await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send(createClientBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+  });
+
+  it('requires CSRF to create a client', async () => {
+    const { agent } = await createAuthenticatedAgent();
+
+    await agent
+      .post('/clients')
+      .send(createClientBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+  });
+
+  it.each([
+    ['ativo', false],
+    ['status', 'inactive'],
+    ['id', crypto.randomUUID()],
+    ['criadoEm', new Date().toISOString()],
+    ['campoInesperado', 'valor'],
+  ])('rejects administrative or unexpected field %s', async (field, value) => {
+    const { agent, csrfToken } = await createAuthenticatedAgent();
+
+    await agent
+      .post('/clients')
+      .set('X-CSRF-Token', csrfToken)
+      .send({ ...createClientBody(), [field]: value })
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+      });
+  });
 
   it('returns only active clients by default and only list DTO fields', async () => {
     const { agent } = await createAuthenticatedAgent();
@@ -542,14 +833,19 @@ describe('ClientsController', () => {
       });
   });
 
-  it('documents only the client read endpoints and their contracts in OpenAPI', async () => {
+  it('documents client creation and read endpoints in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
     const listOperation = response.body.paths['/clients'].get;
     const detailOperation = response.body.paths['/clients/{id}'].get;
 
-    expect(Object.keys(response.body.paths['/clients'])).toEqual(['get']);
+    const createOperation = response.body.paths['/clients'].post;
+
+    expect(Object.keys(response.body.paths['/clients']).sort()).toEqual([
+      'get',
+      'post',
+    ]);
     expect(Object.keys(response.body.paths['/clients/{id}'])).toEqual(['get']);
     expect(listOperation.parameters).toEqual(
       expect.arrayContaining([
@@ -561,6 +857,36 @@ describe('ClientsController', () => {
     expect(listOperation.responses).toHaveProperty('400');
     expect(listOperation.responses).toHaveProperty('401');
     expect(listOperation.responses).toHaveProperty('403');
+    expect(createOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      createOperation.requestBody.content['application/json'].schema,
+    ).toMatchObject({
+      additionalProperties: false,
+      required: expect.arrayContaining([
+        'nome',
+        'telefone',
+        'cep',
+        'logradouro',
+        'numero',
+        'bairro',
+        'cidade',
+        'uf',
+      ]),
+      properties: expect.objectContaining({
+        documento: expect.any(Object),
+        email: expect.any(Object),
+        complemento: expect.any(Object),
+      }),
+    });
+    expect(createOperation.responses).toHaveProperty('201');
+    expect(createOperation.responses).toHaveProperty('400');
+    expect(createOperation.responses).toHaveProperty('401');
+    expect(createOperation.responses).toHaveProperty('403');
+    expect(createOperation.responses).toHaveProperty('409');
     expect(detailOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'id', in: 'path' }),

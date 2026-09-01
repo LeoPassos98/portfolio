@@ -1,6 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '../generated/prisma/client.js';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Prisma,
+  type Prisma as PrismaTypes,
+} from '../generated/prisma/client.js';
 import { DatabaseService } from '../database/database.service.js';
+import type { ClientCreateInput } from './client-create.schema.js';
 import type { ClientListQuery } from './client-list-query.schema.js';
 import { ClientDetailResponse } from './client-detail-response.dto.js';
 import { ClientListItemResponse } from './client-list-item-response.dto.js';
@@ -10,13 +18,18 @@ export const CLIENT_NOT_FOUND_ERROR = {
   message: 'Client not found',
 } as const;
 
+export const CLIENT_DOCUMENT_ALREADY_EXISTS_ERROR = {
+  code: 'CLIENT_DOCUMENT_ALREADY_EXISTS',
+  message: 'Client document already exists',
+} as const;
+
 const clientListSelect = {
   id: true,
   nome: true,
   telefone: true,
   documento: true,
   ativo: true,
-} satisfies Prisma.ClienteSelect;
+} satisfies PrismaTypes.ClienteSelect;
 
 const clientDetailSelect = {
   id: true,
@@ -33,7 +46,7 @@ const clientDetailSelect = {
   uf: true,
   ativo: true,
   criadoEm: true,
-} satisfies Prisma.ClienteSelect;
+} satisfies PrismaTypes.ClienteSelect;
 
 @Injectable()
 export class ClientsService {
@@ -68,7 +81,7 @@ export class ClientsService {
             ],
           }
         : {}),
-    } satisfies Prisma.ClienteWhereInput;
+    } satisfies PrismaTypes.ClienteWhereInput;
 
     return this.database.cliente.findMany({
       where,
@@ -88,5 +101,26 @@ export class ClientsService {
     }
 
     return client;
+  }
+
+  async create(input: ClientCreateInput): Promise<ClientDetailResponse> {
+    try {
+      return await this.database.cliente.create({
+        data: {
+          ...input,
+          ativo: true,
+        },
+        select: clientDetailSelect,
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(CLIENT_DOCUMENT_ALREADY_EXISTS_ERROR);
+      }
+
+      throw error;
+    }
   }
 }
