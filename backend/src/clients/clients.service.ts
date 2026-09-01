@@ -10,6 +10,7 @@ import {
 import { DatabaseService } from '../database/database.service.js';
 import type { ClientCreateInput } from './client-create.schema.js';
 import type { ClientListQuery } from './client-list-query.schema.js';
+import type { ClientStatusUpdateInput } from './client-status-update.schema.js';
 import type { ClientUpdateInput } from './client-update.schema.js';
 import { ClientDetailResponse } from './client-detail-response.dto.js';
 import { ClientListItemResponse } from './client-list-item-response.dto.js';
@@ -144,6 +145,28 @@ export class ClientsService {
         if (error.code === 'P2025') {
           throw new NotFoundException(CLIENT_NOT_FOUND_ERROR);
         }
+      }
+
+      throw error;
+    }
+  }
+
+  async updateStatus(
+    id: string,
+    { status }: ClientStatusUpdateInput,
+  ): Promise<ClientDetailResponse> {
+    try {
+      return await this.database.cliente.update({
+        where: { id },
+        data: { ativo: status === 'active' },
+        select: clientDetailSelect,
+      });
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(CLIENT_NOT_FOUND_ERROR);
       }
 
       throw error;

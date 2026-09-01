@@ -13,7 +13,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
 | Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
 | Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
-| Clientes | Criação, edição, listagem e detalhe de clientes com validação, normalização e proteção de sessão | 11 |
+| Clientes | Criação, edição cadastral, situação, listagem e detalhe de clientes com validação, normalização e proteção de sessão | 12 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Proteção de origem | CORS restritivo para o frontend configurado | 1 |
@@ -194,7 +194,7 @@ Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalh
 
 ## Clientes
 
-Expõe criação, edição, listagem e detalhe reais de clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
+Expõe criação, edição cadastral, alteração administrativa de situação, listagem e detalhe reais de clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
 
 Diretório principal: `backend/src/clients/`
 
@@ -216,11 +216,11 @@ Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Or
 
 ### 5. `backend/src/clients/clients.service.ts`
 
-Orquestra criação, edição e consultas reais via `DatabaseService`: persiste Clientes normalizados e ativos por padrão, atualiza somente dados cadastrais com `Prisma cliente.update`, converte as violações `P2002` da constraint única de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, transforma filtro e busca em `where` do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
+Orquestra criação, edição, situação e consultas reais via `DatabaseService`: persiste Clientes normalizados e ativos por padrão, atualiza somente dados cadastrais ou somente `ativo` conforme a mutação, converte `active`/`inactive` para o campo persistido, preserva Ordens de Serviço, transforma violações `P2002` da constraint única de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, transforma filtro e busca em `where` do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/clients/clients.controller.ts`
 
-Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, valida entrada com Zod e descreve DTOs e respostas de erro no OpenAPI.
+Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `PATCH /clients/:id/status`, `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, e adiciona `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` somente à alteração de situação; valida entradas com Zod e descreve DTOs e respostas de erro no OpenAPI.
 
 ### 7. `backend/src/clients/clients.module.ts`
 
@@ -241,6 +241,10 @@ Centraliza o schema cadastral estrito compartilhado por criação e edição, no
 ### 11. `backend/src/clients/client-update.schema.ts`
 
 Expõe o schema estrito de edição cadastral de Cliente a partir do contrato compartilhado, mantendo `ativo` e outros campos administrativos fora da entrada.
+
+### 12. `backend/src/clients/client-status-update.schema.ts`
+
+Declara o schema estrito da alteração administrativa de situação, aceitando exclusivamente `status` com `active` ou `inactive`.
 
 ---
 
@@ -392,4 +396,4 @@ Verifica os métodos seguros liberados, a rejeição uniforme de token ausente o
 
 ### 12. `backend/src/clients/clients.controller.spec.ts`
 
-Executa criação, edição e consultas de Clientes contra `portfolio_dev` com fixtures removidas ao final; cobre persistência, preservação da situação, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, filtros, busca, ordenação, DTOs sem relações, erros e OpenAPI.
+Executa criação, edição, alteração de situação e consultas de Clientes contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre persistência, preservação da situação e de OS vinculadas, idempotência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, autorização exclusiva de Administrador, filtros, busca, ordenação, DTOs sem relações, erros e OpenAPI.

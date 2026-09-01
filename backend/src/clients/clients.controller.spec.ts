@@ -798,6 +798,217 @@ describe('ClientsController', () => {
       });
   });
 
+  it('allows an administrator to deactivate, reactivate and repeat a client status', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const client = await createClientFixture({ ativo: true });
+
+    const deactivated = await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.OK);
+    const repeatedInactive = await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.OK);
+    const reactivated = await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'active' })
+      .expect(HttpStatus.OK);
+    const repeatedActive = await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'active' })
+      .expect(HttpStatus.OK);
+
+    expect(deactivated.body).toMatchObject({ id: client.id, ativo: false });
+    expect(repeatedInactive.body).toMatchObject({
+      id: client.id,
+      ativo: false,
+    });
+    expect(reactivated.body).toMatchObject({ id: client.id, ativo: true });
+    expect(repeatedActive.body).toMatchObject({ id: client.id, ativo: true });
+    await expect(
+      database.cliente.findUniqueOrThrow({ where: { id: client.id } }),
+    ).resolves.toMatchObject({ ativo: true });
+  });
+
+  it('allows an administrator to deactivate a client with a linked service order and preserves it', async () => {
+    const { agent, csrfToken, user } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const client = await createClientFixture({ nome: 'Cliente com OS' });
+    const order = await database.ordemServico.create({
+      data: {
+        numero: `OS-${crypto.randomUUID()}`,
+        descricao: 'OS preservada durante a alteração de situação.',
+        valor: '10.00',
+        clienteId: client.id,
+        responsavelId: user.funcionarioId,
+      },
+    });
+    orderIds.push(order.id);
+
+    const response = await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.OK);
+    const persistedClient = await database.cliente.findUniqueOrThrow({
+      where: { id: client.id },
+    });
+    const persistedOrder = await database.ordemServico.findUniqueOrThrow({
+      where: { id: order.id },
+    });
+
+    expect(response.body).toEqual({
+      ...client,
+      ativo: false,
+      criadoEm: client.criadoEm.toISOString(),
+    });
+    expect(persistedClient).toEqual({ ...client, ativo: false });
+    expect(persistedOrder).toEqual(order);
+  });
+
+  it('rejects an employee status mutation through RoleGuard without changing the client', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'FUNCIONARIO',
+    });
+    const client = await createClientFixture({ ativo: true });
+
+    await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_FORBIDDEN',
+        message: 'You do not have permission to access this resource',
+      });
+
+    await expect(
+      database.cliente.findUniqueOrThrow({ where: { id: client.id } }),
+    ).resolves.toMatchObject({ ativo: true });
+  });
+
+  it('requires a session to update a client status', async () => {
+    const client = await createClientFixture();
+    const agent = request.agent(app);
+    const csrfResponse = await agent.get('/auth/csrf').expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(csrfResponse.headers['set-cookie']?.[0]));
+
+    await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfResponse.body.csrfToken as string)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+  });
+
+  it('requires first access password completion to update a client status', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+      deveAlterarSenha: true,
+    });
+    const client = await createClientFixture();
+
+    await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+  });
+
+  it('requires CSRF to update a client status', async () => {
+    const { agent } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const client = await createClientFixture();
+
+    await agent
+      .patch(`/clients/${client.id}/status`)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+  });
+
+  it('rejects an invalid client id when updating its status', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+
+    await agent
+      .patch('/clients/not-a-uuid/status')
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+      });
+  });
+
+  it.each([
+    ['invalid status', { status: 'pending' }],
+    ['unexpected field', { status: 'inactive', nome: 'Não permitido' }],
+  ])('rejects status update with %s', async (_description, body) => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const client = await createClientFixture();
+
+    await agent
+      .patch(`/clients/${client.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(body)
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body: responseBody }) => {
+        expect(responseBody).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+      });
+  });
+
+  it('returns CLIENT_NOT_FOUND for an unknown valid client id when updating its status', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+
+    await agent
+      .patch(`/clients/${crypto.randomUUID()}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send({ status: 'inactive' })
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'CLIENT_NOT_FOUND',
+        message: 'Client not found',
+      });
+  });
+
   it('returns only active clients by default and only list DTO fields', async () => {
     const { agent } = await createAuthenticatedAgent();
     const activeClient = await createClientFixture({ nome: 'Cliente Ativo' });
@@ -1127,7 +1338,7 @@ describe('ClientsController', () => {
       });
   });
 
-  it('documents client creation, update and read endpoints in OpenAPI', async () => {
+  it('documents client creation, status update, registration update and read endpoints in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
@@ -1135,6 +1346,8 @@ describe('ClientsController', () => {
     const detailOperation = response.body.paths['/clients/{id}'].get;
     const createOperation = response.body.paths['/clients'].post;
     const updateOperation = response.body.paths['/clients/{id}'].put;
+    const statusUpdateOperation =
+      response.body.paths['/clients/{id}/status'].patch;
 
     expect(Object.keys(response.body.paths['/clients']).sort()).toEqual([
       'get',
@@ -1226,5 +1439,40 @@ describe('ClientsController', () => {
     expect(updateOperation.responses).toHaveProperty('403');
     expect(updateOperation.responses).toHaveProperty('404');
     expect(updateOperation.responses).toHaveProperty('409');
+    expect(statusUpdateOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      statusUpdateOperation.requestBody.content['application/json'].schema,
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['active', 'inactive'],
+        },
+      },
+    });
+    expect(statusUpdateOperation.responses).toHaveProperty('200');
+    expect(statusUpdateOperation.responses).toHaveProperty('400');
+    expect(statusUpdateOperation.responses).toHaveProperty('401');
+    expect(statusUpdateOperation.responses).toHaveProperty('403');
+    expect(statusUpdateOperation.responses).toHaveProperty('404');
+    expect(statusUpdateOperation.responses['403'].description).toContain('CSRF');
+    expect(statusUpdateOperation.responses['403'].description).toContain(
+      'primeiro acesso',
+    );
+    expect(statusUpdateOperation.responses['403'].description).toContain(
+      'perfil',
+    );
   });
 });

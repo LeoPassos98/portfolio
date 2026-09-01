@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -23,8 +24,11 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Perfil } from '../generated/prisma/client.js';
 import { FirstAccessCompletedGuard } from '../auth/guards/first-access-completed.guard.js';
+import { RoleGuard } from '../auth/guards/role.guard.js';
 import { SessionGuard } from '../auth/guards/session.guard.js';
+import { Roles } from '../auth/roles.decorator.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import {
@@ -36,6 +40,10 @@ import {
   clientListQuerySchema,
   type ClientListQuery,
 } from './client-list-query.schema.js';
+import {
+  clientStatusUpdateSchema,
+  type ClientStatusUpdateInput,
+} from './client-status-update.schema.js';
 import {
   clientUpdateSchema,
   type ClientUpdateInput,
@@ -223,5 +231,47 @@ export class ClientsController {
     @Body(new ZodValidationPipe(clientUpdateSchema)) input: ClientUpdateInput,
   ): Promise<ClientDetailResponse> {
     return this.clientsService.update(id, input);
+  }
+
+  @Patch(':id/status')
+  @UseGuards(RoleGuard)
+  @Roles(Perfil.ADMINISTRADOR)
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Altera a situação de um cliente' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['active', 'inactive'],
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: ClientDetailResponse })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, primeiro acesso pendente ou perfil sem permissão.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description: 'Cliente não encontrado.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  updateStatus(
+    @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
+    @Body(new ZodValidationPipe(clientStatusUpdateSchema))
+    input: ClientStatusUpdateInput,
+  ): Promise<ClientDetailResponse> {
+    return this.clientsService.updateStatus(id, input);
   }
 }
