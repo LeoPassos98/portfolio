@@ -39,6 +39,19 @@ export class AuthService {
     });
   }
 
+  async changeFirstAccessPassword(usuarioId: string, password: string) {
+    const senhaHash = await this.passwordService.hash(password);
+
+    return this.database.usuario.update({
+      where: { id: usuarioId },
+      data: {
+        senhaHash,
+        deveAlterarSenha: false,
+      },
+      include: { funcionario: true },
+    });
+  }
+
   toSessionResponse(usuario: {
     id: string;
     perfil: AuthSessionResponse['perfil'];

@@ -11,7 +11,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição | Inicialização do NestJS, sessão global e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
-| Autenticação | Login, reconstrução da sessão autenticada e contrato seguro da resposta | 5 |
+| Autenticação | Login, troca obrigatória de senha, logout e reconstrução da sessão autenticada | 6 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
@@ -108,7 +108,7 @@ Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com
 
 ## Autenticação
 
-Implementa o login e a consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e reconstruindo os dados seguros pelo PostgreSQL.
+Implementa login, troca obrigatória da senha inicial, logout e consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e reconstruindo os dados seguros pelo PostgreSQL.
 
 Diretório principal: `backend/src/auth/`
 
@@ -124,11 +124,15 @@ Declara o schema Zod de login, removendo espaços externos e normalizando maiús
 
 Consulta o usuário e seu funcionário no PostgreSQL, exige conta ativa, delega a verificação ao `PasswordService` e projeta a resposta segura da sessão.
 
-### 4. `backend/src/auth/auth.controller.ts`
+### 4. `backend/src/auth/first-access-password.schema.ts`
 
-Expõe `POST /auth/login` e `GET /auth/session`, regenera e salva a sessão antes de gravar `usuarioId`, invalida sessões associadas a contas inativas e documenta ambos os contratos OpenAPI.
+Declara o schema Zod da troca obrigatória de senha: exige senha entre 8 e 128 caracteres sem transformações e confirmação idêntica.
 
-### 5. `backend/src/auth/auth.module.ts`
+### 5. `backend/src/auth/auth.controller.ts`
+
+Expõe `POST /auth/login`, `POST /auth/first-access/password`, `POST /auth/logout` e `GET /auth/session`; regenera e salva a sessão antes de gravar `usuarioId` no login e após a troca obrigatória, invalida sessões associadas a contas inativas e encerra sessões no PostgreSQL durante o logout.
+
+### 6. `backend/src/auth/auth.module.ts`
 
 Compõe controller e service de autenticação com a infraestrutura de banco e de senhas.
 
@@ -250,4 +254,4 @@ Usa uma fixture HTTP somente de teste para verificar criação, persistência, r
 
 ### 7. `backend/src/auth/auth.controller.spec.ts`
 
-Executa login e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre resposta genérica de falha, normalização de e-mail, senha exata, regeneração do identificador, persistência PostgreSQL, conta inativada e ausência de dados sensíveis nas respostas.
+Executa login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, persistência PostgreSQL, conta inativada, invalidação de logout e ausência de dados sensíveis nas respostas.

@@ -36,6 +36,32 @@ type UserFixture = {
   password: string;
 };
 
+function getSessionId(cookie: string | undefined): string {
+  if (!cookie) {
+    throw new Error('Expected a session cookie.');
+  }
+
+  const cookieValue = cookie.split(';', 1)[0]?.replace('connect.sid=', '');
+
+  if (!cookieValue) {
+    throw new Error('Expected a connect.sid cookie.');
+  }
+
+  const signedSessionId = decodeURIComponent(cookieValue);
+
+  if (!signedSessionId.startsWith('s:')) {
+    throw new Error('Expected a signed session cookie.');
+  }
+
+  const sessionId = signedSessionId.slice(2).split('.', 1)[0];
+
+  if (!sessionId) {
+    throw new Error('Expected a session identifier.');
+  }
+
+  return sessionId;
+}
+
 describe('AuthController', () => {
   let app: Express;
   let database: DatabaseService;
@@ -285,5 +311,222 @@ describe('AuthController', () => {
       message: 'Authentication required',
     });
     expect(persistedSession.rowCount).toBe(0);
+  });
+
+  it('changes the required first access password, preserves spaces, and regenerates the session', async () => {
+    const fixture = await createUserFixture({
+      deveAlterarSenha: true,
+      password: 'senha temporária',
+    });
+    const initialHash = (
+      await database.usuario.findUniqueOrThrow({
+        where: { id: fixture.userId },
+      })
+    ).senhaHash;
+    const newPassword = ' senha nova ';
+    const agent = request.agent(app);
+    const loginResponse = await agent
+      .post('/auth/login')
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.OK);
+    const initialCookie = loginResponse.headers['set-cookie']?.[0];
+    const initialSessionId = getSessionId(initialCookie);
+    const changeResponse = await agent
+      .post('/auth/first-access/password')
+      .send({
+        password: newPassword,
+        passwordConfirmation: newPassword,
+      })
+      .expect(HttpStatus.OK);
+    const regeneratedCookie = changeResponse.headers['set-cookie']?.[0];
+    const persistedUser = await database.usuario.findUniqueOrThrow({
+      where: { id: fixture.userId },
+    });
+    const persistedSessions = await verificationPool.query<{ sid: string }>(
+      'SELECT "sid" FROM "session" WHERE "sess" ->> \'usuarioId\' = $1',
+      [fixture.userId],
+    );
+
+    expect(changeResponse.body).toMatchObject({
+      id: fixture.userId,
+      deveAlterarSenha: false,
+    });
+    expect(regeneratedCookie?.split(';', 1)[0]).not.toBe(
+      initialCookie?.split(';', 1)[0],
+    );
+    expect(persistedUser.senhaHash).not.toBe(initialHash);
+    await expect(passwordService.verify(persistedUser.senhaHash, newPassword)).resolves.toBe(
+      true,
+    );
+    await expect(
+      passwordService.verify(persistedUser.senhaHash, newPassword.trim()),
+    ).resolves.toBe(false);
+    expect(persistedUser.deveAlterarSenha).toBe(false);
+    expect(persistedSessions.rows).toEqual([
+      { sid: expect.not.stringMatching(new RegExp(`^${initialSessionId}$`)) },
+    ]);
+
+    const sessionResponse = await agent.get('/auth/session').expect(HttpStatus.OK);
+
+    expect(sessionResponse.body).toEqual({
+      id: fixture.userId,
+      perfil: 'FUNCIONARIO',
+      funcionarioId: fixture.funcionarioId,
+      funcionarioNome: expect.stringContaining('Funcionário'),
+      deveAlterarSenha: false,
+    });
+    await request(app)
+      .get('/auth/session')
+      .set('Cookie', initialCookie ?? '')
+      .expect(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('rejects first access password values outside the limits and different confirmations', async () => {
+    const fixture = await createUserFixture({ deveAlterarSenha: true });
+    const agent = request.agent(app);
+
+    await agent
+      .post('/auth/login')
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.OK);
+
+    for (const input of [
+      { password: 'a'.repeat(7), passwordConfirmation: 'a'.repeat(7) },
+      { password: 'a'.repeat(129), passwordConfirmation: 'a'.repeat(129) },
+      {
+        password: 'senha válida',
+        passwordConfirmation: 'senha diferente',
+      },
+    ]) {
+      await agent
+        .post('/auth/first-access/password')
+        .send(input)
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => {
+          expect(body.code).toBe('VALIDATION_ERROR');
+        });
+    }
+  });
+
+  it('requires a session to change the first access password', async () => {
+    await request(app)
+      .post('/auth/first-access/password')
+      .send({
+        password: 'senha válida',
+        passwordConfirmation: 'senha válida',
+      })
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+  });
+
+  it('rejects an inactive account during the first access password change', async () => {
+    const fixture = await createUserFixture({ deveAlterarSenha: true });
+    const agent = request.agent(app);
+
+    await agent
+      .post('/auth/login')
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.OK);
+    await database.usuario.update({
+      where: { id: fixture.userId },
+      data: { ativo: false },
+    });
+
+    await agent
+      .post('/auth/first-access/password')
+      .send({
+        password: 'senha válida',
+        passwordConfirmation: 'senha válida',
+      })
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+    await expect(
+      verificationPool.query(
+        'SELECT 1 FROM "session" WHERE "sess" ->> \'usuarioId\' = $1',
+        [fixture.userId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+  });
+
+  it('rejects a first access password change when it is not pending', async () => {
+    const fixture = await createUserFixture();
+    const initialHash = (
+      await database.usuario.findUniqueOrThrow({
+        where: { id: fixture.userId },
+      })
+    ).senhaHash;
+    const agent = request.agent(app);
+
+    await agent
+      .post('/auth/login')
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.OK);
+    await agent
+      .post('/auth/first-access/password')
+      .send({
+        password: 'senha válida',
+        passwordConfirmation: 'senha válida',
+      })
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'AUTH_FIRST_ACCESS_PASSWORD_NOT_REQUIRED',
+        message: 'First access password change is not required',
+      });
+
+    await expect(
+      database.usuario.findUniqueOrThrow({ where: { id: fixture.userId } }),
+    ).resolves.toMatchObject({
+      senhaHash: initialHash,
+      deveAlterarSenha: false,
+    });
+  });
+
+  it('destroys the PostgreSQL session and clears the cookie on logout', async () => {
+    const fixture = await createUserFixture();
+    const agent = request.agent(app);
+    const loginResponse = await agent
+      .post('/auth/login')
+      .send({ email: fixture.email, password: fixture.password })
+      .expect(HttpStatus.OK);
+    const cookie = loginResponse.headers['set-cookie']?.[0];
+    const sessionId = getSessionId(cookie);
+
+    await expect(
+      verificationPool.query('SELECT 1 FROM "session" WHERE "sid" = $1', [
+        sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+
+    const logoutResponse = await agent
+      .post('/auth/logout')
+      .expect(HttpStatus.NO_CONTENT);
+
+    expect(logoutResponse.headers['set-cookie']?.[0]).toMatch(/^connect\.sid=;/);
+    await expect(
+      verificationPool.query('SELECT 1 FROM "session" WHERE "sid" = $1', [
+        sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await request(app)
+      .get('/auth/session')
+      .set('Cookie', cookie ?? '')
+      .expect(HttpStatus.UNAUTHORIZED);
+
+    await request(app)
+      .post('/auth/logout')
+      .set('Cookie', cookie ?? '')
+      .expect(HttpStatus.NO_CONTENT)
+      .expect(({ headers }) => {
+        expect(headers['set-cookie']?.[0]).toMatch(/^connect\.sid=;/);
+      });
   });
 });
