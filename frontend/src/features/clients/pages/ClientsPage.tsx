@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -6,7 +7,8 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
-import { mockClients } from '../mocks/clients'
+import { clientsQueryKeys } from '../api/clientQueryKeys'
+import { listClients } from '../api/clientsApi'
 import type { ClientStatus } from '../types/client'
 
 const clientStatuses: readonly ClientStatus[] = ['active', 'inactive']
@@ -15,25 +17,61 @@ function isClientStatus(value: string | null): value is ClientStatus {
   return value !== null && clientStatuses.some((status) => status === value)
 }
 
+function ClientsListSkeleton() {
+  return (
+    <>
+      <ul className="mt-8 space-y-4 md:hidden" aria-label="Carregando clientes">
+        {[0, 1, 2].map((item) => (
+          <li
+            key={item}
+            className="bg-surface animate-pulse rounded-ui border border-neutral-bg p-4"
+          >
+            <div className="h-5 w-40 rounded bg-neutral-bg" />
+            <div className="mt-3 h-4 w-28 rounded bg-neutral-bg" />
+            <div className="mt-5 h-4 w-36 rounded bg-neutral-bg" />
+          </li>
+        ))}
+      </ul>
+
+      <div
+        className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block"
+        aria-label="Carregando clientes"
+      >
+        <div className="bg-neutral-bg h-12" />
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="bg-surface flex animate-pulse gap-8 border-t border-neutral-bg px-4 py-4"
+          >
+            <div className="h-4 w-1/4 rounded bg-neutral-bg" />
+            <div className="h-4 w-1/4 rounded bg-neutral-bg" />
+            <div className="h-4 w-1/4 rounded bg-neutral-bg" />
+            <div className="h-4 w-16 rounded bg-neutral-bg" />
+          </div>
+        ))}
+      </div>
+    </>
+  )
+}
+
 function ClientsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const statusParam = searchParams.get('status')
   const status = isClientStatus(statusParam) ? statusParam : 'active'
   const search = searchParams.get('search') ?? ''
-  const clientsByStatus =
-    statusParam === 'all'
-      ? mockClients
-      : mockClients.filter((client) => client.status === status)
-  const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
-  const visibleClients = normalizedSearch
-    ? clientsByStatus.filter((client) =>
-        [client.name, client.document]
-          .filter((value): value is string => value !== null)
-          .some((value) =>
-            value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
-          ),
-      )
-    : clientsByStatus
+  const listParams = {
+    status: statusParam === 'all' ? 'all' : status,
+    ...(search.trim() === '' ? {} : { search: search.trim() }),
+  } as const
+  const {
+    data: clients = [],
+    isError,
+    isPending,
+    refetch,
+  } = useQuery({
+    queryKey: clientsQueryKeys.list(listParams),
+    queryFn: () => listClients(listParams),
+  })
   const hasActiveFilters = statusParam === 'inactive' || search.trim() !== ''
 
   function clearFilters() {
@@ -96,7 +134,23 @@ function ClientsPage() {
         />
       </div>
 
-      {visibleClients.length === 0 && (
+      {isPending && <ClientsListSkeleton />}
+
+      {isError && (
+        <div className="mt-8 space-y-4">
+          <EmptyState
+            title="Não foi possível carregar os clientes"
+            description="Verifique sua conexão e tente novamente."
+          />
+          <div className="flex justify-center">
+            <Button type="button" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!isPending && !isError && clients.length === 0 && (
         <div className="mt-8 space-y-4">
           <EmptyState
             title={
@@ -120,9 +174,9 @@ function ClientsPage() {
         </div>
       )}
 
-      {visibleClients.length > 0 && (
+      {!isPending && !isError && clients.length > 0 && (
         <ul className="mt-8 space-y-4 md:hidden">
-          {visibleClients.map((client) => (
+          {clients.map((client) => (
             <li
               key={client.id}
               className="bg-surface rounded-ui border border-neutral-bg p-4"
@@ -156,7 +210,7 @@ function ClientsPage() {
         </ul>
       )}
 
-      {visibleClients.length > 0 && (
+      {!isPending && !isError && clients.length > 0 && (
         <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
           <table className="w-full text-left">
             <caption className="sr-only">Lista de clientes</caption>
@@ -177,7 +231,7 @@ function ClientsPage() {
               </tr>
             </thead>
             <tbody className="bg-surface divide-y divide-neutral-bg">
-              {visibleClients.map((client) => (
+              {clients.map((client) => (
                 <tr key={client.id}>
                   <td className="px-4 py-3">
                     <Link

@@ -1,9 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { EmptyState } from '../../../components/feedback/EmptyState'
+import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -11,84 +14,190 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
-import { mockOrders } from '../../orders/mocks/orders'
-import { mockClients } from '../mocks/clients'
+import { clientsQueryKeys } from '../api/clientQueryKeys'
+import {
+  deleteClient,
+  getClient,
+  updateClient,
+  updateClientStatus,
+  type ClientHttpErrorResponse,
+} from '../api/clientsApi'
 import {
   clientSchema,
   type ClientFormData,
   type ClientFormValues,
 } from '../schemas/clientSchema'
-import type { ClientStatus } from '../types/client'
+import type { Client, ClientStatus } from '../types/client'
 
 const clientStatusDetails = {
   active: { label: 'Ativo', variant: 'success' },
   inactive: { label: 'Inativo', variant: 'neutral' },
 } as const
 
-function ClientEditPage() {
-  const session = useAuthSession()
-  const { clientId } = useParams<{ clientId: string }>()
-  const client = mockClients.find((item) => item.id === clientId)
-  const [clientStatus, setClientStatus] = useState<ClientStatus>(
-    client?.status ?? 'active',
+function isClientApiError(error: unknown, code: ClientHttpErrorResponse['code']) {
+  return (
+    isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
   )
+}
+
+function toClientFormData(client: Client): ClientFormData {
+  return {
+    name: client.name,
+    document: client.document ?? '',
+    phone: client.phone,
+    email: client.email ?? '',
+    postalCode: client.address.postalCode,
+    street: client.address.street,
+    number: client.address.number,
+    complement: client.address.complement ?? '',
+    neighborhood: client.address.neighborhood,
+    city: client.address.city,
+    state: client.address.state,
+  }
+}
+
+function ClientEditSkeleton() {
+  return (
+    <AppLayout>
+      <div className="animate-pulse" aria-label="Carregando cliente">
+        <div className="h-8 w-48 rounded bg-neutral-bg" />
+        <div className="mt-3 h-5 w-64 rounded bg-neutral-bg" />
+        <div className="bg-surface mt-6 space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6">
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="space-y-4">
+              <div className="h-6 w-40 rounded bg-neutral-bg" />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="h-10 rounded bg-neutral-bg" />
+                <div className="h-10 rounded bg-neutral-bg" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </AppLayout>
+  )
+}
+
+type ClientEditFormProps = {
+  canChangeClientStatus: boolean
+  client: Client
+}
+
+function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { showSuccess } = useSuccessFeedback()
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] =
     useState(false)
-  const canChangeClientStatus = session?.currentUser.profile === 'admin'
+  const [formError, setFormError] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const {
-    register,
+    clearErrors,
     handleSubmit,
-    setValue,
+    register,
+    reset,
+    setError,
     formState: { errors, isDirty },
   } = useForm<ClientFormData, unknown, ClientFormValues>({
     resolver: zodResolver(clientSchema),
-    defaultValues: {
-      name: client?.name ?? '',
-      document: client?.document ?? '',
-      phone: client?.phone ?? '',
-      email: client?.email ?? '',
-      postalCode: client?.address.postalCode ?? '',
-      street: client?.address.street ?? '',
-      number: client?.address.number ?? '',
-      complement: client?.address.complement ?? '',
-      neighborhood: client?.address.neighborhood ?? '',
-      city: client?.address.city ?? '',
-      state: client?.address.state ?? '',
-      status: client?.status ?? 'active',
-    },
+    defaultValues: toClientFormData(client),
   })
-  const { confirmationDialog, requestNavigation } = useUnsavedChangesGuard(
-    isDirty,
-  )
+  const { confirmationDialog } = useUnsavedChangesGuard(isDirty)
+  const updateMutation = useMutation({
+    mutationFn: (values: ClientFormValues) => updateClient(client.id, values),
+  })
+  const statusMutation = useMutation({
+    mutationFn: (status: ClientStatus) => updateClientStatus(client.id, status),
+  })
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteClient(client.id),
+  })
 
-  function onSubmit() {
-    requestNavigation('/clients')
-  }
-
-  if (!client) {
-    return (
-      <AppLayout>
-        <Link
-          to="/clients"
-          className="text-primary inline-flex rounded-ui hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        >
-          Voltar para Clientes
-        </Link>
-        <div className="mt-6">
-          <EmptyState
-            title="Cliente não encontrado"
-            description="Não foi possível localizar o cliente solicitado para edição."
-          />
-        </div>
-      </AppLayout>
+  async function synchronizeClient(updatedClient: Client) {
+    queryClient.setQueryData(
+      clientsQueryKeys.detail(updatedClient.id),
+      updatedClient,
     )
+    await queryClient.invalidateQueries({
+      queryKey: clientsQueryKeys.lists(),
+    })
   }
 
-  const clientStatusDetail = clientStatusDetails[clientStatus]
-  const hasLinkedOrders = mockOrders.some(
-    (order) => order.clientId === client.id,
-  )
+  async function onSubmit(values: ClientFormValues) {
+    setFormError(null)
+    clearErrors('document')
+
+    try {
+      const updatedClient = await updateMutation.mutateAsync(values)
+
+      await synchronizeClient(updatedClient)
+      reset(toClientFormData(updatedClient))
+      showSuccess('Cliente atualizado com sucesso.')
+      navigate('/clients')
+    } catch (error) {
+      if (isClientApiError(error, 'CLIENT_DOCUMENT_ALREADY_EXISTS')) {
+        setError('document', {
+          type: 'server',
+          message: 'Este CPF/CNPJ já está cadastrado para outro cliente.',
+        })
+        return
+      }
+
+      setFormError('Não foi possível salvar as alterações. Tente novamente.')
+    }
+  }
+
+  async function handleStatusChange(status: ClientStatus) {
+    if (status === client.status) {
+      return
+    }
+
+    setStatusError(null)
+
+    try {
+      const updatedClient = await statusMutation.mutateAsync(status)
+
+      await synchronizeClient(updatedClient)
+      showSuccess(
+        status === 'inactive'
+          ? 'Cliente desativado com sucesso.'
+          : 'Cliente reativado com sucesso.',
+      )
+    } catch {
+      setStatusError('Não foi possível atualizar a situação. Tente novamente.')
+    }
+  }
+
+  async function handleDelete() {
+    setDeleteError(null)
+
+    try {
+      await deleteMutation.mutateAsync()
+
+      queryClient.removeQueries({
+        queryKey: clientsQueryKeys.detail(client.id),
+        exact: true,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: clientsQueryKeys.lists(),
+      })
+      setIsDeleteConfirmationOpen(false)
+      showSuccess('Cliente excluído com sucesso.')
+      navigate('/clients')
+    } catch (error) {
+      setIsDeleteConfirmationOpen(false)
+      setDeleteError(
+        isClientApiError(error, 'CLIENT_HAS_ORDERS')
+          ? 'Este cliente possui OS vinculada e deve ser desativado.'
+          : 'Não foi possível excluir o cliente. Tente novamente.',
+      )
+    }
+  }
+
+  const clientStatusDetail = clientStatusDetails[client.status]
 
   return (
     <AppLayout>
@@ -274,10 +383,7 @@ function ClientEditPage() {
               <Label htmlFor="edit-client-complement">
                 Complemento (opcional)
               </Label>
-              <Input
-                id="edit-client-complement"
-                {...register('complement')}
-              />
+              <Input id="edit-client-complement" {...register('complement')} />
             </div>
 
             <div className="space-y-2">
@@ -336,6 +442,12 @@ function ClientEditPage() {
           </div>
         </section>
 
+        {formError && (
+          <p role="alert" className="text-error text-sm">
+            {formError}
+          </p>
+        )}
+
         {canChangeClientStatus ? (
           <section aria-labelledby="edit-client-status-title">
             <h2
@@ -347,22 +459,26 @@ function ClientEditPage() {
 
             <div className="mt-4 max-w-xs space-y-2">
               <Label htmlFor="edit-client-status">Situação</Label>
-              <input type="hidden" {...register('status')} />
               <Select
                 id="edit-client-status"
-                value={clientStatus}
+                value={client.status}
+                disabled={statusMutation.isPending}
+                aria-describedby={statusError ? 'edit-client-status-error' : undefined}
                 onChange={(event) => {
-                  const status = event.target.value as ClientStatus
-
-                  setClientStatus(status)
-                  setValue('status', status, {
-                    shouldDirty: true,
-                  })
+                  void handleStatusChange(event.target.value as ClientStatus)
                 }}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
+              {statusMutation.isPending && (
+                <p className="text-neutral text-sm">Atualizando situação...</p>
+              )}
+              {statusError && (
+                <p id="edit-client-status-error" role="alert" className="text-error text-sm">
+                  {statusError}
+                </p>
+              )}
             </div>
           </section>
         ) : null}
@@ -375,42 +491,29 @@ function ClientEditPage() {
             >
               Excluir cliente
             </h2>
-            {hasLinkedOrders ? (
-              <>
-                <p
-                  id="delete-client-description"
-                  className="text-neutral mt-2 text-sm"
-                >
-                  Este cliente possui OS vinculada e deve ser desativado.
-                </p>
-                <Button
-                  type="button"
-                  disabled
-                  aria-describedby="delete-client-description"
-                  className="mt-4"
-                >
-                  Excluir cliente
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="text-neutral mt-2 text-sm">
-                  Esta ação será permanente quando a exclusão estiver integrada.
-                </p>
-                <Button
-                  type="button"
-                  className="mt-4"
-                  onClick={() => setIsDeleteConfirmationOpen(true)}
-                >
-                  Excluir cliente
-                </Button>
-              </>
+            <p className="text-neutral mt-2 text-sm">
+              Esta ação será permanente e não poderá ser desfeita.
+            </p>
+            {deleteError && (
+              <p role="alert" className="text-error mt-2 text-sm">
+                {deleteError}
+              </p>
             )}
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              className="mt-4"
+              onClick={() => setIsDeleteConfirmationOpen(true)}
+            >
+              Excluir cliente
+            </Button>
           </section>
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit">Salvar alterações</Button>
+          <Button type="submit" disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? 'Salvando alterações...' : 'Salvar alterações'}
+          </Button>
           <Link
             to="/clients"
             className="text-primary inline-flex rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -422,14 +525,81 @@ function ClientEditPage() {
 
       <ConfirmationDialog
         isOpen={isDeleteConfirmationOpen}
+        isPending={deleteMutation.isPending}
         title="Excluir este cliente?"
         description="Esta ação é permanente e não poderá ser desfeita."
         confirmLabel="Confirmar exclusão"
         onCancel={() => setIsDeleteConfirmationOpen(false)}
-        onConfirm={() => setIsDeleteConfirmationOpen(false)}
+        onConfirm={() => void handleDelete()}
       />
       {confirmationDialog}
     </AppLayout>
+  )
+}
+
+function ClientEditPage() {
+  const session = useAuthSession()
+  const { clientId } = useParams<{ clientId: string }>()
+  const {
+    data: client,
+    error,
+    isError,
+    isPending,
+    refetch,
+  } = useQuery({
+    queryKey: clientsQueryKeys.detail(clientId ?? ''),
+    queryFn: () => getClient(clientId!),
+    enabled: Boolean(clientId),
+  })
+  const canChangeClientStatus = session?.currentUser.profile === 'admin'
+
+  if (!clientId || isClientApiError(error, 'CLIENT_NOT_FOUND')) {
+    return (
+      <AppLayout>
+        <Link
+          to="/clients"
+          className="text-primary inline-flex rounded-ui hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          Voltar para Clientes
+        </Link>
+        <div className="mt-6">
+          <EmptyState
+            title="Cliente não encontrado"
+            description="Não foi possível localizar o cliente solicitado para edição."
+          />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (isPending) {
+    return <ClientEditSkeleton />
+  }
+
+  if (isError || !client) {
+    return (
+      <AppLayout>
+        <div className="space-y-4">
+          <EmptyState
+            title="Não foi possível carregar o cliente"
+            description="Verifique sua conexão e tente novamente."
+          />
+          <div className="flex justify-center">
+            <Button type="button" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  return (
+    <ClientEditForm
+      key={client.id}
+      client={client}
+      canChangeClientStatus={canChangeClientStatus}
+    />
   )
 }
 

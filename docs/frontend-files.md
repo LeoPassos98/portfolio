@@ -18,7 +18,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
-| Clientes | Listagem mockada atual, formulários validados e contratos HTTP preparados para Clientes | 7 |
+| Clientes | Listagem e edição reais, cadastro ainda preparado e mocks preservados para Ordens | 8 |
 | Funcionários | Listagem mockada, perfil, formulários validados, situação e gestão de acesso | 11 |
 
 ## Sumário
@@ -330,11 +330,11 @@ Define o modelo de detalhe `Client`, o item compacto `ClientListItem`, a situaç
 
 ### 2. `frontend/src/features/clients/mocks/clients.ts`
 
-Exporta clientes representativos, ativos e inativos, incluindo um cliente sem OS vinculada para o fluxo mockado de confirmação de exclusão.
+Exporta clientes representativos usados somente pelas features ainda mockadas, especialmente o seletor de Cliente das Ordens de Serviço.
 
 ### 3. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Exibe em `AppLayout` a consulta mockada responsiva de clientes, com busca por nome ou CPF/CNPJ, filtro de status sincronizado com a URL, tabela no desktop, lista no mobile, estados vazios e acesso à edição; clientes ativos permanecem como padrão.
+Exibe em `AppLayout` a listagem real responsiva de Clientes com TanStack Query, busca e filtro de status sincronizados com a URL, skeleton inicial, erro recuperável, estados vazios e acesso à edição; clientes ativos permanecem como padrão.
 
 ### 4. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
@@ -342,7 +342,7 @@ Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, 
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica a validação compartilhada com Zod, protege alterações pendentes e permite ao Administrador ajustar visualmente a situação Ativo/Inativo e iniciar a exclusão com confirmação quando não houver OS vinculada; Funcionário edita os dados cadastrais, inclusive de inativos, sem acesso a controles administrativos e sem persistência.
+Carrega o Cliente real pela rota, monta o formulário somente após o detalhe confirmado e persiste edição cadastral com proteção contra abandono. Administrador também altera situação e exclui com mutations separadas; a regra de OS vinculada é confirmada pelo backend. Funcionário edita somente os dados cadastrais.
 
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
@@ -350,7 +350,11 @@ Define com Zod as validações e normalizações reutilizadas nos formulários d
 
 ### 7. `frontend/src/features/clients/api/clientsApi.ts`
 
-Concentra os endpoints tipados de Clientes na única instância Axios compartilhada, separa contratos HTTP do NestJS dos modelos do React e traduz cadastro, detalhe, listagem, situação e CEP sem expor o fornecedor externo; ainda não é consumido pelas páginas, que preservam os mocks atuais.
+Concentra os endpoints tipados de Clientes na única instância Axios compartilhada, separa contratos HTTP do NestJS dos modelos do React e traduz cadastro, detalhe, listagem, situação e CEP sem expor o fornecedor externo.
+
+### 8. `frontend/src/features/clients/api/clientQueryKeys.ts`
+
+Centraliza as query keys de listagens e detalhes de Clientes, reutilizadas pelas queries e pelas invalidações de cache após mutations.
 
 ---
 

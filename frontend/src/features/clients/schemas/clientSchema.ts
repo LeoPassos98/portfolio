@@ -125,7 +125,6 @@ const clientSchema = z.object({
     .min(1, 'Informe a UF')
     .toUpperCase()
     .regex(/^[A-Z]{2}$/, 'Informe uma UF válida'),
-  status: z.enum(['active', 'inactive']).optional(),
 })
 
 type ClientFormData = z.input<typeof clientSchema>

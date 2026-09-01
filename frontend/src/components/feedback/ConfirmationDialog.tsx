@@ -4,6 +4,7 @@ type ConfirmationDialogProps = {
   confirmLabel: string
   description: string
   isOpen: boolean
+  isPending?: boolean
   onCancel: () => void
   onConfirm: () => void
   title: string
@@ -13,6 +14,7 @@ function ConfirmationDialog({
   confirmLabel,
   description,
   isOpen,
+  isPending = false,
   onCancel,
   onConfirm,
   title,
@@ -104,6 +106,7 @@ function ConfirmationDialog({
           <button
             type="button"
             onClick={onCancel}
+            disabled={isPending}
             className="text-primary rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Voltar
@@ -112,9 +115,10 @@ function ConfirmationDialog({
             ref={confirmButtonRef}
             type="button"
             onClick={onConfirm}
+            disabled={isPending}
             className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
-            {confirmLabel}
+            {isPending ? 'Enviando...' : confirmLabel}
           </button>
         </div>
       </div>
