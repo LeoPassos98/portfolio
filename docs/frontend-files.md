@@ -18,7 +18,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
-| Clientes | Listagem e edição reais, cadastro ainda preparado e mocks preservados para Ordens | 8 |
+| Clientes | Listagem, cadastro e edição reais, com mocks preservados para Ordens | 8 |
 | Funcionários | Listagem mockada, perfil, formulários validados, situação e gestão de acesso | 11 |
 
 ## Sumário
@@ -338,7 +338,7 @@ Exibe em `AppLayout` a listagem real responsiva de Clientes com TanStack Query, 
 
 ### 4. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
-Implementa no `AppLayout` o cadastro responsivo de cliente com React Hook Form, validação compartilhada com Zod, erros associados aos campos e proteção contra abandono quando houver alterações não salvas.
+Implementa no `AppLayout` o cadastro real de Cliente com mutation TanStack Query, feedback após confirmação do servidor, invalidação da listagem e proteção contra abandono. Consulta CEP pelo contrato NestJS no blur, preenche somente os dados de endereço disponíveis via React Hook Form e mantém o fallback manual quando o CEP não é encontrado ou o fornecedor falha.
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
