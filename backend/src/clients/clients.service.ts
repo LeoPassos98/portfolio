@@ -25,6 +25,12 @@ export const CLIENT_DOCUMENT_ALREADY_EXISTS_ERROR = {
   message: 'Client document already exists',
 } as const;
 
+export const CLIENT_HAS_ORDERS_ERROR = {
+  code: 'CLIENT_HAS_ORDERS',
+  message:
+    'Client has linked service orders and must be deactivated instead of deleted',
+} as const;
+
 const clientListSelect = {
   id: true,
   nome: true,
@@ -167,6 +173,33 @@ export class ClientsService {
         error.code === 'P2025'
       ) {
         throw new NotFoundException(CLIENT_NOT_FOUND_ERROR);
+      }
+
+      throw error;
+    }
+  }
+
+  async remove(id: string): Promise<void> {
+    const order = await this.database.ordemServico.findFirst({
+      where: { clienteId: id },
+      select: { id: true },
+    });
+
+    if (order) {
+      throw new ConflictException(CLIENT_HAS_ORDERS_ERROR);
+    }
+
+    try {
+      await this.database.cliente.delete({ where: { id } });
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2003') {
+          throw new ConflictException(CLIENT_HAS_ORDERS_ERROR);
+        }
+
+        if (error.code === 'P2025') {
+          throw new NotFoundException(CLIENT_NOT_FOUND_ERROR);
+        }
       }
 
       throw error;

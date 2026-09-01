@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -16,6 +19,7 @@ import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiHeader,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -273,5 +277,35 @@ export class ClientsController {
     input: ClientStatusUpdateInput,
   ): Promise<ClientDetailResponse> {
     return this.clientsService.updateStatus(id, input);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(RoleGuard)
+  @Roles(Perfil.ADMINISTRADOR)
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Exclui definitivamente um cliente sem OS' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiNoContentResponse({ description: 'Cliente excluído definitivamente.' })
+  @ApiBadRequestResponse(badRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, primeiro acesso pendente ou perfil sem permissão.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description: 'Cliente não encontrado.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'Cliente possui OS vinculada e deve ser desativado em vez de excluído (CLIENT_HAS_ORDERS).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  async remove(
+    @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
+  ): Promise<void> {
+    await this.clientsService.remove(id);
   }
 }

@@ -140,7 +140,7 @@ Expõe `GET /auth/csrf`, `POST /auth/login`, `POST /auth/first-access/password`,
 
 ### 6. `backend/src/auth/auth.module.ts`
 
-Compõe controller, service e guards de autenticação com a infraestrutura de banco e de senhas, exportando o serviço e os guards de sessão e de primeiro acesso para módulos de domínio protegidos.
+Compõe controller, service e guards de autenticação com a infraestrutura de banco e de senhas, exportando o serviço e os guards de sessão, primeiro acesso e perfil para módulos de domínio protegidos.
 
 ### 7. `backend/src/auth/authenticated-user.interface.ts`
 
@@ -194,7 +194,7 @@ Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalh
 
 ## Clientes
 
-Expõe criação, edição cadastral, alteração administrativa de situação, listagem e detalhe reais de clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
+Expõe criação, edição cadastral, alteração administrativa de situação, exclusão física condicionada e consultas reais de Clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
 
 Diretório principal: `backend/src/clients/`
 
@@ -216,11 +216,11 @@ Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Or
 
 ### 5. `backend/src/clients/clients.service.ts`
 
-Orquestra criação, edição, situação e consultas reais via `DatabaseService`: persiste Clientes normalizados e ativos por padrão, atualiza somente dados cadastrais ou somente `ativo` conforme a mutação, converte `active`/`inactive` para o campo persistido, preserva Ordens de Serviço, transforma violações `P2002` da constraint única de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, transforma filtro e busca em `where` do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
+Orquestra criação, edição, situação, exclusão e consultas reais via `DatabaseService`: persiste Clientes normalizados e ativos por padrão, atualiza somente dados cadastrais ou somente `ativo` conforme a mutação, converte `active`/`inactive` para o campo persistido e, antes de excluir fisicamente, verifica a existência de OS; preserva Ordens de Serviço e converte tanto a regra contextual quanto a FK restritiva concorrente em `CLIENT_HAS_ORDERS`, transforma violações `P2002` da constraint única de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, transforma filtro e busca em `where` do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/clients/clients.controller.ts`
 
-Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `PATCH /clients/:id/status`, `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, e adiciona `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` somente à alteração de situação; valida entradas com Zod e descreve DTOs e respostas de erro no OpenAPI.
+Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `PATCH /clients/:id/status`, `DELETE /clients/:id`, `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, e adiciona `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` somente às mutações administrativas de situação e exclusão; valida entradas com Zod e descreve DTOs e respostas de erro no OpenAPI.
 
 ### 7. `backend/src/clients/clients.module.ts`
 
@@ -396,4 +396,4 @@ Verifica os métodos seguros liberados, a rejeição uniforme de token ausente o
 
 ### 12. `backend/src/clients/clients.controller.spec.ts`
 
-Executa criação, edição, alteração de situação e consultas de Clientes contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre persistência, preservação da situação e de OS vinculadas, idempotência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, autorização exclusiva de Administrador, filtros, busca, ordenação, DTOs sem relações, erros e OpenAPI.
+Executa criação, edição, alteração de situação, exclusão e consultas de Clientes contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre exclusão física sem OS, bloqueio para todos os status de OS, tradução da FK restritiva contra corrida, preservação da situação e de OS vinculadas, idempotência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, autorização exclusiva de Administrador, filtros, busca, ordenação, DTOs sem relações, erros e OpenAPI.

@@ -5,12 +5,13 @@ import type { Express } from 'express';
 import { Pool } from 'pg';
 import request from 'supertest';
 import type { SuperAgentTest } from 'supertest';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { AppModule } from '../app.module.js';
 import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { setupOpenApi } from '../common/openapi/openapi.setup.js';
 import { DatabaseService } from '../database/database.service.js';
+import { StatusOrdemServico } from '../generated/prisma/client.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 
 const databaseUrl = process.env.DATABASE_URL;
@@ -192,6 +193,26 @@ describe('ClientsController', () => {
     clientIds.push(client.id);
 
     return client;
+  }
+
+  async function createOrderFixture(
+    clientId: string,
+    responsavelId: string,
+    status = StatusOrdemServico.AGUARDANDO,
+  ) {
+    const order = await database.ordemServico.create({
+      data: {
+        numero: `OS-${crypto.randomUUID()}`,
+        descricao: 'Ordem usada apenas como fixture de teste.',
+        valor: '10.00',
+        status,
+        clienteId: clientId,
+        responsavelId,
+      },
+    });
+    orderIds.push(order.id);
+
+    return order;
   }
 
   async function createAuthenticatedAgent({
@@ -1009,6 +1030,206 @@ describe('ClientsController', () => {
       });
   });
 
+  it.each([
+    ['active', true],
+    ['inactive', false],
+  ])(
+    'allows an administrator to permanently delete a %s client without service orders',
+    async (_description, ativo) => {
+      const { agent, csrfToken } = await createAuthenticatedAgent({
+        perfil: 'ADMINISTRADOR',
+      });
+      const client = await createClientFixture({ ativo });
+
+      const response = await agent
+        .delete(`/clients/${client.id}`)
+        .set('X-CSRF-Token', csrfToken)
+        .expect(HttpStatus.NO_CONTENT);
+
+      expect(response.text).toBe('');
+      await expect(
+        database.cliente.findUnique({ where: { id: client.id } }),
+      ).resolves.toBeNull();
+    },
+  );
+
+  it.each([
+    ['Aguardando', StatusOrdemServico.AGUARDANDO],
+    ['Em andamento', StatusOrdemServico.EM_ANDAMENTO],
+    ['Concluída', StatusOrdemServico.CONCLUIDO],
+    ['Cancelada', StatusOrdemServico.CANCELADO],
+  ])(
+    'refuses to delete a client with a %s service order',
+    async (_description, status) => {
+      const { agent, csrfToken, user } = await createAuthenticatedAgent({
+        perfil: 'ADMINISTRADOR',
+      });
+      const client = await createClientFixture({ ativo: false });
+      const order = await createOrderFixture(
+        client.id,
+        user.funcionarioId,
+        status,
+      );
+
+      await agent
+        .delete(`/clients/${client.id}`)
+        .set('X-CSRF-Token', csrfToken)
+        .expect(HttpStatus.CONFLICT)
+        .expect({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'CLIENT_HAS_ORDERS',
+          message:
+            'Client has linked service orders and must be deactivated instead of deleted',
+        });
+
+      await expect(
+        database.cliente.findUniqueOrThrow({ where: { id: client.id } }),
+      ).resolves.toEqual(client);
+      await expect(
+        database.ordemServico.findUniqueOrThrow({ where: { id: order.id } }),
+      ).resolves.toEqual(order);
+    },
+  );
+
+  it('translates the foreign key protection after an order appears during deletion', async () => {
+    const { agent, csrfToken, user } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const client = await createClientFixture();
+    const order = await createOrderFixture(client.id, user.funcionarioId);
+    const orderLookup = vi
+      .spyOn(database.ordemServico, 'findFirst')
+      .mockResolvedValueOnce(null);
+
+    try {
+      await agent
+        .delete(`/clients/${client.id}`)
+        .set('X-CSRF-Token', csrfToken)
+        .expect(HttpStatus.CONFLICT)
+        .expect({
+          statusCode: HttpStatus.CONFLICT,
+          code: 'CLIENT_HAS_ORDERS',
+          message:
+            'Client has linked service orders and must be deactivated instead of deleted',
+        });
+    } finally {
+      orderLookup.mockRestore();
+    }
+
+    await expect(
+      database.cliente.findUniqueOrThrow({ where: { id: client.id } }),
+    ).resolves.toEqual(client);
+    await expect(
+      database.ordemServico.findUniqueOrThrow({ where: { id: order.id } }),
+    ).resolves.toEqual(order);
+  });
+
+  it('rejects an employee deletion through RoleGuard without changing the client', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'FUNCIONARIO',
+    });
+    const client = await createClientFixture();
+
+    await agent
+      .delete(`/clients/${client.id}`)
+      .set('X-CSRF-Token', csrfToken)
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_FORBIDDEN',
+        message: 'You do not have permission to access this resource',
+      });
+
+    await expect(
+      database.cliente.findUniqueOrThrow({ where: { id: client.id } }),
+    ).resolves.toEqual(client);
+  });
+
+  it('requires a session to delete a client', async () => {
+    const client = await createClientFixture();
+    const agent = request.agent(app);
+    const csrfResponse = await agent.get('/auth/csrf').expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(csrfResponse.headers['set-cookie']?.[0]));
+
+    await agent
+      .delete(`/clients/${client.id}`)
+      .set('X-CSRF-Token', csrfResponse.body.csrfToken as string)
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+  });
+
+  it('requires first access password completion to delete a client', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+      deveAlterarSenha: true,
+    });
+    const client = await createClientFixture();
+
+    await agent
+      .delete(`/clients/${client.id}`)
+      .set('X-CSRF-Token', csrfToken)
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+  });
+
+  it('requires CSRF to delete a client', async () => {
+    const { agent } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const client = await createClientFixture();
+
+    await agent
+      .delete(`/clients/${client.id}`)
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+  });
+
+  it('rejects an invalid client id when deleting', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+
+    await agent
+      .delete('/clients/not-a-uuid')
+      .set('X-CSRF-Token', csrfToken)
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+      });
+  });
+
+  it('returns CLIENT_NOT_FOUND for an unknown valid client id when deleting', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+
+    await agent
+      .delete(`/clients/${crypto.randomUUID()}`)
+      .set('X-CSRF-Token', csrfToken)
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'CLIENT_NOT_FOUND',
+        message: 'Client not found',
+      });
+  });
+
   it('returns only active clients by default and only list DTO fields', async () => {
     const { agent } = await createAuthenticatedAgent();
     const activeClient = await createClientFixture({ nome: 'Cliente Ativo' });
@@ -1338,7 +1559,7 @@ describe('ClientsController', () => {
       });
   });
 
-  it('documents client creation, status update, registration update and read endpoints in OpenAPI', async () => {
+  it('documents client creation, status update, deletion, registration update and read endpoints in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
@@ -1348,12 +1569,14 @@ describe('ClientsController', () => {
     const updateOperation = response.body.paths['/clients/{id}'].put;
     const statusUpdateOperation =
       response.body.paths['/clients/{id}/status'].patch;
+    const deleteOperation = response.body.paths['/clients/{id}'].delete;
 
     expect(Object.keys(response.body.paths['/clients']).sort()).toEqual([
       'get',
       'post',
     ]);
     expect(Object.keys(response.body.paths['/clients/{id}']).sort()).toEqual([
+      'delete',
       'get',
       'put',
     ]);
@@ -1473,6 +1696,25 @@ describe('ClientsController', () => {
     );
     expect(statusUpdateOperation.responses['403'].description).toContain(
       'perfil',
+    );
+    expect(deleteOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(deleteOperation.responses).toHaveProperty('204');
+    expect(deleteOperation.responses).toHaveProperty('400');
+    expect(deleteOperation.responses).toHaveProperty('401');
+    expect(deleteOperation.responses).toHaveProperty('403');
+    expect(deleteOperation.responses).toHaveProperty('404');
+    expect(deleteOperation.responses).toHaveProperty('409');
+    expect(deleteOperation.responses['409'].description).toContain(
+      'CLIENT_HAS_ORDERS',
     );
   });
 });
