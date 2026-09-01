@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module.js';
 import { HttpExceptionFilter } from './common/errors/http-exception.filter.js';
 import { setupOpenApi } from './common/openapi/openapi.setup.js';
+import { SessionStoreService } from './auth/session/session-store.service.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -11,6 +12,9 @@ async function bootstrap() {
       json: process.env.NODE_ENV === 'production',
     }),
   });
+  const sessionStoreService = app.get(SessionStoreService);
+
+  app.use(sessionStoreService.middleware);
   app.useGlobalFilters(new HttpExceptionFilter());
   setupOpenApi(app);
   app.enableShutdownHooks();

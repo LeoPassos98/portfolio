@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { PasswordModule } from './auth/password/password.module.js';
+import { SessionModule } from './auth/session/session.module.js';
 import { validateEnvironment } from './config/environment.validation.js';
 import { DatabaseModule } from './database/database.module.js';
 
@@ -14,6 +15,7 @@ import { DatabaseModule } from './database/database.module.js';
     }),
     DatabaseModule,
     PasswordModule,
+    SessionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

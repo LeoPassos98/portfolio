@@ -99,6 +99,21 @@ npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script
 
 O SQL gerado recebeu manualmente as constraints `CHECK (valor >= 0)` em `ordem_servico` e `historico_ordem_servico`, pois o Prisma Schema não representa `CHECK` diretamente. A segunda constraint mantém o snapshot submetido à mesma integridade monetária da ordem original.
 
+### Sessões persistidas no PostgreSQL
+
+O `express-session` controla o ciclo de sessão HTTP e mantém no cookie apenas o identificador assinado. O `connect-pg-simple` persiste os dados da sessão no PostgreSQL, usando a tabela de infraestrutura `session` versionada pelo Prisma Migrate; o startup não cria nem altera essa tabela.
+
+```bash
+cd backend
+npm install express-session@1.19.0 connect-pg-simple@10.0.0
+npm install --save-dev @types/express-session@1.19.0 @types/connect-pg-simple@7.0.3
+npx prisma migrate dev --name add_session_store
+```
+
+A migration cria `session` com `sid` como chave primária, `sess` em JSON e `expire` com índice `IDX_session_expire`, estrutura compatível com o store. `SESSION_MAX_AGE_MS` controla a validade fixa, com padrão de 28.800.000 ms (8 horas), e deve ser um inteiro positivo. O store usa `disableTouch` e o middleware usa `rolling: false` para não renovar a expiração em cada acesso.
+
+O cookie tem `HttpOnly`, `SameSite=Lax`, caminho `/` e `maxAge` configurável; `Secure` é habilitado somente em produção. Não há domínio configurado e nem dados de usuário no cookie. `SESSION_SECRET` assina o identificador de sessão e deve continuar sendo um segredo longo fora do controle de versão.
+
 ### Documentação HTTP com OpenAPI
 
 O `@nestjs/swagger` integra o NestJS à especificação OpenAPI e disponibiliza uma Swagger UI navegável para os contratos HTTP da API.

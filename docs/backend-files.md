@@ -8,14 +8,15 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área | Responsabilidade | Arquivos |
 | --- | --- | ---: |
-| Entrada e composição | Inicialização do NestJS e endpoint raiz atual | 4 |
+| Entrada e composição | Inicialização do NestJS, sessão global e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
-| Infraestrutura de banco | Configuração Prisma, modelo físico, migration inicial e acesso PostgreSQL injetável | 5 |
+| Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
+| Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 3 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura das validações de ambiente, HTTP, erros globais e senhas | 4 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas e sessões | 6 |
 
 ## Sumário
 
@@ -23,6 +24,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Segurança de credenciais](#segurança-de-credenciais)
+- [Sessões server-side](#sessões-server-side)
 - [Validação HTTP](#validação-http)
 - [Tratamento de erros HTTP](#tratamento-de-erros-http)
 - [Documentação HTTP](#documentação-http)
@@ -38,7 +40,7 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` nativo com JSON em produção e saída legível nos demais ambientes, registra o filter global de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` nativo com JSON em produção e saída legível nos demais ambientes, registra globalmente o middleware de sessão, o filter de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
 
 ### 2. `backend/src/app.module.ts`
 
@@ -62,11 +64,11 @@ Diretório principal: `backend/src/config/`
 
 ### 1. `backend/.env.example`
 
-Disponibiliza valores de referência para ambiente de desenvolvimento, porta, bancos PostgreSQL de desenvolvimento e shadow, segredo de sessão e origem do frontend.
+Disponibiliza valores de referência para ambiente de desenvolvimento, porta, bancos PostgreSQL de desenvolvimento e shadow, segredo e duração da sessão e origem do frontend.
 
 ### 2. `backend/src/config/environment.validation.ts`
 
-Declara com Zod o schema das variáveis de ambiente, aplica valores padrão para ambiente e porta e interrompe o bootstrap com mensagens detalhadas quando a configuração é inválida.
+Declara com Zod o schema das variáveis de ambiente, aplica valores padrão para ambiente, porta e duração de sessão, e interrompe o bootstrap com mensagens detalhadas quando a configuração é inválida.
 
 ---
 
@@ -82,7 +84,7 @@ Configura o Prisma CLI, localiza o schema e recebe `DATABASE_URL` para o banco d
 
 ### 2. `backend/prisma/schema.prisma`
 
-Define o modelo físico PostgreSQL do domínio, seus enums e relações, além do generator `prisma-client` com saída local.
+Define os modelos físicos PostgreSQL do domínio e a tabela de infraestrutura `session`, seus enums e relações, além do generator `prisma-client` com saída local.
 
 ### 3. `backend/src/database/database.module.ts`
 
@@ -95,6 +97,10 @@ Instancia o Prisma Client com o adapter PostgreSQL, obtém a URL pelo `ConfigSer
 ### 5. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
 
 Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índices, constraints de integridade e as chaves estrangeiras restritivas.
+
+### 6. `backend/prisma/migrations/20260901002105_add_session_store/migration.sql`
+
+Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com `sid` como chave primária, `sess` JSON, `expire` timestamp e índice de expiração.
 
 ---
 
@@ -111,6 +117,26 @@ Registra e exporta `PasswordService` para que módulos futuros possam receber a 
 ### 2. `backend/src/auth/password/password.service.ts`
 
 Gera hashes Argon2id com salt automático e parâmetros seguros, e verifica a senha recebida pelo mecanismo seguro da própria biblioteca, sem armazenar ou registrar a senha original.
+
+---
+
+## Sessões server-side
+
+Configura o ciclo de sessão HTTP sem rotas de autenticação, mantendo no cookie somente o identificador assinado e no PostgreSQL os dados da sessão.
+
+Diretório principal: `backend/src/auth/session/`
+
+### 1. `backend/src/auth/session/session.middleware.ts`
+
+Centraliza as opções do `express-session`: cookie `HttpOnly`, `SameSite=Lax`, `Secure` condicionado à produção, duração configurável e ausência de renovação por acesso.
+
+### 2. `backend/src/auth/session/session-store.service.ts`
+
+Cria o pool e o store `connect-pg-simple` sobre a tabela `session`, desabilita a criação automática da tabela e o touch renovável, fornece o middleware global e encerra store e pool no shutdown.
+
+### 3. `backend/src/auth/session/session.module.ts`
+
+Registra e exporta `SessionStoreService` para a composição do módulo raiz e o bootstrap da aplicação.
 
 ---
 
@@ -179,3 +205,11 @@ Verifica a normalização global para Zod, exceções HTTP conhecidas, exceçõe
 ### 4. `backend/src/auth/password/password.service.spec.ts`
 
 Verifica a geração de hashes Argon2id sem senha em texto puro, a validação correta e incorreta e o salt automático que gera hashes distintos para a mesma senha.
+
+### 5. `backend/src/auth/session/session.middleware.spec.ts`
+
+Verifica as opções do cookie, incluindo `HttpOnly`, `SameSite=Lax`, duração, ausência de domínio e `Secure` condicionado à produção.
+
+### 6. `backend/src/auth/session/session-store.service.spec.ts`
+
+Usa uma fixture HTTP somente de teste para verificar criação, persistência, recuperação e expiração fixa da sessão no PostgreSQL, a limpeza dos dados de validação e o fechamento do store e pool.

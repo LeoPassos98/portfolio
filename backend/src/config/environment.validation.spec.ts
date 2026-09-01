@@ -12,6 +12,7 @@ describe('validateEnvironment', () => {
       ...requiredEnvironment,
       NODE_ENV: 'development',
       PORT: 3000,
+      SESSION_MAX_AGE_MS: 28_800_000,
     });
   });
 
@@ -31,5 +32,14 @@ describe('validateEnvironment', () => {
         PORT: 'not-a-port',
       }),
     ).toThrow('PORT');
+  });
+
+  it('rejects a non-positive session duration', () => {
+    expect(() =>
+      validateEnvironment({
+        ...requiredEnvironment,
+        SESSION_MAX_AGE_MS: '0',
+      }),
+    ).toThrow('SESSION_MAX_AGE_MS');
   });
 });
