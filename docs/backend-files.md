@@ -8,18 +8,19 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área | Responsabilidade | Arquivos |
 | --- | --- | ---: |
-| Entrada e composição | Inicialização do NestJS, sessão global, CORS e endpoint raiz atual | 4 |
+| Entrada e composição | Inicialização do NestJS, sessão global, CORS, clientes e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
 | Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
 | Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
+| Consulta de clientes | Listagem e detalhe de clientes com filtros, busca e proteção de sessão | 7 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Proteção de origem | CORS restritivo para o frontend configurado | 1 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards e sessões | 11 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards, sessões e clientes | 12 |
 
 ## Sumário
 
@@ -28,6 +29,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Autenticação](#autenticação)
 - [Guards de acesso](#guards-de-acesso)
+- [Consulta de clientes](#consulta-de-clientes)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Proteção de origem](#proteção-de-origem)
@@ -50,7 +52,7 @@ Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` n
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação e sessão, registra o `CsrfGuard` global e fornece o endpoint temporário atual.
+Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação, clientes e sessão, registra o `CsrfGuard` global e fornece o endpoint temporário atual.
 
 ### 3. `backend/src/app.controller.ts`
 
@@ -138,7 +140,7 @@ Expõe `GET /auth/csrf`, `POST /auth/login`, `POST /auth/first-access/password`,
 
 ### 6. `backend/src/auth/auth.module.ts`
 
-Compõe controller, service e guards de autenticação com a infraestrutura de banco e de senhas.
+Compõe controller, service e guards de autenticação com a infraestrutura de banco e de senhas, exportando o serviço e os guards de sessão e de primeiro acesso para módulos de domínio protegidos.
 
 ### 7. `backend/src/auth/authenticated-user.interface.ts`
 
@@ -187,6 +189,42 @@ Lê com `Reflector` os perfis declarados por `@Roles(...)` e compara-os somente 
 ### 4. `backend/src/auth/guards/csrf.guard.ts`
 
 Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalho `X-CSRF-Token` ao token da sessão; permite somente `GET`, `HEAD` e `OPTIONS` sem token.
+
+---
+
+## Consulta de clientes
+
+Expõe a consulta real de clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
+
+Diretório principal: `backend/src/clients/`
+
+### 1. `backend/src/clients/client-id.schema.ts`
+
+Valida com Zod o parâmetro `id` das consultas de detalhe como UUID.
+
+### 2. `backend/src/clients/client-list-query.schema.ts`
+
+Valida com Zod a query da listagem, aceita `active`, `inactive` e `all`, aplica `active` como padrão e remove espaços externos da busca.
+
+### 3. `backend/src/clients/client-list-item-response.dto.ts`
+
+Documenta no OpenAPI o DTO compacto da listagem, contendo somente identificação, nome, telefone, documento e situação.
+
+### 4. `backend/src/clients/client-detail-response.dto.ts`
+
+Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Ordens de Serviço.
+
+### 5. `backend/src/clients/clients.service.ts`
+
+Orquestra consultas reais via `DatabaseService`: transforma filtro e busca em `where` do Prisma, normaliza dígitos de CPF/CNPJ para documento, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
+
+### 6. `backend/src/clients/clients.controller.ts`
+
+Define a fronteira HTTP `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, valida entrada com Zod e descreve DTOs e respostas de erro no OpenAPI.
+
+### 7. `backend/src/clients/clients.module.ts`
+
+Agrupa o domínio de Clientes, importando banco e autenticação e registrando controller e service.
 
 ---
 
@@ -335,3 +373,7 @@ Verifica o decorator `@Roles(...)` e o `RoleGuard` para perfis permitidos, negad
 ### 11. `backend/src/auth/guards/csrf.guard.spec.ts`
 
 Verifica os métodos seguros liberados, a rejeição uniforme de token ausente ou inválido e a validação obrigatória para `POST`, `PUT`, `PATCH` e `DELETE`.
+
+### 12. `backend/src/clients/clients.controller.spec.ts`
+
+Executa as consultas de Clientes contra `portfolio_dev` com fixtures removidas ao final; cobre filtros, busca por nome e documento normalizado, ordenação, DTOs sem relações, erros, guards, os dois perfis e a documentação OpenAPI.
