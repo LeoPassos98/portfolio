@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -35,6 +36,10 @@ import {
   clientListQuerySchema,
   type ClientListQuery,
 } from './client-list-query.schema.js';
+import {
+  clientUpdateSchema,
+  type ClientUpdateInput,
+} from './client-update.schema.js';
 import { ClientDetailResponse } from './client-detail-response.dto.js';
 import { ClientListItemResponse } from './client-list-item-response.dto.js';
 import { ClientsService } from './clients.service.js';
@@ -158,5 +163,65 @@ export class ClientsController {
     @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
   ): Promise<ClientDetailResponse> {
     return this.clientsService.findOne(id);
+  }
+
+  @Put(':id')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Atualiza os dados cadastrais de um cliente' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'nome',
+        'telefone',
+        'cep',
+        'logradouro',
+        'numero',
+        'bairro',
+        'cidade',
+        'uf',
+      ],
+      properties: {
+        nome: { type: 'string', minLength: 2, maxLength: 120 },
+        telefone: { type: 'string', example: '+55 (11) 99999-9999' },
+        documento: { type: 'string', example: '529.982.247-25' },
+        email: { type: 'string', format: 'email' },
+        cep: { type: 'string', example: '01001-000' },
+        logradouro: { type: 'string', example: 'Praça da Sé' },
+        numero: { type: 'string', example: '100' },
+        complemento: { type: 'string', example: 'Sala 10' },
+        bairro: { type: 'string', example: 'Sé' },
+        cidade: { type: 'string', example: 'São Paulo' },
+        uf: { type: 'string', minLength: 2, maxLength: 2, example: 'SP' },
+      },
+    },
+  })
+  @ApiOkResponse({ type: ClientDetailResponse })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, ou troca obrigatória de senha pendente.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description: 'Cliente não encontrado.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'CPF/CNPJ já pertence a outro cliente (CLIENT_DOCUMENT_ALREADY_EXISTS).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  update(
+    @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
+    @Body(new ZodValidationPipe(clientUpdateSchema)) input: ClientUpdateInput,
+  ): Promise<ClientDetailResponse> {
+    return this.clientsService.update(id, input);
   }
 }

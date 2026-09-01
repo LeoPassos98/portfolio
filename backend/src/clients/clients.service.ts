@@ -10,6 +10,7 @@ import {
 import { DatabaseService } from '../database/database.service.js';
 import type { ClientCreateInput } from './client-create.schema.js';
 import type { ClientListQuery } from './client-list-query.schema.js';
+import type { ClientUpdateInput } from './client-update.schema.js';
 import { ClientDetailResponse } from './client-detail-response.dto.js';
 import { ClientListItemResponse } from './client-list-item-response.dto.js';
 
@@ -118,6 +119,31 @@ export class ClientsService {
         error.code === 'P2002'
       ) {
         throw new ConflictException(CLIENT_DOCUMENT_ALREADY_EXISTS_ERROR);
+      }
+
+      throw error;
+    }
+  }
+
+  async update(
+    id: string,
+    input: ClientUpdateInput,
+  ): Promise<ClientDetailResponse> {
+    try {
+      return await this.database.cliente.update({
+        where: { id },
+        data: input,
+        select: clientDetailSelect,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          throw new ConflictException(CLIENT_DOCUMENT_ALREADY_EXISTS_ERROR);
+        }
+
+        if (error.code === 'P2025') {
+          throw new NotFoundException(CLIENT_NOT_FOUND_ERROR);
+        }
       }
 
       throw error;
