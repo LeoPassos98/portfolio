@@ -74,6 +74,14 @@ npx prisma init --datasource-provider postgresql --output ../src/generated/prism
 
 `prisma.config.ts` usa `DATABASE_URL` para os comandos do Prisma. Em runtime, a mesma variável é carregada e validada pela configuração central do NestJS e chega ao `DatabaseService` pelo `ConfigService`.
 
+O Prisma Migrate usa uma shadow database local, dedicada e descartável para comparar migrations. Crie `portfolio_shadow` separadamente de `portfolio_dev` e configure sua URL em `SHADOW_DATABASE_URL`; ela pode ser resetada pelo Prisma e nunca deve conter dados reais.
+
+```bash
+createdb portfolio_shadow
+```
+
+Não use a mesma URL para `DATABASE_URL` e `SHADOW_DATABASE_URL`.
+
 Após alterar o schema ou a configuração do generator, valide-o e gere novamente o Prisma Client:
 
 ```bash

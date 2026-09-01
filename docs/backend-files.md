@@ -60,7 +60,7 @@ Diretório principal: `backend/src/config/`
 
 ### 1. `backend/.env.example`
 
-Disponibiliza valores de referência para ambiente de desenvolvimento, porta, conexão PostgreSQL futura, segredo de sessão e origem do frontend.
+Disponibiliza valores de referência para ambiente de desenvolvimento, porta, bancos PostgreSQL de desenvolvimento e shadow, segredo de sessão e origem do frontend.
 
 ### 2. `backend/src/config/environment.validation.ts`
 
@@ -76,7 +76,7 @@ Diretórios principais: `backend/prisma/` e `backend/src/database/`
 
 ### 1. `backend/prisma.config.ts`
 
-Configura o Prisma CLI, localiza o schema e recebe `DATABASE_URL` do ambiente para os comandos de banco.
+Configura o Prisma CLI, localiza o schema e recebe `DATABASE_URL` para o banco de desenvolvimento e `SHADOW_DATABASE_URL` para a database dedicada e descartável usada pelo Prisma Migrate.
 
 ### 2. `backend/prisma/schema.prisma`
 
