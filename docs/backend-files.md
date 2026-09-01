@@ -11,13 +11,14 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição | Inicialização do NestJS, sessão global e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
-| Autenticação | Login, troca obrigatória de senha, logout e reconstrução da sessão autenticada | 6 |
+| Autenticação | Login, troca obrigatória de senha, logout e respostas da sessão autenticada | 9 |
+| Guards de acesso | Validação de sessão e bloqueio de acesso normal durante a troca obrigatória | 2 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação e sessões | 7 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards e sessões | 9 |
 
 ## Sumário
 
@@ -25,6 +26,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Autenticação](#autenticação)
+- [Guards de acesso](#guards-de-acesso)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Validação HTTP](#validação-http)
@@ -108,7 +110,7 @@ Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com
 
 ## Autenticação
 
-Implementa login, troca obrigatória da senha inicial, logout e consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e reconstruindo os dados seguros pelo PostgreSQL.
+Implementa login, troca obrigatória da senha inicial, logout e consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e retornando o contexto seguro autenticado.
 
 Diretório principal: `backend/src/auth/`
 
@@ -130,11 +132,39 @@ Declara o schema Zod da troca obrigatória de senha: exige senha entre 8 e 128 c
 
 ### 5. `backend/src/auth/auth.controller.ts`
 
-Expõe `POST /auth/login`, `POST /auth/first-access/password`, `POST /auth/logout` e `GET /auth/session`; regenera e salva a sessão antes de gravar `usuarioId` no login e após a troca obrigatória, invalida sessões associadas a contas inativas e encerra sessões no PostgreSQL durante o logout.
+Expõe `POST /auth/login`, `POST /auth/first-access/password`, `POST /auth/logout` e `GET /auth/session`; aplica `SessionGuard` às duas rotas autenticadas, regenera e salva a sessão antes de gravar `usuarioId` no login e após a troca obrigatória, e encerra sessões no PostgreSQL durante o logout.
 
 ### 6. `backend/src/auth/auth.module.ts`
 
-Compõe controller e service de autenticação com a infraestrutura de banco e de senhas.
+Compõe controller, service e guards de autenticação com a infraestrutura de banco e de senhas.
+
+### 7. `backend/src/auth/authenticated-user.interface.ts`
+
+Define o principal seguro tipado disponível somente no request autenticado, sem hash de senha ou dados persistidos na sessão.
+
+### 8. `backend/src/auth/authenticated-request.d.ts`
+
+Amplia o tipo de `Express.Request` com `authenticatedUser`, o contexto seguro da requisição preenchido pelo guard de sessão.
+
+### 9. `backend/src/auth/auth-errors.ts`
+
+Centraliza os códigos e mensagens estáveis usados pelos guards de sessão e de bloqueio da troca obrigatória de senha.
+
+---
+
+## Guards de acesso
+
+Reúne guards reutilizáveis que separam a confirmação da sessão autenticada das futuras regras de autorização por perfil e recurso.
+
+Diretório principal: `backend/src/auth/guards/`
+
+### 1. `backend/src/auth/guards/session.guard.ts`
+
+Exige `session.usuarioId`, recarrega a conta ativa, destrói sessões inválidas e disponibiliza no request apenas o principal seguro da requisição.
+
+### 2. `backend/src/auth/guards/first-access-completed.guard.ts`
+
+Usa o principal já carregado pelo `SessionGuard` para bloquear o acesso normal enquanto `deveAlterarSenha` estiver ativo, sem nova consulta ao PostgreSQL.
 
 ---
 
@@ -255,3 +285,11 @@ Usa uma fixture HTTP somente de teste para verificar criação, persistência, r
 ### 7. `backend/src/auth/auth.controller.spec.ts`
 
 Executa login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, persistência PostgreSQL, conta inativada, invalidação de logout e ausência de dados sensíveis nas respostas.
+
+### 8. `backend/src/auth/guards/session.guard.spec.ts`
+
+Verifica a rejeição de sessão ausente, a reconstrução do principal seguro, a destruição da sessão para conta inexistente ou inativa e a ausência de hash no contexto autenticado.
+
+### 9. `backend/src/auth/guards/first-access-completed.guard.spec.ts`
+
+Verifica o bloqueio de acesso normal quando a troca obrigatória de senha está pendente e a liberação quando ela foi concluída, reutilizando somente o usuário já presente no request.

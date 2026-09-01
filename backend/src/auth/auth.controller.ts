@@ -9,6 +9,7 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -30,15 +31,11 @@ import {
 } from './first-access-password.schema.js';
 import { loginSchema, type LoginInput } from './auth-login.schema.js';
 import { AuthService } from './auth.service.js';
+import { SessionGuard } from './guards/session.guard.js';
 
 const INVALID_CREDENTIALS_ERROR = {
   code: 'AUTH_INVALID_CREDENTIALS',
   message: 'Invalid email or password',
-} as const;
-
-const UNAUTHENTICATED_ERROR = {
-  code: 'AUTH_UNAUTHENTICATED',
-  message: 'Authentication required',
 } as const;
 
 const FIRST_ACCESS_PASSWORD_NOT_REQUIRED_ERROR = {
@@ -141,10 +138,13 @@ export class AuthController {
     request.session.usuarioId = usuario.id;
     await saveSession(request);
 
-    return this.authService.toSessionResponse(usuario);
+    return this.authService.toSessionResponse(
+      this.authService.toAuthenticatedUser(usuario),
+    );
   }
 
   @Post('first-access/password')
+  @UseGuards(SessionGuard)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Troca a senha temporária obrigatória do primeiro acesso',
@@ -187,18 +187,7 @@ export class AuthController {
     input: FirstAccessPasswordInput,
     @Req() request: Request,
   ): Promise<AuthSessionResponse> {
-    const usuarioId = request.session.usuarioId;
-
-    if (!usuarioId) {
-      throw new UnauthorizedException(UNAUTHENTICATED_ERROR);
-    }
-
-    const usuario = await this.authService.getAuthenticatedUser(usuarioId);
-
-    if (!usuario || !usuario.ativo) {
-      await destroySession(request);
-      throw new UnauthorizedException(UNAUTHENTICATED_ERROR);
-    }
+    const usuario = request.authenticatedUser!;
 
     if (!usuario.deveAlterarSenha) {
       throw new ConflictException(FIRST_ACCESS_PASSWORD_NOT_REQUIRED_ERROR);
@@ -213,10 +202,13 @@ export class AuthController {
     request.session.usuarioId = usuarioAtualizado.id;
     await saveSession(request);
 
-    return this.authService.toSessionResponse(usuarioAtualizado);
+    return this.authService.toSessionResponse(
+      this.authService.toAuthenticatedUser(usuarioAtualizado),
+    );
   }
 
   @Get('session')
+  @UseGuards(SessionGuard)
   @ApiOperation({ summary: 'Consulta o usuário da sessão atual' })
   @ApiOkResponse({ type: AuthSessionResponse })
   @ApiUnauthorizedResponse({
@@ -224,27 +216,17 @@ export class AuthController {
     schema: getHttpErrorResponseSchemaReference(),
   })
   async getSession(@Req() request: Request): Promise<AuthSessionResponse> {
-    const usuarioId = request.session.usuarioId;
-
-    if (!usuarioId) {
-      throw new UnauthorizedException(UNAUTHENTICATED_ERROR);
-    }
-
-    const usuario = await this.authService.getAuthenticatedUser(usuarioId);
-
-    if (!usuario || !usuario.ativo) {
-      await destroySession(request);
-      throw new UnauthorizedException(UNAUTHENTICATED_ERROR);
-    }
-
-    return this.authService.toSessionResponse(usuario);
+    return this.authService.toSessionResponse(request.authenticatedUser!);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Encerra a sessão atual no servidor' })
   @ApiNoContentResponse({ description: 'Sessão encerrada.' })
-  async logout(@Req() request: Request, @Res() response: Response): Promise<void> {
+  async logout(
+    @Req() request: Request,
+    @Res() response: Response,
+  ): Promise<void> {
     const sessionCookie = request.session.cookie;
 
     try {

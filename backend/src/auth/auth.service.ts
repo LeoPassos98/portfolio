@@ -2,6 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { PasswordService } from './password/password.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import { AuthSessionResponse } from './auth-session-response.dto.js';
+import type { AuthenticatedUser } from './authenticated-user.interface.js';
+
+type UserWithFuncionario = {
+  id: string;
+  perfil: AuthSessionResponse['perfil'];
+  funcionarioId: string;
+  deveAlterarSenha: boolean;
+  funcionario: { nome: string } | null;
+};
+
+type CurrentAuthenticatedUser = UserWithFuncionario & {
+  ativo: boolean;
+};
 
 @Injectable()
 export class AuthService {
@@ -32,10 +45,19 @@ export class AuthService {
     return usuario;
   }
 
-  async getAuthenticatedUser(usuarioId: string) {
+  async getAuthenticatedUser(
+    usuarioId: string,
+  ): Promise<CurrentAuthenticatedUser | null> {
     return this.database.usuario.findUnique({
       where: { id: usuarioId },
-      include: { funcionario: true },
+      select: {
+        id: true,
+        perfil: true,
+        funcionarioId: true,
+        ativo: true,
+        deveAlterarSenha: true,
+        funcionario: { select: { nome: true } },
+      },
     });
   }
 
@@ -52,13 +74,7 @@ export class AuthService {
     });
   }
 
-  toSessionResponse(usuario: {
-    id: string;
-    perfil: AuthSessionResponse['perfil'];
-    funcionarioId: string;
-    funcionario: { nome: string } | null;
-    deveAlterarSenha: boolean;
-  }): AuthSessionResponse {
+  toAuthenticatedUser(usuario: UserWithFuncionario): AuthenticatedUser {
     return {
       id: usuario.id,
       perfil: usuario.perfil,
@@ -68,5 +84,9 @@ export class AuthService {
         : {}),
       deveAlterarSenha: usuario.deveAlterarSenha,
     };
+  }
+
+  toSessionResponse(usuario: AuthenticatedUser): AuthSessionResponse {
+    return usuario;
   }
 }
