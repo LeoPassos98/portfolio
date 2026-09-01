@@ -1,4 +1,13 @@
-import axios, { type InternalAxiosRequestConfig } from 'axios'
+import axios, {
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+} from 'axios'
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    suppressUnauthenticatedSessionHandling?: boolean
+  }
+}
 
 type CsrfTokenResponse = {
   csrfToken: string
@@ -17,7 +26,7 @@ if (!apiUrl) {
   throw new Error('VITE_API_URL deve ser definida para comunicar com a API.')
 }
 
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: apiUrl,
   withCredentials: true,
 })
@@ -27,12 +36,13 @@ const csrfProtectedMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 let csrfToken: string | null = null
 let csrfTokenRequest: Promise<string> | null = null
 let csrfTokenVersion = 0
+let unauthenticatedHandler: (() => void) | null = null
 
 function requiresCsrfToken(config: InternalAxiosRequestConfig): boolean {
   return csrfProtectedMethods.has(config.method?.toUpperCase() ?? '')
 }
 
-async function getCsrfToken(): Promise<string> {
+export async function getCsrfToken(): Promise<string> {
   if (csrfToken) {
     return csrfToken
   }
@@ -62,7 +72,7 @@ async function getCsrfToken(): Promise<string> {
   return csrfTokenRequest
 }
 
-function invalidateCsrfToken(): void {
+export function invalidateCsrfToken(): void {
   csrfToken = null
   csrfTokenRequest = null
   csrfTokenVersion += 1
@@ -78,5 +88,30 @@ apiClient.interceptors.request.use(async (config) => {
   return config
 })
 
-export { apiClient, getCsrfToken, invalidateCsrfToken }
+apiClient.interceptors.response.use(undefined, (error: AxiosError<HttpErrorResponse>) => {
+  const response = error.response
+
+  if (
+    response?.status === 401 &&
+    response.data?.code === 'AUTH_UNAUTHENTICATED' &&
+    !error.config?.suppressUnauthenticatedSessionHandling
+  ) {
+    unauthenticatedHandler?.()
+  }
+
+  return Promise.reject(error)
+})
+
+export function setUnauthenticatedHandler(
+  handler: (() => void) | null,
+): () => void {
+  unauthenticatedHandler = handler
+
+  return () => {
+    if (unauthenticatedHandler === handler) {
+      unauthenticatedHandler = null
+    }
+  }
+}
+
 export type { HttpErrorResponse }

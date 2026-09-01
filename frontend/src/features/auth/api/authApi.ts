@@ -23,6 +23,11 @@ type FirstAccessPasswordInput = {
   passwordConfirmation: string
 }
 
+type GetSessionOptions = {
+  signal?: AbortSignal
+  suppressUnauthenticatedSessionHandling?: boolean
+}
+
 async function login(input: LoginInput): Promise<AuthSession> {
   const { data } = await apiClient.post<AuthSession>('/auth/login', input)
 
@@ -31,8 +36,14 @@ async function login(input: LoginInput): Promise<AuthSession> {
   return data
 }
 
-async function getSession(): Promise<AuthSession> {
-  const { data } = await apiClient.get<AuthSession>('/auth/session')
+async function getSession({
+  signal,
+  suppressUnauthenticatedSessionHandling = false,
+}: GetSessionOptions = {}): Promise<AuthSession> {
+  const { data } = await apiClient.get<AuthSession>('/auth/session', {
+    signal,
+    suppressUnauthenticatedSessionHandling,
+  })
 
   return data
 }
@@ -66,5 +77,6 @@ export type {
   AuthProfile,
   AuthSession,
   FirstAccessPasswordInput,
+  GetSessionOptions,
   LoginInput,
 }

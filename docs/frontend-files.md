@@ -14,7 +14,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 6 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
-| Autenticação | Login, primeiro acesso, contrato HTTP, validação, sessão mockada e proteção de rotas | 10 |
+| Autenticação | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
@@ -44,11 +44,11 @@ Diretório principal: `frontend/`
 
 ### 1. `frontend/src/main.tsx`
 
-Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de sessão mockada, feedback de sucesso e navegação com `AuthSessionProvider`, `SuccessFeedbackProvider` e `BrowserRouter`.
+Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de autenticação real, feedback de sucesso e navegação com `AuthSessionProvider`, `SuccessFeedbackProvider` e `BrowserRouter`.
 
 ### 2. `frontend/src/App.tsx`
 
-Declara as rotas da SPA, associa caminhos às páginas e centraliza a proteção das áreas autenticadas e exclusivas de Administrador.
+Declara as rotas da SPA, associa caminhos às páginas, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador.
 
 ### 3. `frontend/vite.config.ts`
 
@@ -64,7 +64,7 @@ Diretório principal: `frontend/src/shared/lib/http/`
 
 ### 1. `frontend/src/shared/lib/http/apiClient.ts`
 
-Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`, falha sem a URL da API e anexa o token CSRF mantido somente em memória às mutações; também expõe sua invalidação após troca de sessão.
+Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`, falha sem a URL da API, anexa o token CSRF mantido somente em memória às mutações, invalida-o após troca de sessão e encaminha centralmente `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
 
 ---
 
@@ -160,7 +160,7 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão; preserva a rolagem própria da sidebar e do drawer mobile.
+Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão; preserva a rolagem própria da sidebar e do drawer mobile, além de encerrar a sessão real antes de voltar ao Login.
 
 ### 3. `frontend/src/components/layout/AppBrand.tsx`
 
@@ -170,13 +170,13 @@ Reserva uma marca geométrica reutilizável para o shell autenticado, sem defini
 
 ## Autenticação
 
-Reúne as telas de login e primeiro acesso, seus fluxos de protótipo, schemas de validação e a sessão mockada compartilhada.
+Reúne o modelo de sessão próprio do frontend, autenticação global real, telas de login e primeiro acesso, contratos HTTP, schemas de validação e guards de navegação.
 
 Diretório principal: `frontend/src/features/auth/`
 
 ### 1. `frontend/src/features/auth/pages/LoginPage.tsx`
 
-Implementa login acessível com React Hook Form, validação, visibilidade de senha, navegação mock para o Dashboard e atalho temporário para simular o primeiro acesso.
+Implementa login acessível com React Hook Form, validação, visibilidade de senha, feedback de falha e navegação conforme a sessão real retornada pelo backend.
 
 ### 2. `frontend/src/features/auth/schemas/loginSchema.ts`
 
@@ -184,35 +184,43 @@ Define com Zod as regras de Login, normaliza o e-mail de login e exporta `LoginF
 
 ### 3. `frontend/src/features/auth/pages/FirstAccessPage.tsx`
 
-Implementa com React Hook Form e Zod o fluxo obrigatório de definição e confirmação da nova senha no `AuthLayout`; após validação, conclui temporariamente o protótipo navegando para o Dashboard, sem submissão real ou integração com sessão.
+Implementa com React Hook Form e Zod o fluxo obrigatório de definição e confirmação da nova senha no `AuthLayout`, submetendo a alteração real e navegando ao Dashboard apenas depois da sessão atualizada.
 
 ### 4. `frontend/src/features/auth/schemas/firstAccessSchema.ts`
 
 Define com Zod a política de nova senha e confirmação do primeiro acesso sem transformar os valores informados, exportando `FirstAccessFormData` para a tela correspondente.
 
-### 5. `frontend/src/features/auth/mocks/authenticatedSession.ts`
+### 5. `frontend/src/features/auth/context/AuthSessionContext.ts`
 
-Define as sessões mockadas de Administrador e Funcionário e concentra, em `activeMockAuthenticatedSession`, a única troca manual do estado ativo para desenvolvimento, inclusive ausência de sessão com `null`.
+Declara o Context tipado da autenticação real, com sessão, bootstrap, ações e sinalização de invalidação centralizada.
 
-### 6. `frontend/src/features/auth/context/AuthSessionContext.ts`
+### 6. `frontend/src/features/auth/context/AuthSessionProvider.tsx`
 
-Declara o Context tipado da sessão mockada, mantido separado para que Provider e consumidores compartilhem o mesmo contrato global.
+Restaura a sessão por `/auth/session`, mantém a fonte global de autenticação e expõe login, troca de senha, logout, nova tentativa do bootstrap e limpeza central após `AUTH_UNAUTHENTICATED`.
 
-### 7. `frontend/src/features/auth/context/AuthSessionProvider.tsx`
+### 7. `frontend/src/features/auth/hooks/useAuthSession.ts`
 
-Fornece a sessão mockada ativa globalmente por meio de `AuthSessionProvider`, sem persistência ou autenticação real.
+Expõe o hook de consumo seguro apenas da sessão atual para telas e componentes autenticados, preservando consumidores que não precisam das ações de autenticação.
 
-### 8. `frontend/src/features/auth/hooks/useAuthSession.ts`
+### 8. `frontend/src/features/auth/components/ProtectedRoute.tsx`
 
-Expõe o hook de consumo seguro da sessão para telas e componentes autenticados, garantindo uso dentro do Provider e permitindo que o valor seja `null` no teste de ausência de sessão.
+Centraliza o guard reutilizável das rotas internas, aguardando o bootstrap, exigindo sessão, encaminhando troca obrigatória de senha ao primeiro acesso e preservando o redirecionamento de perfil sem permissão ao Dashboard com o feedback contextual previsto.
 
-### 9. `frontend/src/features/auth/components/ProtectedRoute.tsx`
+### 9. `frontend/src/features/auth/api/authApi.ts`
 
-Centraliza o guard reutilizável das rotas internas, redirecionando ausência de sessão ao Login e perfil sem permissão ao Dashboard com o feedback contextual previsto.
+Expõe as funções HTTP reais de login, restauração de sessão, troca de senha de primeiro acesso e logout, com contratos independentes do modelo da aplicação e invalidação do CSRF após as mutações que regeneram ou encerram a sessão.
 
-### 10. `frontend/src/features/auth/api/authApi.ts`
+### 10. `frontend/src/features/auth/types/authenticatedSession.ts`
 
-Expõe as funções HTTP reais de login, sessão, troca de senha de primeiro acesso e logout, com contratos independentes dos mocks e invalidação do CSRF após as mutações que regeneram ou encerram a sessão.
+Define o modelo de sessão da aplicação separado do contrato bruto da API e concentra a tradução de perfil, identificador e nome do funcionário para os nomes usados pelo React.
+
+### 11. `frontend/src/features/auth/hooks/useAuth.ts`
+
+Expõe o estado e as ações completas da autenticação para os fluxos que precisam alterar ou verificar a sessão.
+
+### 12. `frontend/src/features/auth/components/AuthSessionBootstrap.tsx`
+
+Apresenta o estado mínimo de verificação inicial da sessão e a falha técnica recuperável, sem renderizar uma área protegida antes da confirmação de acesso.
 
 ---
 
@@ -224,7 +232,7 @@ Diretório principal: `frontend/src/features/dashboard/`
 
 ### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Compõe o Dashboard administrativo ou individual conforme o perfil da sessão mockada compartilhada, recebe o feedback contextual de acesso negado do guard e delega o painel individual ao componente compartilhado.
+Compõe o Dashboard administrativo ou individual conforme o perfil da sessão autenticada compartilhada, recebe o feedback contextual de acesso negado do guard e delega o painel individual ao componente compartilhado.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 

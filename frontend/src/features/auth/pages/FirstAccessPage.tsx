@@ -1,28 +1,56 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { isAxiosError } from 'axios'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { AuthLayout } from '../components/AuthLayout'
+import { useAuth } from '../hooks/useAuth'
 import {
   firstAccessSchema,
   type FirstAccessFormData,
 } from '../schemas/firstAccessSchema'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 
 function FirstAccessPage() {
   const navigate = useNavigate()
+  const [submitError, setSubmitError] = useState<string | null>(null)
+  const { changeFirstAccessPassword, session } = useAuth()
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<FirstAccessFormData>({
     resolver: zodResolver(firstAccessSchema),
   })
 
-  // Fluxo temporário do protótipo; será substituído pela resposta real do backend.
-  function handleMockPasswordChange(_: FirstAccessFormData) {
-    navigate('/dashboard')
+  async function handlePasswordChange(input: FirstAccessFormData) {
+    setSubmitError(null)
+
+    try {
+      await changeFirstAccessPassword({
+        password: input.newPassword,
+        passwordConfirmation: input.confirmPassword,
+      })
+      navigate('/dashboard', { replace: true })
+    } catch (error) {
+      if (isAxiosError<HttpErrorResponse>(error)) {
+        setSubmitError(error.response?.data.message ?? 'Não foi possível salvar a nova senha. Tente novamente.')
+        return
+      }
+
+      setSubmitError('Não foi possível salvar a nova senha. Tente novamente.')
+    }
+  }
+
+  if (!session) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (!session.mustChangePassword) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return (
@@ -40,7 +68,7 @@ function FirstAccessPage() {
         <form
           noValidate
           className="space-y-4"
-          onSubmit={handleSubmit(handleMockPasswordChange)}
+          onSubmit={handleSubmit(handlePasswordChange)}
         >
           <div className="space-y-2">
             <Label className="block" htmlFor="new-password">
@@ -86,8 +114,14 @@ function FirstAccessPage() {
             )}
           </div>
 
-          <Button className="w-full" type="submit">
-            Salvar nova senha
+          {submitError ? (
+            <p role="alert" className="text-error text-sm">
+              {submitError}
+            </p>
+          ) : null}
+
+          <Button className="w-full" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Salvando...' : 'Salvar nova senha'}
           </Button>
         </form>
       </div>

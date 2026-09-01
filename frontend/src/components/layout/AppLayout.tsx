@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, NavLink } from 'react-router'
+import { NavLink, useNavigate } from 'react-router'
+import { useAuth } from '../../features/auth/hooks/useAuth'
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession'
 import { AppBrand } from './AppBrand'
 
@@ -164,7 +165,11 @@ function AppLayout({ children }: AppLayoutProps) {
   const drawerRef = useRef<HTMLElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const mobileScrollPositionRef = useRef(0)
-  const logoutLinkRef = useRef<HTMLAnchorElement>(null)
+  const logoutButtonRef = useRef<HTMLButtonElement>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState<string | null>(null)
+  const navigate = useNavigate()
+  const { logout } = useAuth()
 
   const sidebarWidthClass = isSidebarCollapsed ? 'w-[72px]' : 'w-[240px]'
   const sidebarPaddingClass = 'p-3'
@@ -209,6 +214,25 @@ function AppLayout({ children }: AppLayoutProps) {
 
       return nextState
     })
+  }
+
+  async function handleLogout() {
+    if (isLoggingOut) {
+      return
+    }
+
+    setIsLoggingOut(true)
+    setLogoutError(null)
+
+    try {
+      await logout()
+      setIsProfileMenuOpen(false)
+      navigate('/login', { replace: true })
+    } catch {
+      setLogoutError('Não foi possível encerrar a sessão. Tente novamente.')
+    } finally {
+      setIsLoggingOut(false)
+    }
   }
 
   useEffect(() => {
@@ -312,7 +336,7 @@ function AppLayout({ children }: AppLayoutProps) {
 
   useEffect(() => {
     if (isProfileMenuOpen) {
-      logoutLinkRef.current?.focus()
+      logoutButtonRef.current?.focus()
     }
   }, [isProfileMenuOpen])
 
@@ -450,15 +474,21 @@ function AppLayout({ children }: AppLayoutProps) {
                 aria-label="Menu de perfil"
                 className="bg-surface absolute right-0 top-full z-50 mt-2 w-48 rounded-ui border border-neutral-bg p-2 shadow-md"
               >
-                <Link
-                  ref={logoutLinkRef}
-                  to="/login"
+                <button
+                  ref={logoutButtonRef}
+                  type="button"
                   role="menuitem"
                   className="text-foreground w-full rounded-ui px-3 py-2 text-left text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  onClick={() => setIsProfileMenuOpen(false)}
+                  disabled={isLoggingOut}
+                  onClick={() => void handleLogout()}
                 >
-                  Sair
-                </Link>
+                  {isLoggingOut ? 'Saindo...' : 'Sair'}
+                </button>
+                {logoutError ? (
+                  <p role="alert" className="px-3 pt-2 text-sm text-error">
+                    {logoutError}
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </div>

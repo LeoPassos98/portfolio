@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router'
+import { AuthSessionBootstrap } from './features/auth/components/AuthSessionBootstrap'
 import { FirstAccessPage } from './features/auth/pages/FirstAccessPage'
 import { LoginPage } from './features/auth/pages/LoginPage'
 import { ProtectedRoute } from './features/auth/components/ProtectedRoute'
+import { useAuth } from './features/auth/hooks/useAuth'
 import { ClientCreatePage } from './features/clients/pages/ClientCreatePage'
 import { ClientEditPage } from './features/clients/pages/ClientEditPage'
 import { ClientsPage } from './features/clients/pages/ClientsPage'
@@ -16,6 +18,20 @@ import { OrderEditPage } from './features/orders/pages/OrderEditPage'
 import { OrdersPage } from './features/orders/pages/OrdersPage'
 
 function App() {
+  const {
+    initialSessionError,
+    isInitialSessionLoading,
+    retrySessionCheck,
+  } = useAuth()
+
+  if (isInitialSessionLoading) {
+    return <AuthSessionBootstrap />
+  }
+
+  if (initialSessionError) {
+    return <AuthSessionBootstrap error onRetry={() => void retrySessionCheck()} />
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />

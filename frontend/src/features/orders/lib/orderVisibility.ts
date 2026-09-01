@@ -1,8 +1,8 @@
-import type { MockSessionUser } from '../../auth/mocks/authenticatedSession'
+import type { AuthenticatedUser } from '../../auth/types/authenticatedSession'
 import type { Order, OrderStatus } from '../types/order'
 
 type OrderVisibilityViewer = Pick<
-  MockSessionUser,
+  AuthenticatedUser,
   'employeeId' | 'profile'
 >
 

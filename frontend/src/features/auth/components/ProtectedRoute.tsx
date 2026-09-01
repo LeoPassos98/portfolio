@@ -1,17 +1,25 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
-import type { SessionProfile } from '../mocks/authenticatedSession'
-import { useAuthSession } from '../hooks/useAuthSession'
+import { useAuth } from '../hooks/useAuth'
+import type { SessionProfile } from '../types/authenticatedSession'
 
 type ProtectedRouteProps = {
   requiredProfile?: SessionProfile
 }
 
 function ProtectedRoute({ requiredProfile }: ProtectedRouteProps) {
-  const session = useAuthSession()
+  const { isInitialSessionLoading, session } = useAuth()
   const location = useLocation()
+
+  if (isInitialSessionLoading) {
+    return null
+  }
 
   if (!session) {
     return <Navigate to="/login" replace />
+  }
+
+  if (session.mustChangePassword) {
+    return <Navigate to="/first-access" replace />
   }
 
   if (

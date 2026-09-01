@@ -1,33 +1,72 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { isAxiosError } from 'axios'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router'
+import { Navigate, useNavigate } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { AuthLayout } from '../components/AuthLayout'
+import { useAuth } from '../hooks/useAuth'
 import { loginSchema, type LoginFormData } from '../schemas/loginSchema'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 
 function LoginPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const { login, session, sessionExpiredMessage } = useAuth()
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   })
 
-  function onSubmit(_: LoginFormData) {
-    navigate('/dashboard')
+  async function onSubmit(input: LoginFormData) {
+    setSubmitError(null)
+
+    try {
+      const nextSession = await login(input)
+
+      navigate(
+        nextSession.mustChangePassword ? '/first-access' : '/dashboard',
+        { replace: true },
+      )
+    } catch (error) {
+      if (
+        isAxiosError<HttpErrorResponse>(error) &&
+        error.response?.data.code === 'AUTH_INVALID_CREDENTIALS'
+      ) {
+        setSubmitError(error.response.data.message)
+        return
+      }
+
+      setSubmitError('Não foi possível entrar. Tente novamente.')
+    }
+  }
+
+  if (session) {
+    return (
+      <Navigate
+        to={session.mustChangePassword ? '/first-access' : '/dashboard'}
+        replace
+      />
+    )
   }
 
   return (
     <AuthLayout>
       <div className="space-y-6">
         <h1 className="text-foreground text-2xl font-bold">Entrar</h1>
+
+        {sessionExpiredMessage ? (
+          <p role="alert" className="text-error text-sm">
+            Sua sessão expirou ou foi encerrada. Entre novamente para continuar.
+          </p>
+        ) : null}
 
         <form
           noValidate
@@ -88,17 +127,16 @@ function LoginPage() {
             )}
           </div>
 
-          <Button className="w-full" type="submit">
-            Entrar
+          {submitError ? (
+            <p role="alert" className="text-error text-sm">
+              {submitError}
+            </p>
+          ) : null}
+
+          <Button className="w-full" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Entrando...' : 'Entrar'}
           </Button>
         </form>
-
-        <Link
-          to="/first-access"
-          className="text-primary inline-flex w-full justify-center rounded-ui px-4 py-2 text-sm font-medium hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-        >
-          Simular primeiro acesso
-        </Link>
       </div>
     </AuthLayout>
   )
