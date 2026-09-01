@@ -8,19 +8,20 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área | Responsabilidade | Arquivos |
 | --- | --- | ---: |
-| Entrada e composição | Inicialização do NestJS, sessão global, CORS, clientes e endpoint raiz atual | 4 |
+| Entrada e composição | Inicialização do NestJS, sessão global, CORS, clientes, funcionários e endpoint raiz atual | 4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap | 2 |
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
 | Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
 | Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
 | Clientes | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend | 16 |
+| Funcionários | Consultas administrativas reais de funcionários e suas contas de acesso opcionais | 7 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Proteção de origem | CORS restritivo para o frontend configurado | 1 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes e integração ViaCEP mockada | 13 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e integração ViaCEP mockada | 14 |
 
 ## Sumário
 
@@ -30,6 +31,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Autenticação](#autenticação)
 - [Guards de acesso](#guards-de-acesso)
 - [Clientes](#clientes)
+- [Funcionários](#funcionários)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Proteção de origem](#proteção-de-origem)
@@ -52,7 +54,7 @@ Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` n
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação, clientes e sessão, registra o `CsrfGuard` global e fornece o endpoint temporário atual.
+Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação, clientes, funcionários e sessão, registra o `CsrfGuard` global e fornece o endpoint temporário atual.
 
 ### 3. `backend/src/app.controller.ts`
 
@@ -266,6 +268,42 @@ Orquestra a consulta de CEP sem acessar persistência e converte as saídas do p
 
 ---
 
+## Funcionários
+
+Expõe as consultas administrativas reais de Funcionários no PostgreSQL. A relação `Funcionario.usuario?` é 1:0..1: um funcionário pode não ter conta, ou ter uma conta ativa ou inativa. As consultas retornam somente projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
+
+Diretório principal: `backend/src/employees/`
+
+### 1. `backend/src/employees/employee-id.schema.ts`
+
+Valida com Zod o parâmetro `id` da consulta de detalhe como UUID.
+
+### 2. `backend/src/employees/employee-list-query.schema.ts`
+
+Valida com Zod a query da listagem, aceita `active`, `inactive` e `all`, aplica `active` como padrão e trata busca vazia após trim como ausente.
+
+### 3. `backend/src/employees/employee-list-item-response.dto.ts`
+
+Documenta no OpenAPI o DTO compacto da listagem, incluindo a conta opcional com situação e perfil, sem dados de credencial.
+
+### 4. `backend/src/employees/employee-detail-response.dto.ts`
+
+Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opcional com e-mail de login, situação e perfil.
+
+### 5. `backend/src/employees/employees.service.ts`
+
+Consulta `Funcionario` e a conta `Usuario` opcional diretamente pelo `DatabaseService`, com `select` explícito; traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e id, projeta `usuario` para `conta` e retorna `EMPLOYEE_NOT_FOUND` quando necessário.
+
+### 6. `backend/src/employees/employees.controller.ts`
+
+Define `GET /employees` e `GET /employees/:id`, aplica `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` no controller, valida entradas com Zod e documenta DTOs e erros no OpenAPI.
+
+### 7. `backend/src/employees/employees.module.ts`
+
+Agrupa o domínio de Funcionários, importando autenticação e banco e registrando controller e service.
+
+---
+
 ## Segurança de credenciais
 
 Disponibiliza o hash persistível e a verificação segura de senhas para os futuros fluxos de autenticação, sem criar endpoints ou sessões.
@@ -419,3 +457,7 @@ Executa criação, edição, alteração de situação, exclusão e consultas de
 ### 13. `backend/src/clients/cep/via-cep.provider.spec.ts`
 
 Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da dependência externa é atingido, sem consultar a internet.
+
+### 14. `backend/src/employees/employees.controller.spec.ts`
+
+Executa as consultas administrativas de Funcionários contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre filtros, busca, ordenação, relação opcional de conta, perfis, DTOs sem dados sensíveis, guards, ausência de CSRF em GET, erros e OpenAPI.

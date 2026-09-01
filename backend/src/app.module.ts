@@ -9,6 +9,7 @@ import { SessionModule } from './auth/session/session.module.js';
 import { ClientsModule } from './clients/clients.module.js';
 import { validateEnvironment } from './config/environment.validation.js';
 import { DatabaseModule } from './database/database.module.js';
+import { EmployeesModule } from './employees/employees.module.js';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { DatabaseModule } from './database/database.module.js';
     DatabaseModule,
     AuthModule,
     ClientsModule,
+    EmployeesModule,
     SessionModule,
   ],
   controllers: [AppController],
