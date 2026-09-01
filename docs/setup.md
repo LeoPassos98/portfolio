@@ -36,6 +36,19 @@ O build foi executado para confirmar que a base do frontend compila corretamente
 npm run build
 ```
 
+### Cliente HTTP e ambiente da API
+
+O Axios é o transporte HTTP compartilhado do frontend. A instância em `src/shared/lib/http/apiClient.ts` usa `withCredentials: true` para que o navegador envie o cookie de sessão `HttpOnly`; o JavaScript não lê esse cookie.
+
+```bash
+cd frontend
+npm install axios
+```
+
+Copie `frontend/.env.example` para `frontend/.env` e ajuste `VITE_API_URL` para a URL do NestJS local, como `http://localhost:3000`. A variável é obrigatória para evitar que o frontend se comunique silenciosamente com um destino incorreto; `.env` permanece ignorado pelo Git.
+
+Para mutações, o cliente obtém `GET /auth/csrf` quando ainda não há token em memória e envia o resultado em `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`. O token nunca é persistido no browser e é descartado após login, troca de senha de primeiro acesso ou logout, pois essas operações regeneram ou destroem a sessão no backend.
+
 ## Backend
 
 O backend foi criado como uma aplicação NestJS independente no diretório `backend/`, mantendo sua instalação, execução e compilação separadas do frontend.

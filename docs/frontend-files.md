@@ -9,11 +9,12 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Área | Responsabilidade | Arquivos |
 | --- | --- | ---: |
 | Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
+| Infraestrutura HTTP | Cliente Axios compartilhado, ambiente e CSRF em memória | 1 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 6 |
 | Layouts | Estruturas compartilhadas de páginas | 3 |
-| Autenticação | Login, primeiro acesso, validação, sessão mockada e proteção de rotas | 9 |
+| Autenticação | Login, primeiro acesso, contrato HTTP, validação, sessão mockada e proteção de rotas | 10 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
 | Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
@@ -22,6 +23,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 ## Sumário
 
 - [Configuração e entrada](#configuração-e-entrada)
+- [Infraestrutura HTTP](#infraestrutura-http)
 - [Estilos e tema](#estilos-e-tema)
 - [Componentes UI](#componentes-ui)
 - [Componentes de feedback](#componentes-de-feedback)
@@ -51,6 +53,18 @@ Declara as rotas da SPA, associa caminhos às páginas e centraliza a proteção
 ### 3. `frontend/vite.config.ts`
 
 Configura desenvolvimento e build com os plugins de React e Tailwind CSS.
+
+---
+
+## Infraestrutura HTTP
+
+Centraliza o transporte HTTP, a configuração de ambiente da API e a proteção CSRF reutilizável.
+
+Diretório principal: `frontend/src/shared/lib/http/`
+
+### 1. `frontend/src/shared/lib/http/apiClient.ts`
+
+Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`, falha sem a URL da API e anexa o token CSRF mantido somente em memória às mutações; também expõe sua invalidação após troca de sessão.
 
 ---
 
@@ -195,6 +209,10 @@ Expõe o hook de consumo seguro da sessão para telas e componentes autenticados
 ### 9. `frontend/src/features/auth/components/ProtectedRoute.tsx`
 
 Centraliza o guard reutilizável das rotas internas, redirecionando ausência de sessão ao Login e perfil sem permissão ao Dashboard com o feedback contextual previsto.
+
+### 10. `frontend/src/features/auth/api/authApi.ts`
+
+Expõe as funções HTTP reais de login, sessão, troca de senha de primeiro acesso e logout, com contratos independentes dos mocks e invalidação do CSRF após as mutações que regeneram ou encerram a sessão.
 
 ---
 
