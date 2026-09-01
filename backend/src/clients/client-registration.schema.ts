@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cepSchema } from './cep/cep.schema.js';
 import { isValidCpfCnpj } from './client-document.validator.js';
 
 function normalizeDigits(value: string): string {
@@ -56,12 +57,7 @@ export const clientRegistrationSchema = z.strictObject({
     }),
   documento: optionalDocumentSchema,
   email: optionalEmailSchema,
-  cep: z
-    .string()
-    .transform(normalizeDigits)
-    .refine((value) => value.length === 8, {
-      message: 'Informe um CEP com 8 dígitos',
-    }),
+  cep: cepSchema,
   logradouro: z.string().trim().min(1, 'Informe o logradouro'),
   numero: z.string().trim().min(1, 'Informe o número'),
   complemento: optionalComplementSchema,

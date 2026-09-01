@@ -13,14 +13,14 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
 | Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
 | Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
-| Clientes | Criação, edição cadastral, situação, listagem e detalhe de clientes com validação, normalização e proteção de sessão | 12 |
+| Clientes | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend | 16 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
 | Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
 | Proteção de origem | CORS restritivo para o frontend configurado | 1 |
 | Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
 | Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards, sessões e clientes | 12 |
+| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes e integração ViaCEP mockada | 13 |
 
 ## Sumário
 
@@ -194,7 +194,7 @@ Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalh
 
 ## Clientes
 
-Expõe criação, edição cadastral, alteração administrativa de situação, exclusão física condicionada e consultas reais de Clientes no PostgreSQL, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço.
+Expõe criação, edição cadastral, alteração administrativa de situação, exclusão física condicionada, consultas reais de Clientes no PostgreSQL e consulta de CEP via ViaCEP, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço. A consulta de CEP não persiste dados e mantém o contrato externo fora do React.
 
 Diretório principal: `backend/src/clients/`
 
@@ -220,11 +220,11 @@ Orquestra criação, edição, situação, exclusão e consultas reais via `Data
 
 ### 6. `backend/src/clients/clients.controller.ts`
 
-Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `PATCH /clients/:id/status`, `DELETE /clients/:id`, `GET /clients` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, e adiciona `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` somente às mutações administrativas de situação e exclusão; valida entradas com Zod e descreve DTOs e respostas de erro no OpenAPI.
+Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `PATCH /clients/:id/status`, `DELETE /clients/:id`, `GET /clients`, `GET /clients/cep/:cep` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, e adiciona `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` somente às mutações administrativas de situação e exclusão; valida entradas com Zod e descreve DTOs e respostas de erro no OpenAPI.
 
 ### 7. `backend/src/clients/clients.module.ts`
 
-Agrupa o domínio de Clientes, importando banco e autenticação e registrando controller e service.
+Agrupa o domínio de Clientes, importando banco e autenticação e registrando controller, service e a integração de CEP via ViaCEP.
 
 ### 8. `backend/src/clients/client-document.validator.ts`
 
@@ -245,6 +245,24 @@ Expõe o schema estrito de edição cadastral de Cliente a partir do contrato co
 ### 12. `backend/src/clients/client-status-update.schema.ts`
 
 Declara o schema estrito da alteração administrativa de situação, aceitando exclusivamente `status` com `active` ou `inactive`.
+
+Diretório de integração: `backend/src/clients/cep/`
+
+### 13. `backend/src/clients/cep/cep.schema.ts`
+
+Centraliza o schema reutilizável de CEP, removendo caracteres não numéricos e exigindo exatamente oito dígitos para parâmetros HTTP e cadastro de Clientes.
+
+### 14. `backend/src/clients/cep/cep-lookup-response.dto.ts`
+
+Documenta o contrato interno e estável da consulta de CEP, expondo somente logradouro, bairro, cidade e UF, todos anuláveis para respostas parciais.
+
+### 15. `backend/src/clients/cep/via-cep.provider.ts`
+
+Encapsula URL, formato externo, `fetch` server-side e timeout explícito do ViaCEP; traduz `localidade` para `cidade`, oculta campos do fornecedor e distingue indisponibilidade técnica da ausência de CEP.
+
+### 16. `backend/src/clients/cep/cep-lookup.service.ts`
+
+Orquestra a consulta de CEP sem acessar persistência e converte as saídas do provider nos contratos HTTP `CEP_NOT_FOUND` e `CEP_PROVIDER_UNAVAILABLE`.
 
 ---
 
@@ -396,4 +414,8 @@ Verifica os métodos seguros liberados, a rejeição uniforme de token ausente o
 
 ### 12. `backend/src/clients/clients.controller.spec.ts`
 
-Executa criação, edição, alteração de situação, exclusão e consultas de Clientes contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre exclusão física sem OS, bloqueio para todos os status de OS, tradução da FK restritiva contra corrida, preservação da situação e de OS vinculadas, idempotência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, autorização exclusiva de Administrador, filtros, busca, ordenação, DTOs sem relações, erros e OpenAPI.
+Executa criação, edição, alteração de situação, exclusão e consultas de Clientes contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre exclusão física sem OS, bloqueio para todos os status de OS, tradução da FK restritiva contra corrida, preservação da situação e de OS vinculadas, idempotência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, autorização exclusiva de Administrador, filtros, busca, ordenação, DTOs sem relações, consulta de CEP mockada sem persistência, erros e OpenAPI.
+
+### 13. `backend/src/clients/cep/via-cep.provider.spec.ts`
+
+Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da dependência externa é atingido, sem consultar a internet.

@@ -25,6 +25,7 @@ import {
   ApiOperation,
   ApiParam,
   ApiQuery,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -52,6 +53,12 @@ import {
   clientUpdateSchema,
   type ClientUpdateInput,
 } from './client-update.schema.js';
+import {
+  cepParamSchema,
+  type CepParamInput,
+} from './cep/cep.schema.js';
+import { CepLookupResponse } from './cep/cep-lookup-response.dto.js';
+import { CepLookupService } from './cep/cep-lookup.service.js';
 import { ClientDetailResponse } from './client-detail-response.dto.js';
 import { ClientListItemResponse } from './client-list-item-response.dto.js';
 import { ClientsService } from './clients.service.js';
@@ -81,7 +88,10 @@ const csrfHeader = {
 @ApiTags('Clientes')
 @UseGuards(SessionGuard, FirstAccessCompletedGuard)
 export class ClientsController {
-  constructor(private readonly clientsService: ClientsService) {}
+  constructor(
+    private readonly clientsService: ClientsService,
+    private readonly cepLookupService: CepLookupService,
+  ) {}
 
   @Post()
   @ApiHeader(csrfHeader)
@@ -158,6 +168,32 @@ export class ClientsController {
     @Query(new ZodValidationPipe(clientListQuerySchema)) query: ClientListQuery,
   ): Promise<ClientListItemResponse[]> {
     return this.clientsService.findAll(query);
+  }
+
+  @Get('cep/:cep')
+  @ApiOperation({ summary: 'Consulta o endereço correspondente a um CEP' })
+  @ApiParam({
+    name: 'cep',
+    description: 'CEP com 8 dígitos, com ou sem máscara.',
+    example: '01001-000',
+  })
+  @ApiOkResponse({ type: CepLookupResponse })
+  @ApiBadRequestResponse(badRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse(passwordChangeRequiredResponse)
+  @ApiNotFoundResponse({
+    description: 'CEP não encontrado (CEP_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiServiceUnavailableResponse({
+    description:
+      'Fornecedor de CEP indisponível ou retornou uma resposta incompatível (CEP_PROVIDER_UNAVAILABLE).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  lookupCep(
+    @Param(new ZodValidationPipe(cepParamSchema)) { cep }: CepParamInput,
+  ): Promise<CepLookupResponse> {
+    return this.cepLookupService.lookup(cep);
   }
 
   @Get(':id')

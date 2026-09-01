@@ -146,6 +146,10 @@ npm install @nestjs/swagger@12.0.1
 
 Com o backend em execução, a interface está em `http://localhost:3000/api/docs` e o documento OpenAPI JSON em `http://localhost:3000/api/docs/openapi.json`.
 
+### Consulta de CEP via ViaCEP
+
+O backend consulta o ViaCEP exclusivamente pelo `fetch` nativo do Node em `GET /clients/cep/:cep`; o navegador consome apenas o contrato interno de endereço da API. A integração possui timeout explícito e os testes substituem a fronteira HTTP por mocks, portanto não dependem de acesso à internet.
+
 ### Logs nativos do NestJS
 
 O bootstrap usa exclusivamente `ConsoleLogger` e `Logger` nativos do NestJS. Em desenvolvimento e testes, os logs permanecem legíveis no terminal; em produção, a saída é estruturada em JSON para consumo pelo ambiente de execução.

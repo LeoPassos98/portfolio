@@ -128,6 +128,7 @@ describe('ClientsController', () => {
     orderIds.length = 0;
     sessionIds.length = 0;
     userIds.length = 0;
+    vi.unstubAllGlobals();
   });
 
   afterAll(async () => {
@@ -256,6 +257,18 @@ describe('ClientsController', () => {
       uf: 'SP',
       ...overrides,
     };
+  }
+
+  function mockViaCepResponse(
+    body: unknown,
+    status = HttpStatus.OK,
+  ): ReturnType<typeof vi.fn<typeof fetch>> {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify(body), { status }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    return fetchMock;
   }
 
   function trackCreatedClient(response: request.Response): void {
@@ -1559,12 +1572,171 @@ describe('ClientsController', () => {
       });
   });
 
-  it('documents client creation, status update, deletion, registration update and read endpoints in OpenAPI', async () => {
+  it('allows an administrator to look up an unmasked CEP without persisting provider data', async () => {
+    const { agent } = await createAuthenticatedAgent({
+      perfil: 'ADMINISTRADOR',
+    });
+    const clientsBeforeLookup = await database.cliente.count();
+    const fetchMock = mockViaCepResponse({
+      cep: '01001-000',
+      logradouro: 'Praça da Sé',
+      complemento: 'lado ímpar',
+      bairro: 'Sé',
+      localidade: 'São Paulo',
+      uf: 'SP',
+      ibge: '3550308',
+      gia: '1004',
+      ddd: '11',
+      siafi: '7107',
+      estado: 'São Paulo',
+      regiao: 'Sudeste',
+    });
+
+    await agent
+      .get('/clients/cep/01001000')
+      .expect(HttpStatus.OK)
+      .expect({
+        logradouro: 'Praça da Sé',
+        bairro: 'Sé',
+        cidade: 'São Paulo',
+        uf: 'SP',
+      });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://viacep.com.br/ws/01001000/json/',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    await expect(database.cliente.count()).resolves.toBe(clientsBeforeLookup);
+  });
+
+  it('allows an employee to look up a masked CEP and returns partial address data', async () => {
+    const { agent } = await createAuthenticatedAgent({ perfil: 'FUNCIONARIO' });
+    const fetchMock = mockViaCepResponse({
+      logradouro: '   ',
+      bairro: '',
+      localidade: 'Brasília',
+      uf: 'DF',
+    });
+
+    await agent
+      .get('/clients/cep/01001-000')
+      .expect(HttpStatus.OK)
+      .expect({
+        logradouro: null,
+        bairro: null,
+        cidade: 'Brasília',
+        uf: 'DF',
+      });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://viacep.com.br/ws/01001000/json/',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it('returns CEP_NOT_FOUND when ViaCEP reports an unknown CEP', async () => {
+    const { agent } = await createAuthenticatedAgent();
+    mockViaCepResponse({ erro: true });
+
+    await agent.get('/clients/cep/99999999').expect(HttpStatus.NOT_FOUND).expect({
+      statusCode: HttpStatus.NOT_FOUND,
+      code: 'CEP_NOT_FOUND',
+      message: 'Postal code not found',
+    });
+  });
+
+  it.each([
+    [
+      'network error',
+      () => vi.fn<typeof fetch>().mockRejectedValue(new Error('network down')),
+    ],
+    [
+      'abort',
+      () =>
+        vi
+          .fn<typeof fetch>()
+          .mockRejectedValue(new DOMException('Request aborted', 'AbortError')),
+    ],
+    [
+      'non-success response',
+      () =>
+        vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(new Response('', { status: HttpStatus.BAD_GATEWAY })),
+    ],
+    [
+      'invalid JSON',
+      () => vi.fn<typeof fetch>().mockResolvedValue(new Response('{', { status: 200 })),
+    ],
+    [
+      'incompatible payload',
+      () => vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 200 })),
+    ],
+  ])('returns CEP_PROVIDER_UNAVAILABLE for a provider %s', async (_caseName, createFetchMock) => {
+    const { agent } = await createAuthenticatedAgent();
+    vi.stubGlobal('fetch', createFetchMock());
+
+    await agent
+      .get('/clients/cep/01001000')
+      .expect(HttpStatus.SERVICE_UNAVAILABLE)
+      .expect({
+        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+        code: 'CEP_PROVIDER_UNAVAILABLE',
+        message: 'Postal code provider is unavailable',
+      });
+  });
+
+  it.each(['0100100', '010010000'])(
+    'rejects a CEP with an invalid normalized length',
+    async (cep) => {
+      const { agent } = await createAuthenticatedAgent();
+
+      await agent
+        .get(`/clients/cep/${cep}`)
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => {
+          expect(body).toMatchObject({
+            statusCode: HttpStatus.BAD_REQUEST,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          });
+        });
+    },
+  );
+
+  it('requires a session to look up a CEP', async () => {
+    await request(app)
+      .get('/clients/cep/01001000')
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+  });
+
+  it('requires first access password completion to look up a CEP', async () => {
+    const { agent } = await createAuthenticatedAgent({
+      deveAlterarSenha: true,
+    });
+
+    await agent
+      .get('/clients/cep/01001000')
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+  });
+
+  it('documents client creation, status update, deletion, registration update, reads and CEP lookup in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
     const listOperation = response.body.paths['/clients'].get;
     const detailOperation = response.body.paths['/clients/{id}'].get;
+    const cepLookupOperation = response.body.paths['/clients/cep/{cep}'].get;
     const createOperation = response.body.paths['/clients'].post;
     const updateOperation = response.body.paths['/clients/{id}'].put;
     const statusUpdateOperation =
@@ -1630,6 +1802,20 @@ describe('ClientsController', () => {
     expect(detailOperation.responses).toHaveProperty('401');
     expect(detailOperation.responses).toHaveProperty('403');
     expect(detailOperation.responses).toHaveProperty('404');
+    expect(cepLookupOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'cep', in: 'path' }),
+      ]),
+    );
+    expect(cepLookupOperation.responses).toHaveProperty('200');
+    expect(cepLookupOperation.responses).toHaveProperty('400');
+    expect(cepLookupOperation.responses).toHaveProperty('401');
+    expect(cepLookupOperation.responses).toHaveProperty('403');
+    expect(cepLookupOperation.responses).toHaveProperty('404');
+    expect(cepLookupOperation.responses).toHaveProperty('503');
+    expect(
+      cepLookupOperation.responses['200'].content['application/json'].schema,
+    ).toEqual({ $ref: '#/components/schemas/CepLookupResponse' });
     expect(updateOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'id', in: 'path' }),
