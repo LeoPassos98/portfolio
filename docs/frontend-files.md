@@ -10,6 +10,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | --- | --- | ---: |
 | Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
 | Infraestrutura HTTP | Cliente Axios compartilhado, ambiente e CSRF em memória | 1 |
+| Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state | 1 |
 | Estilos e tema | Estilos globais e tokens visuais | 1 |
 | Componentes UI | Elementos reutilizáveis da interface | 7 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 6 |
@@ -17,13 +18,14 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
 | Dashboard | Visões administrativa e individual de métricas | 5 |
 | Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
-| Clientes | Listagem mockada, filtro, busca e formulários validados de clientes | 6 |
+| Clientes | Listagem mockada atual, formulários validados e contratos HTTP preparados para Clientes | 7 |
 | Funcionários | Listagem mockada, perfil, formulários validados, situação e gestão de acesso | 11 |
 
 ## Sumário
 
 - [Configuração e entrada](#configuração-e-entrada)
 - [Infraestrutura HTTP](#infraestrutura-http)
+- [Infraestrutura de dados](#infraestrutura-de-dados)
 - [Estilos e tema](#estilos-e-tema)
 - [Componentes UI](#componentes-ui)
 - [Componentes de feedback](#componentes-de-feedback)
@@ -44,7 +46,7 @@ Diretório principal: `frontend/`
 
 ### 1. `frontend/src/main.tsx`
 
-Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de autenticação real, feedback de sucesso e navegação com `AuthSessionProvider`, `SuccessFeedbackProvider` e `BrowserRouter`.
+Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de server state, autenticação real, feedback de sucesso e navegação com `QueryClientProvider`, `AuthSessionProvider`, `SuccessFeedbackProvider` e `BrowserRouter`.
 
 ### 2. `frontend/src/App.tsx`
 
@@ -65,6 +67,18 @@ Diretório principal: `frontend/src/shared/lib/http/`
 ### 1. `frontend/src/shared/lib/http/apiClient.ts`
 
 Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`, falha sem a URL da API, anexa o token CSRF mantido somente em memória às mutações, invalida-o após troca de sessão e encaminha centralmente `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
+
+---
+
+## Infraestrutura de dados
+
+Disponibiliza a instância compartilhada de TanStack Query para futuras integrações de server state, sem assumir a responsabilidade de autenticação.
+
+Diretório principal: `frontend/src/shared/lib/query/`
+
+### 1. `frontend/src/shared/lib/query/queryClient.ts`
+
+Cria o `QueryClient` único da SPA com os defaults do TanStack Query; é fornecido na raiz por `QueryClientProvider` e será consumido pelas features que migrarem para dados remotos.
 
 ---
 
@@ -312,7 +326,7 @@ Diretório principal: `frontend/src/features/clients/`
 
 ### 1. `frontend/src/features/clients/types/client.ts`
 
-Define o formato, a situação e os dados cadastrais completos usados pela consulta e edição mockadas de clientes.
+Define o modelo de detalhe `Client`, o item compacto `ClientListItem`, a situação e os endereços usados pelo React, mantendo-os independentes dos nomes do contrato HTTP do backend.
 
 ### 2. `frontend/src/features/clients/mocks/clients.ts`
 
@@ -333,6 +347,10 @@ Carrega o cliente mockado pela rota para preencher a edição responsiva, aplica
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
 Define com Zod as validações e normalizações reutilizadas nos formulários de criação e edição de Clientes, incluindo os dígitos verificadores de CPF/CNPJ.
+
+### 7. `frontend/src/features/clients/api/clientsApi.ts`
+
+Concentra os endpoints tipados de Clientes na única instância Axios compartilhada, separa contratos HTTP do NestJS dos modelos do React e traduz cadastro, detalhe, listagem, situação e CEP sem expor o fornecedor externo; ainda não é consumido pelas páginas, que preservam os mocks atuais.
 
 ---
 

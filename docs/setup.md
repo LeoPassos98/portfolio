@@ -49,6 +49,15 @@ Copie `frontend/.env.example` para `frontend/.env` e ajuste `VITE_API_URL` para 
 
 Para mutações, o cliente obtém `GET /auth/csrf` quando ainda não há token em memória e envia o resultado em `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`. O token nunca é persistido no browser e é descartado após login, troca de senha de primeiro acesso ou logout, pois essas operações regeneram ou destroem a sessão no backend.
 
+### Server state com TanStack Query
+
+O TanStack Query fornece o `QueryClient` compartilhado e a coordenação de cache de dados remotos para as features que forem integradas à API. Ele não substitui o `AuthSessionProvider`, que continua responsável pelo ciclo de sessão e por `AUTH_UNAUTHENTICATED`.
+
+```bash
+cd frontend
+npm install @tanstack/react-query
+```
+
 ## Backend
 
 O backend foi criado como uma aplicação NestJS independente no diretório `backend/`, mantendo sua instalação, execução e compilação separadas do frontend.
