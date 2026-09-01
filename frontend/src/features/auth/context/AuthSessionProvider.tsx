@@ -26,6 +26,20 @@ type AuthSessionProviderProps = {
   children: ReactNode
 }
 
+const knownSessionStorageKey = 'auth-session-known'
+
+function markSessionAsKnown(): void {
+  sessionStorage.setItem(knownSessionStorageKey, 'true')
+}
+
+function hasKnownSession(): boolean {
+  return sessionStorage.getItem(knownSessionStorageKey) === 'true'
+}
+
+function clearKnownSession(): void {
+  sessionStorage.removeItem(knownSessionStorageKey)
+}
+
 function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const [session, setSession] = useState<AuthenticatedSession | null>(null)
   const [isInitialSessionLoading, setIsInitialSessionLoading] = useState(true)
@@ -50,6 +64,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       }
 
       setSession(toAuthenticatedSession(response))
+      markSessionAsKnown()
       setSessionExpiredMessage(false)
     } catch (error) {
       if (sessionCheckId !== sessionCheckIdRef.current || isAxiosError(error) && error.code === 'ERR_CANCELED') {
@@ -61,7 +76,11 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         error.response?.status === 401 &&
         error.response.data.code === 'AUTH_UNAUTHENTICATED'
       ) {
+        const hadKnownSession = hasKnownSession()
+
         setSession(null)
+        clearKnownSession()
+        setSessionExpiredMessage(hadKnownSession)
         return
       }
 
@@ -78,6 +97,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     const nextSession = toAuthenticatedSession(response)
 
     setSession(nextSession)
+    markSessionAsKnown()
     setSessionExpiredMessage(false)
 
     return nextSession
@@ -102,6 +122,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const logout = useCallback(async () => {
     await logoutRequest()
     setSession(null)
+    clearKnownSession()
     setSessionExpiredMessage(false)
   }, [])
 
@@ -120,6 +141,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     () =>
       setUnauthenticatedHandler(() => {
         setSession(null)
+        clearKnownSession()
         setInitialSessionError(false)
         setIsInitialSessionLoading(false)
         setSessionExpiredMessage(true)
