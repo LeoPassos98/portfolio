@@ -12,7 +12,7 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_dev`                                   |
 | Arquivos catalogados         | 15 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **227 testes aprovados** em N5.4C — edição cadastral de Funcionários                                      |
+| Último resultado consolidado | **248 testes aprovados** em N5.4D — situação de Funcionários                                              |
 
 ## Executar agora
 
@@ -56,7 +56,9 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **227 testes** executada em N5.4C — edição cadastral de Funcionários. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **248 testes** executada em N5.4D — situação de Funcionários. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+
+Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL `portfolio_dev`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
 As tabelas seguintes são o índice de consulta rápida. Os três arquivos com muitos fluxos possuem um detalhamento por operação logo abaixo da tabela de sua família.
 
@@ -131,18 +133,20 @@ Observação: a constraint física continua sendo a autoridade final para impedi
 
 #### [`backend/src/employees/employees.controller.spec.ts`](../backend/src/employees/employees.controller.spec.ts)
 
-Exercita criação, edição cadastral e consultas administrativas de Funcionários pelas rotas reais.
+Exercita criação, edição cadastral, situação e consultas administrativas de Funcionários pelas rotas reais.
 
 | Operação              | Cenários concretos                                                                                                                                                                                                                                                                | Regra ou risco comprovado                                                                      |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | Criação               | Administrador cria funcionário ativo ou inativo sem conta, normaliza nome, telefone e e-mail e permite contatos duplicados.                                                                                       | Funcionário pode existir sem conta de acesso.                                                  |
 | Edição cadastral      | Administrador edita funcionário ativo ou inativo; persiste e retorna nome, telefone e e-mail normalizados; permite contatos duplicados; preserva situação, criação, conta e relações; trata ID inválido ou `EMPLOYEE_NOT_FOUND`. | A edição não transfere responsabilidades administrativas ou de acesso para o cadastro.        |
+| Situação              | Administrador ativa, inativa e repete situação; bloqueia OS `AGUARDANDO` ou `EM_ANDAMENTO`; permite `CONCLUIDO` ou `CANCELADO`; preserva a conta inativa após reativação e trata `EMPLOYEE_HAS_ACTIVE_ORDERS` e `LAST_ACTIVE_ADMIN_REQUIRED`. | A inativação mantém consistência entre cadastro, OS e acesso. |
+| Conta e concorrência  | Inativação desativa a conta associada sem alterar credenciais, revoga todas as suas sessões, preserva sessões de terceiros e impede, inclusive sob requisições simultâneas, que não reste Administrador ativo. | A transição é atômica e protege a continuidade administrativa. |
 | Validação             | Rejeita nome, telefone ou e-mail inválidos e, na edição, `status`, `ativo`, campos de conta, credenciais, identificadores, datas ou campos inesperados.                                                           | As rotas não permitem mass assignment nem criação ou alteração indireta de credenciais.       |
-| Segurança             | Criação e edição exigem sessão, primeiro acesso concluído, perfil Administrador e CSRF; leituras exigem os três primeiros e não exigem CSRF.                                                                        | Cada operação recebe a proteção proporcional ao seu risco.                                     |
+| Segurança             | Criação, edição e situação exigem sessão, primeiro acesso concluído, perfil Administrador e CSRF; leituras exigem os três primeiros e não exigem CSRF.                                                             | Cada operação recebe a proteção proporcional ao seu risco.                                     |
 | Lista e detalhe       | Lista ativos por padrão; filtra inativos ou todos; busca nome ou e-mail sem distinguir caixa e telefone formatado; ordena por nome e ID; trata detalhe inexistente e mostra conta opcional ativa ou inativa.                  | Consultas administrativas são previsíveis e preservam a relação de conta opcional.             |
-| Privacidade e OpenAPI | Não expõe hash, sessão, OS ou histórico; documenta criação, edição cadastral, consultas e `conta` anulável.                                                                                                         | DTOs e contrato HTTP não vazam relações sensíveis nem sugerem edição de status ou da conta.    |
+| Privacidade e OpenAPI | Não expõe hash, sessão, OS ou histórico; documenta criação, edição cadastral, situação, conflitos e `conta` anulável.                                                                                                | DTOs e contrato HTTP não vazam relações sensíveis nem sugerem edição da conta.                 |
 
-Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev` e fixtures removidas ao final.
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev`, fixtures e sessões auxiliares removidas ao final.
 
 ## Validações manuais e de navegador
 
@@ -172,3 +176,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.4A — leitura de Funcionários             |     186 testes |
 | N5.4B — criação de Funcionários (`b938573`) | **203 testes** |
 | N5.4C — edição cadastral de Funcionários    | **227 testes** |
+| N5.4D — situação de Funcionários            | **248 testes** |

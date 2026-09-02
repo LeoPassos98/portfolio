@@ -1,16 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '../generated/prisma/client.js';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Perfil,
+  Prisma,
+  StatusOrdemServico,
+} from '../generated/prisma/client.js';
+import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
 import { EmployeeListItemResponse } from './employee-list-item-response.dto.js';
 import type { EmployeeUpdateInput } from './employee-update.schema.js';
+import type { EmployeeStatusUpdateInput } from './employee-status-update.schema.js';
 
 export const EMPLOYEE_NOT_FOUND_ERROR = {
   code: 'EMPLOYEE_NOT_FOUND',
   message: 'Employee not found',
 } as const;
+
+export const EMPLOYEE_HAS_ACTIVE_ORDERS_ERROR = {
+  code: 'EMPLOYEE_HAS_ACTIVE_ORDERS',
+  message:
+    'Employee has active service orders that must be completed, canceled, or transferred before deactivation',
+} as const;
+
+export const LAST_ACTIVE_ADMIN_REQUIRED_ERROR = {
+  code: 'LAST_ACTIVE_ADMIN_REQUIRED',
+  message: 'At least one active administrator account must remain',
+} as const;
+
+const MAX_STATUS_UPDATE_ATTEMPTS = 3;
 
 const employeeListSelect = {
   id: true,
@@ -42,6 +65,25 @@ const employeeDetailSelect = {
   },
 } satisfies Prisma.FuncionarioSelect;
 
+const employeeStatusSelect = {
+  ...employeeDetailSelect,
+  usuario: {
+    select: {
+      id: true,
+      emailLogin: true,
+      ativo: true,
+      perfil: true,
+    },
+  },
+} satisfies Prisma.FuncionarioSelect;
+
+type EmployeeStatusTransition = {
+  employee: Prisma.FuncionarioGetPayload<{
+    select: typeof employeeStatusSelect;
+  }>;
+  revokedUserId: string | null;
+};
+
 function toEmployeeDetail(
   employee: Prisma.FuncionarioGetPayload<{
     select: typeof employeeDetailSelect;
@@ -57,7 +99,10 @@ function toEmployeeDetail(
 
 @Injectable()
 export class EmployeesService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly sessionStoreService: SessionStoreService,
+  ) {}
 
   async create({
     status,
@@ -96,6 +141,21 @@ export class EmployeesService {
 
       throw error;
     }
+  }
+
+  async updateStatus(
+    id: string,
+    { status }: EmployeeStatusUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    const transition = await this.executeStatusTransition(id, status);
+
+    if (transition.revokedUserId) {
+      await this.sessionStoreService.revokeUserSessions(
+        transition.revokedUserId,
+      );
+    }
+
+    return toEmployeeDetail(transition.employee);
   }
 
   async findAll({
@@ -158,5 +218,116 @@ export class EmployeesService {
     }
 
     return toEmployeeDetail(employee);
+  }
+
+  private async executeStatusTransition(
+    id: string,
+    status: EmployeeStatusUpdateInput['status'],
+  ): Promise<EmployeeStatusTransition> {
+    for (let attempt = 1; attempt <= MAX_STATUS_UPDATE_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.database.$transaction(
+          (transaction) => this.transitionStatus(transaction, id, status),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error: unknown) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === 'P2034' &&
+          attempt < MAX_STATUS_UPDATE_ATTEMPTS
+        ) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error('Employee status transition exhausted its retry limit.');
+  }
+
+  private async transitionStatus(
+    transaction: Prisma.TransactionClient,
+    id: string,
+    status: EmployeeStatusUpdateInput['status'],
+  ): Promise<EmployeeStatusTransition> {
+    const employee = await transaction.funcionario.findUnique({
+      where: { id },
+      select: employeeStatusSelect,
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    const shouldDeactivateAccount =
+      status === 'inactive' && employee.usuario?.ativo === true;
+
+    if (employee.ativo === (status === 'active') && !shouldDeactivateAccount) {
+      return { employee, revokedUserId: null };
+    }
+
+    if (status === 'inactive' && employee.ativo) {
+      await this.ensureNoActiveOrders(transaction, id);
+    }
+
+    if (
+      shouldDeactivateAccount &&
+      employee.usuario?.perfil === Perfil.ADMINISTRADOR
+    ) {
+      await this.ensureAnotherActiveAdministrator(transaction);
+    }
+
+    if (shouldDeactivateAccount) {
+      await transaction.usuario.update({
+        where: { id: employee.usuario!.id },
+        data: { ativo: false },
+      });
+    }
+
+    const updatedEmployee = await transaction.funcionario.update({
+      where: { id },
+      data: { ativo: status === 'active' },
+      select: employeeStatusSelect,
+    });
+
+    return {
+      employee: updatedEmployee,
+      revokedUserId: shouldDeactivateAccount ? employee.usuario!.id : null,
+    };
+  }
+
+  private async ensureNoActiveOrders(
+    transaction: Prisma.TransactionClient,
+    employeeId: string,
+  ): Promise<void> {
+    const activeOrder = await transaction.ordemServico.findFirst({
+      where: {
+        responsavelId: employeeId,
+        status: {
+          in: [StatusOrdemServico.AGUARDANDO, StatusOrdemServico.EM_ANDAMENTO],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (activeOrder) {
+      throw new ConflictException(EMPLOYEE_HAS_ACTIVE_ORDERS_ERROR);
+    }
+  }
+
+  private async ensureAnotherActiveAdministrator(
+    transaction: Prisma.TransactionClient,
+  ): Promise<void> {
+    const activeAdministrators = await transaction.usuario.count({
+      where: {
+        perfil: Perfil.ADMINISTRADOR,
+        ativo: true,
+      },
+    });
+
+    if (activeAdministrators <= 1) {
+      throw new ConflictException(LAST_ACTIVE_ADMIN_REQUIRED_ERROR);
+    }
   }
 }

@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -11,6 +12,7 @@ import {
 import {
   ApiBody,
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiHeader,
@@ -47,6 +49,10 @@ import {
   employeeUpdateSchema,
   type EmployeeUpdateInput,
 } from './employee-update.schema.js';
+import {
+  employeeStatusUpdateSchema,
+  type EmployeeStatusUpdateInput,
+} from './employee-status-update.schema.js';
 import { EmployeesService } from './employees.service.js';
 
 const badRequestResponse = {
@@ -160,6 +166,51 @@ export class EmployeesController {
     input: EmployeeUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.update(id, input);
+  }
+
+  @Patch(':id/status')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Altera a situação de um funcionário' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['active', 'inactive'],
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: EmployeeDetailResponse })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description: 'Funcionário não encontrado (EMPLOYEE_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'Funcionário possui OS ativa (EMPLOYEE_HAS_ACTIVE_ORDERS) ou a conta é o último Administrador ativo (LAST_ACTIVE_ADMIN_REQUIRED).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  updateStatus(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeStatusUpdateSchema))
+    input: EmployeeStatusUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.updateStatus(id, input);
   }
 
   @Get()
