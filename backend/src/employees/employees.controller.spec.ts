@@ -13,6 +13,7 @@ import { createCorsOptions } from '../common/http/cors.options.js';
 import { setupOpenApi } from '../common/openapi/openapi.setup.js';
 import { DatabaseService } from '../database/database.service.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
+import { PasswordService } from '../auth/password/password.service.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -77,6 +78,7 @@ describe('EmployeesController', () => {
   let nestApplication: INestApplication;
   let testingModule: TestingModule;
   let verificationPool: Pool | undefined;
+  let passwordService: PasswordService;
   const employeeIds: string[] = [];
   const clientIds: string[] = [];
   const orderIds: string[] = [];
@@ -99,6 +101,7 @@ describe('EmployeesController', () => {
 
     app = nestApplication.getHttpAdapter().getInstance() as Express;
     database = nestApplication.get(DatabaseService);
+    passwordService = nestApplication.get(PasswordService);
     verificationPool = new Pool({ connectionString: databaseUrl });
   });
 
@@ -254,6 +257,16 @@ describe('EmployeesController', () => {
   function updateEmployeeStatusBody(overrides: Record<string, unknown> = {}) {
     return {
       status: 'inactive',
+      ...overrides,
+    };
+  }
+
+  function createEmployeeAccessBody(overrides: Record<string, unknown> = {}) {
+    return {
+      loginEmail: 'maria@login.example.test',
+      profile: 'employee',
+      initialPassword: 'senha inicial segura',
+      confirmPassword: 'senha inicial segura',
       ...overrides,
     };
   }
@@ -561,6 +574,302 @@ describe('EmployeesController', () => {
         code: 'CSRF_INVALID_TOKEN',
         message: 'CSRF token is invalid',
       });
+  });
+
+  it('allows an administrator to create an employee account with a normalized login email and temporary password', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      email: 'maria.contato@example.test',
+    });
+    const initialPassword = '  senha inicial segura  ';
+    const response = await agent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeAccessBody({
+          loginEmail: '  Maria.Login@Example.Test  ',
+          initialPassword,
+          confirmPassword: initialPassword,
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    const persisted = await database.usuario.findUniqueOrThrow({
+      where: { funcionarioId: employee.id },
+    });
+    userIds.push(persisted.id);
+
+    expect(response.body).toEqual({
+      id: employee.id,
+      nome: employee.nome,
+      telefone: employee.telefone,
+      email: employee.email,
+      ativo: employee.ativo,
+      criadoEm: employee.criadoEm.toISOString(),
+      conta: {
+        emailLogin: 'maria.login@example.test',
+        ativo: true,
+        perfil: 'FUNCIONARIO',
+      },
+    });
+    expect(persisted).toMatchObject({
+      emailLogin: 'maria.login@example.test',
+      funcionarioId: employee.id,
+      perfil: 'FUNCIONARIO',
+      ativo: true,
+      deveAlterarSenha: true,
+    });
+    expect(persisted.senhaHash).not.toBe(initialPassword);
+    await expect(
+      passwordService.verify(persisted.senhaHash, initialPassword),
+    ).resolves.toBe(true);
+    expect(persisted).not.toHaveProperty('confirmPassword');
+    expect(response.body).not.toHaveProperty('initialPassword');
+    expect(response.body).not.toHaveProperty('confirmPassword');
+    expect(response.body).not.toHaveProperty('senhaHash');
+    expect(response.body.conta).not.toHaveProperty('senhaHash');
+  });
+
+  it('persists the administrator profile when creating an employee account', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture();
+    const response = await agent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeAccessBody({
+          loginEmail: 'administrador-criado@example.test',
+          profile: 'administrator',
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    const persisted = await database.usuario.findUniqueOrThrow({
+      where: { funcionarioId: employee.id },
+    });
+    userIds.push(persisted.id);
+
+    expect(response.body.conta).toEqual({
+      emailLogin: 'administrador-criado@example.test',
+      ativo: true,
+      perfil: 'ADMINISTRADOR',
+    });
+    expect(persisted.perfil).toBe('ADMINISTRADOR');
+  });
+
+  it('rejects a normalized duplicate login email without creating another account', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const firstEmployee = await createEmployeeFixture();
+    const secondEmployee = await createEmployeeFixture();
+    const firstResponse = await agent
+      .post(`/employees/${firstEmployee.id}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeAccessBody({ loginEmail: 'Maria.Login@Example.Test' }),
+      )
+      .expect(HttpStatus.CREATED);
+    const firstAccount = await database.usuario.findUniqueOrThrow({
+      where: { funcionarioId: firstEmployee.id },
+    });
+    userIds.push(firstAccount.id);
+
+    await agent
+      .post(`/employees/${secondEmployee.id}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeAccessBody({
+          loginEmail: '  maria.login@example.test  ',
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'LOGIN_EMAIL_ALREADY_EXISTS',
+        message: 'Login email already exists',
+      });
+
+    expect(firstResponse.body.conta.emailLogin).toBe(
+      'maria.login@example.test',
+    );
+    await expect(
+      database.usuario.findUnique({
+        where: { funcionarioId: secondEmployee.id },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      database.usuario.count({
+        where: { emailLogin: 'maria.login@example.test' },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('rejects creating a second account for the same employee', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      conta: { emailLogin: 'conta-existente@example.test' },
+    });
+
+    await agent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(createEmployeeAccessBody())
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'EMPLOYEE_ACCESS_ALREADY_EXISTS',
+        message: 'Employee already has an access account',
+      });
+  });
+
+  it('returns EMPLOYEE_NOT_FOUND when creating an account for an unknown employee', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+    await agent
+      .post(`/employees/${crypto.randomUUID()}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(createEmployeeAccessBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_NOT_FOUND',
+        message: 'Employee not found',
+      });
+  });
+
+  it.each([
+    ['invalid employee id', '/employees/not-a-uuid/account', {}],
+    ['invalid login email', undefined, { loginEmail: 'email-inválido' }],
+    ['invalid profile', undefined, { profile: 'manager' }],
+    [
+      'password shorter than eight characters',
+      undefined,
+      { initialPassword: '1234567', confirmPassword: '1234567' },
+    ],
+    [
+      'password longer than 128 characters',
+      undefined,
+      { initialPassword: 'a'.repeat(129), confirmPassword: 'a'.repeat(129) },
+    ],
+    [
+      'different password confirmation',
+      undefined,
+      { confirmPassword: 'senha inicial diferente' },
+    ],
+    ['unexpected field', undefined, { status: 'active' }],
+  ])(
+    'rejects account creation with %s',
+    async (_description, route, overrides) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+      const employee = await createEmployeeFixture();
+
+      await agent
+        .post(route ?? `/employees/${employee.id}/account`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(createEmployeeAccessBody(overrides))
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => {
+          expect(body).toMatchObject({
+            statusCode: HttpStatus.BAD_REQUEST,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          });
+        });
+    },
+  );
+
+  it('requires session, completed first access, administrator role, and CSRF to create an account', async () => {
+    const employee = await createEmployeeFixture();
+    const unauthenticatedAgent = request.agent(app);
+    const unauthenticatedCsrf = await unauthenticatedAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(unauthenticatedCsrf.headers['set-cookie']?.[0]),
+    );
+
+    await unauthenticatedAgent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', unauthenticatedCsrf.body.csrfToken as string)
+      .send(createEmployeeAccessBody())
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+
+    const pending = await createAuthenticatedAgentWithCsrf({
+      deveAlterarSenha: true,
+    });
+    await pending.agent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', pending.csrfToken)
+      .send(createEmployeeAccessBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+
+    const employeeAgent = await createAuthenticatedAgentWithCsrf({
+      perfil: 'FUNCIONARIO',
+    });
+    await employeeAgent.agent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', employeeAgent.csrfToken)
+      .send(createEmployeeAccessBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_FORBIDDEN',
+        message: 'You do not have permission to access this resource',
+      });
+
+    const administrator = await createAuthenticatedAgent();
+    await administrator
+      .post(`/employees/${employee.id}/account`)
+      .send(createEmployeeAccessBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+  });
+
+  it('converts a concurrent duplicate login email constraint violation to a conflict response', async () => {
+    const firstEmployee = await createEmployeeFixture();
+    const secondEmployee = await createEmployeeFixture();
+    const firstAdministrator = await createAuthenticatedAgentWithCsrf();
+    const secondAdministrator = await createAuthenticatedAgentWithCsrf();
+    const loginEmail = `concorrente-${crypto.randomUUID()}@example.test`;
+    const responses = await Promise.all([
+      firstAdministrator.agent
+        .post(`/employees/${firstEmployee.id}/account`)
+        .set('X-CSRF-Token', firstAdministrator.csrfToken)
+        .send(createEmployeeAccessBody({ loginEmail })),
+      secondAdministrator.agent
+        .post(`/employees/${secondEmployee.id}/account`)
+        .set('X-CSRF-Token', secondAdministrator.csrfToken)
+        .send(createEmployeeAccessBody({ loginEmail })),
+    ]);
+    const accounts = await database.usuario.findMany({
+      where: { emailLogin: loginEmail },
+    });
+    userIds.push(...accounts.map((account) => account.id));
+    const conflict = responses.find(
+      (response) => response.status === HttpStatus.CONFLICT,
+    );
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      HttpStatus.CREATED,
+      HttpStatus.CONFLICT,
+    ]);
+    expect(conflict?.body).toEqual({
+      statusCode: HttpStatus.CONFLICT,
+      code: 'LOGIN_EMAIL_ALREADY_EXISTS',
+      message: 'Login email already exists',
+    });
+    expect(accounts).toHaveLength(1);
   });
 
   it('allows an administrator to update an active employee without an account', async () => {
@@ -1547,12 +1856,14 @@ describe('EmployeesController', () => {
     await agent.get('/employees').expect(HttpStatus.OK);
   });
 
-  it('documents employee creation, registration and status updates, reads, and nullable account DTOs in OpenAPI', async () => {
+  it('documents employee creation, account creation, registration and status updates, reads, and nullable account DTOs in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
     const listOperation = response.body.paths['/employees'].get;
     const createOperation = response.body.paths['/employees'].post;
+    const createAccountOperation =
+      response.body.paths['/employees/{id}/account'].post;
     const detailOperation = response.body.paths['/employees/{id}'].get;
     const updateOperation = response.body.paths['/employees/{id}'].put;
     const statusUpdateOperation =
@@ -1566,6 +1877,9 @@ describe('EmployeesController', () => {
       'get',
       'put',
     ]);
+    expect(Object.keys(response.body.paths['/employees/{id}/account'])).toEqual(
+      ['post'],
+    );
     expect(createOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
@@ -1593,6 +1907,55 @@ describe('EmployeesController', () => {
     }
     expect(createOperation.responses['201'].description).toContain(
       'conta: null',
+    );
+    expect(createAccountOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      createAccountOperation.requestBody.content['application/json'].schema,
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['loginEmail', 'profile', 'initialPassword', 'confirmPassword'],
+      properties: {
+        loginEmail: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@login.example.com',
+        },
+        profile: {
+          type: 'string',
+          enum: ['administrator', 'employee'],
+        },
+        initialPassword: {
+          type: 'string',
+          minLength: 8,
+          maxLength: 128,
+          format: 'password',
+        },
+        confirmPassword: {
+          type: 'string',
+          minLength: 8,
+          maxLength: 128,
+          format: 'password',
+        },
+      },
+    });
+    for (const status of ['201', '400', '401', '403', '404', '409']) {
+      expect(createAccountOperation.responses).toHaveProperty(status);
+    }
+    expect(createAccountOperation.responses['409'].description).toContain(
+      'EMPLOYEE_ACCESS_ALREADY_EXISTS',
+    );
+    expect(createAccountOperation.responses['409'].description).toContain(
+      'LOGIN_EMAIL_ALREADY_EXISTS',
     );
     expect(updateOperation.parameters).toEqual(
       expect.arrayContaining([

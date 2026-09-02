@@ -18,7 +18,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                       |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                            |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend              |       16 |
-| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais         |       11 |
+| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       12 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id                                                                       |        3 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                        |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                                   |        1 |
@@ -310,11 +310,11 @@ Orquestra a consulta de CEP sem acessar persistência e converte as saídas do p
 
 ## Funcionários
 
-Expõe a criação, a edição cadastral, a situação e as consultas administrativas reais de Funcionários no PostgreSQL.
+Expõe a criação, a edição cadastral, a situação, a criação explícita de conta e as consultas administrativas reais de Funcionários no PostgreSQL.
 
 `Funcionario.usuario?` é uma relação 1:0..1: o funcionário pode não ter conta, ou ter uma conta ativa ou inativa.
 
-O cadastro cria somente `Funcionario`. As consultas retornam projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
+O cadastro cria somente `Funcionario`; a conta é criada separadamente para um funcionário sem acesso. As consultas e respostas retornam projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
 
 Diretório principal: `backend/src/employees/`
 
@@ -336,7 +336,9 @@ Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opc
 
 ### 5. `backend/src/employees/employees.service.ts`
 
-Cria, edita, altera situação e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
+Cria, edita, altera situação, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
+
+Na criação de conta, reutiliza `PasswordService`, normaliza o e-mail de login, converte o perfil público para o enum interno e deixa os defaults de conta ativos no banco. Converte a unicidade de e-mail e de funcionário, inclusive em corrida, nos conflitos estáveis `LOGIN_EMAIL_ALREADY_EXISTS` e `EMPLOYEE_ACCESS_ALREADY_EXISTS`.
 
 Na edição cadastral, atualiza exclusivamente nome, telefone e e-mail, sem alterar situação, conta ou relações.
 
@@ -346,13 +348,13 @@ Traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e
 
 ### 6. `backend/src/employees/employees.controller.ts`
 
-Define criação, edição cadastral, situação, listagem e detalhe de Funcionários.
+Define criação, edição cadastral, situação, criação explícita de conta, listagem e detalhe de Funcionários.
 
 O controller exige `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` de Administrador. Mutações recebem CSRF global; entradas, DTOs e erros são descritos com Zod e OpenAPI.
 
 ### 7. `backend/src/employees/employees.module.ts`
 
-Agrupa o domínio de Funcionários, importando autenticação, banco e sessões e registrando controller e service.
+Agrupa o domínio de Funcionários, importando autenticação, senha, banco e sessões e registrando controller e service.
 
 ### 8. `backend/src/employees/employee-create.schema.ts`
 
@@ -371,6 +373,12 @@ Expõe o body estrito de edição cadastral a partir do contrato compartilhado, 
 ### 11. `backend/src/employees/employee-status-update.schema.ts`
 
 Declara o body estrito da alteração de situação, aceitando exclusivamente `status` com `active` ou `inactive`.
+
+### 12. `backend/src/employees/employee-access-create.schema.ts`
+
+Valida com Zod estrito a criação administrativa de conta por e-mail de login, perfil público, senha inicial e confirmação.
+
+Normaliza somente o e-mail de login; preserva a senha exatamente como recebida, exige de 8 a 128 caracteres e impede persistência da confirmação.
 
 ---
 
@@ -554,6 +562,6 @@ Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da 
 
 ### 16. `backend/src/employees/employees.controller.spec.ts`
 
-Executa criação, edição cadastral, situação e consultas administrativas de Funcionários contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
+Executa criação, edição cadastral, situação, criação explícita de conta e consultas administrativas de Funcionários contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
 
-Cobre conta opcional, normalização, validação, situação, OS ativa, último Administrador, sessões, concorrência, guards, CSRF, filtros, privacidade e OpenAPI.
+Cobre conta opcional, criação de acesso, hash Argon2id, normalização, validação, situação, OS ativa, último Administrador, sessões, concorrência, guards, CSRF, filtros, privacidade e OpenAPI.

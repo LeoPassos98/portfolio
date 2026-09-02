@@ -32,6 +32,10 @@ import { Roles } from '../auth/roles.decorator.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import {
+  employeeAccessCreateSchema,
+  type EmployeeAccessCreateInput,
+} from './employee-access-create.schema.js';
+import {
   employeeCreateSchema,
   type EmployeeCreateInput,
 } from './employee-create.schema.js';
@@ -123,6 +127,74 @@ export class EmployeesController {
     input: EmployeeCreateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.create(input);
+  }
+
+  @Post(':id/account')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({
+    summary: 'Cria a conta de acesso de um funcionário sem conta',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['loginEmail', 'profile', 'initialPassword', 'confirmPassword'],
+      properties: {
+        loginEmail: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@login.example.com',
+        },
+        profile: {
+          type: 'string',
+          enum: ['administrator', 'employee'],
+        },
+        initialPassword: {
+          type: 'string',
+          minLength: 8,
+          maxLength: 128,
+          format: 'password',
+        },
+        confirmPassword: {
+          type: 'string',
+          minLength: 8,
+          maxLength: 128,
+          format: 'password',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({
+    type: EmployeeDetailResponse,
+    description:
+      'Conta ativa criada com troca obrigatória de senha pendente, sem expor credenciais.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description: 'Funcionário não encontrado (EMPLOYEE_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'Funcionário já possui conta (EMPLOYEE_ACCESS_ALREADY_EXISTS) ou e-mail de login já existe (LOGIN_EMAIL_ALREADY_EXISTS).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  createAccess(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeAccessCreateSchema))
+    input: EmployeeAccessCreateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.createAccess(id, input);
   }
 
   @Put(':id')

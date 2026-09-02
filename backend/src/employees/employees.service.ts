@@ -8,9 +8,11 @@ import {
   Prisma,
   StatusOrdemServico,
 } from '../generated/prisma/client.js';
+import { PasswordService } from '../auth/password/password.service.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
+import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
 import { EmployeeListItemResponse } from './employee-list-item-response.dto.js';
@@ -31,6 +33,16 @@ export const EMPLOYEE_HAS_ACTIVE_ORDERS_ERROR = {
 export const LAST_ACTIVE_ADMIN_REQUIRED_ERROR = {
   code: 'LAST_ACTIVE_ADMIN_REQUIRED',
   message: 'At least one active administrator account must remain',
+} as const;
+
+export const EMPLOYEE_ACCESS_ALREADY_EXISTS_ERROR = {
+  code: 'EMPLOYEE_ACCESS_ALREADY_EXISTS',
+  message: 'Employee already has an access account',
+} as const;
+
+export const LOGIN_EMAIL_ALREADY_EXISTS_ERROR = {
+  code: 'LOGIN_EMAIL_ALREADY_EXISTS',
+  message: 'Login email already exists',
 } as const;
 
 const MAX_STATUS_UPDATE_ATTEMPTS = 3;
@@ -84,6 +96,11 @@ type EmployeeStatusTransition = {
   revokedUserId: string | null;
 };
 
+const profileByInput: Record<EmployeeAccessCreateInput['profile'], Perfil> = {
+  administrator: Perfil.ADMINISTRADOR,
+  employee: Perfil.FUNCIONARIO,
+};
+
 function toEmployeeDetail(
   employee: Prisma.FuncionarioGetPayload<{
     select: typeof employeeDetailSelect;
@@ -102,6 +119,7 @@ export class EmployeesService {
   constructor(
     private readonly database: DatabaseService,
     private readonly sessionStoreService: SessionStoreService,
+    private readonly passwordService: PasswordService,
   ) {}
 
   async create({
@@ -137,6 +155,57 @@ export class EmployeesService {
         error.code === 'P2025'
       ) {
         throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+      }
+
+      throw error;
+    }
+  }
+
+  async createAccess(
+    employeeId: string,
+    { loginEmail, profile, initialPassword }: EmployeeAccessCreateInput,
+  ): Promise<EmployeeDetailResponse> {
+    const employee = await this.database.funcionario.findUnique({
+      where: { id: employeeId },
+      select: { id: true, usuario: { select: { id: true } } },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (employee.usuario) {
+      throw new ConflictException(EMPLOYEE_ACCESS_ALREADY_EXISTS_ERROR);
+    }
+
+    const senhaHash = await this.passwordService.hash(initialPassword);
+
+    try {
+      const account = await this.database.usuario.create({
+        data: {
+          emailLogin: loginEmail,
+          senhaHash,
+          perfil: profileByInput[profile],
+          funcionarioId: employee.id,
+        },
+        select: {
+          funcionario: { select: employeeDetailSelect },
+        },
+      });
+
+      return toEmployeeDetail(account.funcionario);
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        const account = await this.database.usuario.findUnique({
+          where: { funcionarioId: employee.id },
+          select: { id: true },
+        });
+
+        if (account) {
+          throw new ConflictException(EMPLOYEE_ACCESS_ALREADY_EXISTS_ERROR);
+        }
+
+        throw new ConflictException(LOGIN_EMAIL_ALREADY_EXISTS_ERROR);
       }
 
       throw error;
@@ -329,5 +398,12 @@ export class EmployeesService {
     if (activeAdministrators <= 1) {
       throw new ConflictException(LAST_ACTIVE_ADMIN_REQUIRED_ERROR);
     }
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    );
   }
 }
