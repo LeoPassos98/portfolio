@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Prisma } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
 import { EmployeeListItemResponse } from './employee-list-item-response.dto.js';
+import type { EmployeeUpdateInput } from './employee-update.schema.js';
 
 export const EMPLOYEE_NOT_FOUND_ERROR = {
   code: 'EMPLOYEE_NOT_FOUND',
@@ -41,6 +42,19 @@ const employeeDetailSelect = {
   },
 } satisfies Prisma.FuncionarioSelect;
 
+function toEmployeeDetail(
+  employee: Prisma.FuncionarioGetPayload<{
+    select: typeof employeeDetailSelect;
+  }>,
+): EmployeeDetailResponse {
+  const { usuario, ...employeeDetail } = employee;
+
+  return {
+    ...employeeDetail,
+    conta: usuario,
+  };
+}
+
 @Injectable()
 export class EmployeesService {
   constructor(private readonly database: DatabaseService) {}
@@ -57,12 +71,31 @@ export class EmployeesService {
       select: employeeDetailSelect,
     });
 
-    const { usuario, ...employeeDetail } = employee;
+    return toEmployeeDetail(employee);
+  }
 
-    return {
-      ...employeeDetail,
-      conta: usuario,
-    };
+  async update(
+    id: string,
+    { nome, telefone, email }: EmployeeUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    try {
+      const employee = await this.database.funcionario.update({
+        where: { id },
+        data: { nome, telefone, email },
+        select: employeeDetailSelect,
+      });
+
+      return toEmployeeDetail(employee);
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+      }
+
+      throw error;
+    }
   }
 
   async findAll({
@@ -124,11 +157,6 @@ export class EmployeesService {
       throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
     }
 
-    const { usuario, ...employeeDetail } = employee;
-
-    return {
-      ...employeeDetail,
-      conta: usuario,
-    };
+    return toEmployeeDetail(employee);
   }
 }

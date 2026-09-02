@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -42,6 +43,10 @@ import {
   type EmployeeListQuery,
 } from './employee-list-query.schema.js';
 import { EmployeeListItemResponse } from './employee-list-item-response.dto.js';
+import {
+  employeeUpdateSchema,
+  type EmployeeUpdateInput,
+} from './employee-update.schema.js';
 import { EmployeesService } from './employees.service.js';
 
 const badRequestResponse = {
@@ -112,6 +117,49 @@ export class EmployeesController {
     input: EmployeeCreateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.create(input);
+  }
+
+  @Put(':id')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Atualiza os dados cadastrais de um funcionário' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['nome', 'telefone', 'email'],
+      properties: {
+        nome: { type: 'string', minLength: 2, maxLength: 120 },
+        telefone: { type: 'string', example: '+55 (11) 99999-9999' },
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@example.com',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: EmployeeDetailResponse })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description: 'Funcionário não encontrado (EMPLOYEE_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  update(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeUpdateSchema))
+    input: EmployeeUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.update(id, input);
   }
 
   @Get()

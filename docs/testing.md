@@ -12,7 +12,7 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_dev`                                   |
 | Arquivos catalogados         | 15 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **203 testes aprovados** em `b938573 feat: add employee creation API`                                     |
+| Último resultado consolidado | **227 testes aprovados** em N5.4C — edição cadastral de Funcionários                                      |
 
 ## Executar agora
 
@@ -56,7 +56,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **203 testes** executada após `b938573 feat: add employee creation API`. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **227 testes** executada em N5.4C — edição cadastral de Funcionários. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 As tabelas seguintes são o índice de consulta rápida. Os três arquivos com muitos fluxos possuem um detalhamento por operação logo abaixo da tabela de sua família.
 
@@ -131,15 +131,16 @@ Observação: a constraint física continua sendo a autoridade final para impedi
 
 #### [`backend/src/employees/employees.controller.spec.ts`](../backend/src/employees/employees.controller.spec.ts)
 
-Exercita criação e consultas administrativas de Funcionários pelas rotas reais.
+Exercita criação, edição cadastral e consultas administrativas de Funcionários pelas rotas reais.
 
-| Operação              | Cenários concretos                                                                                                                                                                                                  | Regra ou risco comprovado                                                          |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Criação               | Administrador cria funcionário ativo ou inativo sem conta, normaliza nome, telefone e e-mail e permite contatos duplicados.                                                                                         | Funcionário pode existir sem conta de acesso.                                      |
-| Validação             | Rejeita nome, telefone, e-mail ou status inválidos, além de campos de conta, perfil, senha, administrativos ou inesperados.                                                                                         | A rota não permite criação indireta de credenciais nem dados fora do contrato.     |
-| Segurança             | Criação exige sessão, primeiro acesso concluído, perfil Administrador e CSRF; leituras exigem os três primeiros e não exigem CSRF.                                                                                  | Cada operação recebe a proteção proporcional ao seu risco.                         |
-| Lista e detalhe       | Lista ativos por padrão; filtra inativos ou todos; busca nome ou e-mail sem distinguir caixa e telefone formatado; ordena por nome e ID; trata ID inválido ou inexistente e mostra conta opcional ativa ou inativa. | Consultas administrativas são previsíveis e preservam a relação de conta opcional. |
-| Privacidade e OpenAPI | Não expõe hash, sessão, OS ou histórico; documenta criação, consultas e `conta` anulável.                                                                                                                           | DTOs e contrato HTTP não vazam relações sensíveis.                                 |
+| Operação              | Cenários concretos                                                                                                                                                                                                                                                                | Regra ou risco comprovado                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Criação               | Administrador cria funcionário ativo ou inativo sem conta, normaliza nome, telefone e e-mail e permite contatos duplicados.                                                                                       | Funcionário pode existir sem conta de acesso.                                                  |
+| Edição cadastral      | Administrador edita funcionário ativo ou inativo; persiste e retorna nome, telefone e e-mail normalizados; permite contatos duplicados; preserva situação, criação, conta e relações; trata ID inválido ou `EMPLOYEE_NOT_FOUND`. | A edição não transfere responsabilidades administrativas ou de acesso para o cadastro.        |
+| Validação             | Rejeita nome, telefone ou e-mail inválidos e, na edição, `status`, `ativo`, campos de conta, credenciais, identificadores, datas ou campos inesperados.                                                           | As rotas não permitem mass assignment nem criação ou alteração indireta de credenciais.       |
+| Segurança             | Criação e edição exigem sessão, primeiro acesso concluído, perfil Administrador e CSRF; leituras exigem os três primeiros e não exigem CSRF.                                                                        | Cada operação recebe a proteção proporcional ao seu risco.                                     |
+| Lista e detalhe       | Lista ativos por padrão; filtra inativos ou todos; busca nome ou e-mail sem distinguir caixa e telefone formatado; ordena por nome e ID; trata detalhe inexistente e mostra conta opcional ativa ou inativa.                  | Consultas administrativas são previsíveis e preservam a relação de conta opcional.             |
+| Privacidade e OpenAPI | Não expõe hash, sessão, OS ou histórico; documenta criação, edição cadastral, consultas e `conta` anulável.                                                                                                         | DTOs e contrato HTTP não vazam relações sensíveis nem sugerem edição de status ou da conta.    |
 
 Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev` e fixtures removidas ao final.
 
@@ -170,3 +171,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.3F — CEP                                 |     173 testes |
 | N5.4A — leitura de Funcionários             |     186 testes |
 | N5.4B — criação de Funcionários (`b938573`) | **203 testes** |
+| N5.4C — edição cadastral de Funcionários    | **227 testes** |
