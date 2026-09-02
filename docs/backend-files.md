@@ -1,27 +1,31 @@
 # Mapa da Estrutura Backend
 
-Este documento organiza os arquivos autorais relevantes do backend por famílias funcionais e estruturais. Dentro de cada família, os arquivos seguem a ordem de criação; quando surgiram no mesmo commit, a ordem é estrutural, pois o Git não registra uma sequência interna.
+Este documento organiza os arquivos autorais relevantes do backend por famílias funcionais e estruturais.
+
+Dentro de cada família, os arquivos seguem a ordem de criação. Quando surgiram no mesmo commit, a ordem é estrutural, pois o Git não registra uma sequência interna.
+
+Destina-se a pessoas e agentes que precisam localizar responsabilidades no backend sem depender do histórico da implementação.
 
 As descrições representam a responsabilidade atual de cada arquivo. Este mapa não substitui o histórico do Git.
 
 ## Visão rápida
 
-| Área | Responsabilidade | Arquivos |
-| --- | --- | ---: |
-| Entrada e composição | Inicialização do NestJS, sessão global, CORS, clientes, funcionários e endpoint raiz atual | 4 |
-| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap | 2 |
-| Infraestrutura de banco | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável | 6 |
-| Autenticação | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada | 12 |
-| Guards de acesso | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil | 4 |
-| Clientes | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend | 16 |
-| Funcionários | Criação e consultas administrativas reais de funcionários e suas contas de acesso opcionais | 8 |
-| Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id | 3 |
-| Sessões server-side | Middleware HTTP e store PostgreSQL com cookie assinado | 4 |
-| Proteção de origem | CORS restritivo para o frontend configurado | 1 |
-| Validação HTTP | Pipe reutilizável para aplicar schemas Zod às entradas HTTP | 1 |
-| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções | 3 |
-| Documentação HTTP | Configuração OpenAPI e Swagger UI | 1 |
-| Testes | Cobertura de ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e integração ViaCEP mockada | 14 |
+| Área                     | Responsabilidade                                                                                                              | Arquivos |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | -------: |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários e endpoint raiz atual                                    |        4 |
+| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                      |        2 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                                |        6 |
+| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                       |       12 |
+| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                            |        4 |
+| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend              |       16 |
+| Funcionários             | Criação e consultas administrativas reais de funcionários e suas contas de acesso opcionais                                   |        8 |
+| Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id                                                                       |        3 |
+| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                        |        4 |
+| Proteção de origem       | CORS restritivo para o frontend configurado                                                                                   |        1 |
+| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                   |        1 |
+| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                            |        3 |
+| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                             |        1 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e ViaCEP mockado |       16 |
 
 ## Sumário
 
@@ -50,11 +54,15 @@ Diretório principal: `backend/src/`
 
 ### 1. `backend/src/main.ts`
 
-Cria a aplicação NestJS a partir de `AppModule`, configura o `ConsoleLogger` nativo com JSON em produção e saída legível nos demais ambientes, habilita CORS restritivo para `FRONTEND_ORIGIN` com credenciais, registra globalmente o middleware de sessão, o filter de exceções HTTP e a documentação OpenAPI, habilita os hooks de desligamento, obtém a porta validada por `ConfigService` e inicia o servidor HTTP.
+Cria a aplicação NestJS a partir de `AppModule` e inicia o servidor HTTP na porta validada por `ConfigService`.
+
+Também configura logger, CORS, sessão, filtro global de exceções, OpenAPI e hooks de desligamento.
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz: torna a configuração global com validação de ambiente, importa a infraestrutura de banco, autenticação, clientes, funcionários e sessão, registra o `CsrfGuard` global e fornece o endpoint temporário atual.
+Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários e sessão.
+
+Registra o `CsrfGuard` global e fornece o endpoint raiz atual.
 
 ### 3. `backend/src/app.controller.ts`
 
@@ -74,11 +82,15 @@ Diretório principal: `backend/src/config/`
 
 ### 1. `backend/.env.example`
 
-Disponibiliza valores de referência para ambiente de desenvolvimento, porta, bancos PostgreSQL de desenvolvimento e shadow, segredo e duração da sessão e origem única permitida do frontend no CORS.
+Disponibiliza valores de referência para ambiente, porta, bancos PostgreSQL, segredo e duração da sessão.
+
+Também define a origem única permitida pelo CORS.
 
 ### 2. `backend/src/config/environment.validation.ts`
 
-Declara com Zod o schema das variáveis de ambiente, aplica valores padrão para ambiente, porta e duração de sessão, e interrompe o bootstrap com mensagens detalhadas quando a configuração é inválida.
+Declara com Zod o schema das variáveis de ambiente e aplica defaults de ambiente, porta e duração de sessão.
+
+Interrompe o bootstrap com mensagens detalhadas quando a configuração é inválida.
 
 ---
 
@@ -90,7 +102,9 @@ Diretórios principais: `backend/prisma/` e `backend/src/database/`
 
 ### 1. `backend/prisma.config.ts`
 
-Configura o Prisma CLI, localiza o schema e recebe `DATABASE_URL` para o banco de desenvolvimento e `SHADOW_DATABASE_URL` para a database dedicada e descartável usada pelo Prisma Migrate.
+Configura o Prisma CLI e localiza o schema.
+
+Recebe `DATABASE_URL` para o banco da aplicação e `SHADOW_DATABASE_URL` para a base descartável do Prisma Migrate.
 
 ### 2. `backend/prisma/schema.prisma`
 
@@ -102,7 +116,9 @@ Expõe `DatabaseService` para que futuros módulos de domínio recebam o acesso 
 
 ### 4. `backend/src/database/database.service.ts`
 
-Instancia o Prisma Client com o adapter PostgreSQL, obtém a URL pelo `ConfigService`, gerencia a conexão no ciclo de vida do NestJS e registra apenas os eventos seguros de conexão e desconexão.
+Instancia o Prisma Client com o adapter PostgreSQL e recebe a URL pelo `ConfigService`.
+
+Gerencia a conexão no ciclo de vida do NestJS e registra apenas eventos seguros de conexão e desconexão.
 
 ### 5. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
 
@@ -116,7 +132,9 @@ Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com
 
 ## Autenticação
 
-Implementa token CSRF, login, troca obrigatória da senha inicial, logout e consulta da sessão atual, mantendo no estado server-side somente a identidade necessária e o token anti-CSRF, e retornando o contexto seguro autenticado.
+Reúne token CSRF, login, troca obrigatória de senha, logout e consulta da sessão atual.
+
+Mantém server-side somente a identidade necessária e o token anti-CSRF; as respostas expõem apenas o contexto autenticado seguro.
 
 Diretório principal: `backend/src/auth/`
 
@@ -138,11 +156,17 @@ Declara o schema Zod da troca obrigatória de senha: exige senha entre 8 e 128 c
 
 ### 5. `backend/src/auth/auth.controller.ts`
 
-Expõe `GET /auth/csrf`, `POST /auth/login`, `POST /auth/first-access/password`, `POST /auth/logout` e `GET /auth/session`; entrega o token CSRF ligado à sessão, documenta o cabeçalho obrigatório das mutações, aplica `SessionGuard` às duas rotas autenticadas, regenera e salva a sessão antes de gravar `usuarioId` no login e após a troca obrigatória, e encerra sessões no PostgreSQL durante o logout.
+Expõe CSRF, login, troca de senha de primeiro acesso, logout e consulta da sessão.
+
+Vincula o token CSRF à sessão e documenta seu uso nas mutações.
+
+As rotas autenticadas usam `SessionGuard`. Login e troca de senha regeneram a sessão; logout a encerra no PostgreSQL.
 
 ### 6. `backend/src/auth/auth.module.ts`
 
-Compõe controller, service e guards de autenticação com a infraestrutura de banco e de senhas, exportando o serviço e os guards de sessão, primeiro acesso e perfil para módulos de domínio protegidos.
+Compõe controller, service e guards de autenticação com banco e infraestrutura de senhas.
+
+Exporta o serviço e os guards de sessão, primeiro acesso e perfil para módulos de domínio protegidos.
 
 ### 7. `backend/src/auth/authenticated-user.interface.ts`
 
@@ -186,7 +210,9 @@ Usa o principal já carregado pelo `SessionGuard` para bloquear o acesso normal 
 
 ### 3. `backend/src/auth/guards/role.guard.ts`
 
-Lê com `Reflector` os perfis declarados por `@Roles(...)` e compara-os somente com o perfil do principal autenticado no request, sem aplicar regras de recurso ou consultar o PostgreSQL.
+Lê com `Reflector` os perfis declarados por `@Roles(...)`.
+
+Compara-os somente com o perfil já autenticado no request, sem consultar o PostgreSQL nem aplicar regras de recurso.
 
 ### 4. `backend/src/auth/guards/csrf.guard.ts`
 
@@ -196,7 +222,9 @@ Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalh
 
 ## Clientes
 
-Expõe criação, edição cadastral, alteração administrativa de situação, exclusão física condicionada, consultas reais de Clientes no PostgreSQL e consulta de CEP via ViaCEP, com contratos HTTP estritos e sem carregar relações ou Ordens de Serviço. A consulta de CEP não persiste dados e mantém o contrato externo fora do React.
+Reúne criação, edição cadastral, situação, exclusão e consultas reais de Clientes no PostgreSQL.
+
+Expõe contratos HTTP estritos, sem carregar relações ou Ordens de Serviço. A consulta de CEP usa ViaCEP sem persistir dados nem expor o contrato externo ao React.
 
 Diretório principal: `backend/src/clients/`
 
@@ -218,11 +246,21 @@ Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Or
 
 ### 5. `backend/src/clients/clients.service.ts`
 
-Orquestra criação, edição, situação, exclusão e consultas reais via `DatabaseService`: persiste Clientes normalizados e ativos por padrão, atualiza somente dados cadastrais ou somente `ativo` conforme a mutação, converte `active`/`inactive` para o campo persistido e, antes de excluir fisicamente, verifica a existência de OS; preserva Ordens de Serviço e converte tanto a regra contextual quanto a FK restritiva concorrente em `CLIENT_HAS_ORDERS`, transforma violações `P2002` da constraint única de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, transforma filtro e busca em `where` do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
+Orquestra criação, edição, situação, exclusão e consultas de Clientes por `DatabaseService`.
+
+Normaliza dados, mantém novos clientes ativos e separa atualizações cadastrais de alterações de situação.
+
+Antes da exclusão, verifica Ordens de Serviço e traduz a regra contextual e a FK restritiva em `CLIENT_HAS_ORDERS`.
+
+Também traduz `P2002` de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, compõe filtro e busca do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/clients/clients.controller.ts`
 
-Define a fronteira HTTP `POST /clients`, `PUT /clients/:id`, `PATCH /clients/:id/status`, `DELETE /clients/:id`, `GET /clients`, `GET /clients/cep/:cep` e `GET /clients/:id`, aplica `SessionGuard` seguido de `FirstAccessCompletedGuard`, e adiciona `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` somente às mutações administrativas de situação e exclusão; valida entradas com Zod e descreve DTOs e respostas de erro no OpenAPI.
+Define as rotas de criação, edição, situação, exclusão, listagem, detalhe e CEP de Clientes.
+
+Aplica `SessionGuard` e `FirstAccessCompletedGuard` às rotas protegidas.
+
+Situação e exclusão também exigem `RoleGuard` para Administrador. Entradas e contratos são validados com Zod e documentados no OpenAPI.
 
 ### 7. `backend/src/clients/clients.module.ts`
 
@@ -260,7 +298,9 @@ Documenta o contrato interno e estável da consulta de CEP, expondo somente logr
 
 ### 15. `backend/src/clients/cep/via-cep.provider.ts`
 
-Encapsula URL, formato externo, `fetch` server-side e timeout explícito do ViaCEP; traduz `localidade` para `cidade`, oculta campos do fornecedor e distingue indisponibilidade técnica da ausência de CEP.
+Encapsula URL, formato externo, `fetch` server-side e timeout explícito do ViaCEP.
+
+Traduz `localidade` para `cidade`, oculta campos do fornecedor e distingue indisponibilidade técnica da ausência de CEP.
 
 ### 16. `backend/src/clients/cep/cep-lookup.service.ts`
 
@@ -270,7 +310,11 @@ Orquestra a consulta de CEP sem acessar persistência e converte as saídas do p
 
 ## Funcionários
 
-Expõe a criação e as consultas administrativas reais de Funcionários no PostgreSQL. A relação `Funcionario.usuario?` é 1:0..1: um funcionário pode não ter conta, ou ter uma conta ativa ou inativa. O cadastro cria somente `Funcionario`, portanto retorna `conta: null`; as consultas retornam somente projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
+Expõe a criação e as consultas administrativas reais de Funcionários no PostgreSQL.
+
+`Funcionario.usuario?` é uma relação 1:0..1: o funcionário pode não ter conta, ou ter uma conta ativa ou inativa.
+
+O cadastro cria somente `Funcionario`. As consultas retornam projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
 
 Diretório principal: `backend/src/employees/`
 
@@ -292,11 +336,15 @@ Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opc
 
 ### 5. `backend/src/employees/employees.service.ts`
 
-Consulta `Funcionario` e a conta `Usuario` opcional diretamente pelo `DatabaseService`, com `select` explícito; traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e id, projeta `usuario` para `conta` e retorna `EMPLOYEE_NOT_FOUND` quando necessário.
+Consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
+
+Traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e id, projeta `usuario` para `conta` e retorna `EMPLOYEE_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/employees/employees.controller.ts`
 
-Define `POST /employees`, `GET /employees` e `GET /employees/:id`, aplica `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` com `@Roles(Perfil.ADMINISTRADOR)` no controller, recebe o token CSRF global nas mutações, valida entradas com Zod e documenta DTOs e erros no OpenAPI.
+Define criação, listagem e detalhe de Funcionários.
+
+O controller exige `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` de Administrador. Mutações recebem CSRF global; entradas, DTOs e erros são descritos com Zod e OpenAPI.
 
 ### 7. `backend/src/employees/employees.module.ts`
 
@@ -336,7 +384,9 @@ Centraliza as opções do `express-session`: cookie `HttpOnly`, `SameSite=Lax`, 
 
 ### 2. `backend/src/auth/session/session-store.service.ts`
 
-Cria o pool e o store `connect-pg-simple` sobre a tabela `session`, desabilita a criação automática da tabela e o touch renovável, fornece o middleware global, revoga parametrizadamente todas as sessões de um usuário pelo `usuarioId` persistido no JSON e encerra store e pool no shutdown.
+Cria o pool e o store `connect-pg-simple` sobre a tabela `session` e fornece o middleware global.
+
+Desabilita a criação automática da tabela e o touch renovável. Revoga sessões por `usuarioId` persistido no JSON e encerra store e pool no shutdown.
 
 ### 3. `backend/src/auth/session/session.module.ts`
 
@@ -374,7 +424,9 @@ Recebe um schema Zod, retorna seu valor parseado e transforma falhas em `BadRequ
 
 ## Tratamento de erros HTTP
 
-Centraliza o contrato público de erros HTTP, sem regras de domínio específicas, para que services e policies futuros possam informar status, código, mensagem e details estruturados.
+Centraliza o contrato público de erros HTTP, sem regras de domínio específicas.
+
+Permite que services e policies informem status, código, mensagem e `details` estruturados.
 
 Diretório principal: `backend/src/common/errors/`
 
@@ -384,7 +436,9 @@ Define o formato público e estável das respostas de erro: `statusCode`, `code`
 
 ### 2. `backend/src/common/errors/http-exception.filter.ts`
 
-Normaliza globalmente exceções HTTP do NestJS, issues da validação Zod e falhas inesperadas sanitizadas; registra a ocorrência interna de falhas inesperadas sem serializar detalhes potencialmente sensíveis e preserva os campos públicos de exceções HTTP futuras.
+Normaliza exceções HTTP do NestJS, issues Zod e falhas inesperadas sanitizadas.
+
+Registra internamente falhas inesperadas sem serializar detalhes sensíveis e preserva os campos públicos de exceções HTTP futuras.
 
 ### 3. `backend/src/common/errors/http-error-response.openapi.ts`
 
@@ -406,62 +460,82 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Testes
 
-Verifica os comportamentos autorais de validação que já participam ou participarão da aplicação.
+Mapeia todos os arquivos autorais de teste atuais. Para cenários, resultados e limitações, consulte o catálogo em [Testes e validações](testing.md).
 
-Diretórios principais: `backend/src/config/` e `backend/src/common/validation/`
+Diretórios principais: `backend/src/` e `backend/test/`
 
-### 1. `backend/src/config/environment.validation.spec.ts`
+### 1. `backend/src/app.controller.spec.ts`
+
+Verifica diretamente a resposta temporária do controller raiz.
+
+### 2. `backend/test/app.e2e-spec.ts`
+
+Executa o smoke HTTP do endpoint raiz contra uma aplicação NestJS de teste.
+
+### 3. `backend/src/config/environment.validation.spec.ts`
 
 Garante que a validação aceite a configuração mínima válida com padrões, rejeite variáveis obrigatórias ausentes e rejeite valores inválidos.
 
-### 2. `backend/src/common/validation/zod-validation.pipe.spec.ts`
+### 4. `backend/src/common/validation/zod-validation.pipe.spec.ts`
 
 Garante o retorno de valores parseados, a preservação de transformações Zod, a rejeição HTTP de entradas inválidas e a disponibilidade das issues no response da exceção.
 
-### 3. `backend/src/common/errors/http-exception.filter.spec.ts`
+### 5. `backend/src/common/errors/http-exception.filter.spec.ts`
 
 Verifica a normalização global para Zod, exceções HTTP conhecidas, exceções de domínio futuras, falhas inesperadas sanitizadas e os campos obrigatórios do contrato público.
 
-### 4. `backend/src/auth/password/password.service.spec.ts`
+### 6. `backend/src/auth/password/password.service.spec.ts`
 
 Verifica a geração de hashes Argon2id sem senha em texto puro, a validação correta e incorreta e o salt automático que gera hashes distintos para a mesma senha.
 
-### 5. `backend/src/auth/session/session.middleware.spec.ts`
+### 7. `backend/src/auth/session/session.middleware.spec.ts`
 
 Verifica as opções do cookie, incluindo `HttpOnly`, `SameSite=Lax`, duração, ausência de domínio e `Secure` condicionado à produção.
 
-### 6. `backend/src/auth/session/session-store.service.spec.ts`
+### 8. `backend/src/auth/session/session-store.service.spec.ts`
 
-Usa fixtures HTTP somente de teste para verificar criação, persistência, recuperação, expiração fixa e revogação de sessões no PostgreSQL, incluindo múltiplas sessões, isolamento entre usuários, invalidação de CSRF, limpeza dos dados de validação e fechamento do store e pool.
+Verifica persistência, expiração fixa, isolamento e revogação de sessões no PostgreSQL.
 
-### 7. `backend/src/auth/auth.controller.spec.ts`
+Também cobre invalidação de CSRF, limpeza das fixtures e fechamento de store e pool.
 
-Executa token CSRF, login, troca obrigatória da senha inicial, logout e consulta da sessão contra `portfolio_dev`, com fixtures removidas ao final; cobre persistência server-side e rotação do token, CORS restritivo, resposta genérica de falha, validação e preservação exata da senha, regeneração do identificador, conta inativada, revogação de sessão, invalidação de logout e ausência de dados sensíveis nas respostas.
+### 9. `backend/src/auth/auth.controller.spec.ts`
 
-### 8. `backend/src/auth/guards/session.guard.spec.ts`
+Executa CSRF, login, primeiro acesso, logout e sessão contra PostgreSQL com fixtures removidas ao final.
+
+Cobre persistência, rotação, CORS, falhas genéricas, validação, revogação e ausência de dados sensíveis.
+
+### 10. `backend/src/auth/guards/session.guard.spec.ts`
 
 Verifica a rejeição de sessão ausente, a reconstrução do principal seguro, a destruição da sessão para conta inexistente ou inativa e a ausência de hash no contexto autenticado.
 
-### 9. `backend/src/auth/guards/first-access-completed.guard.spec.ts`
+### 11. `backend/src/auth/guards/first-access-completed.guard.spec.ts`
 
-Verifica o bloqueio de acesso normal quando a troca obrigatória de senha está pendente e a liberação quando ela foi concluída, reutilizando somente o usuário já presente no request.
+Verifica o bloqueio de acesso normal enquanto a troca obrigatória de senha está pendente.
 
-### 10. `backend/src/auth/guards/role.guard.spec.ts`
+Também verifica a liberação após a troca, reutilizando somente o usuário já presente no request.
 
-Verifica o decorator `@Roles(...)` e o `RoleGuard` para perfis permitidos, negados, múltiplos e ausentes, incluindo a resposta estável de acesso proibido sem consulta adicional ao banco.
+### 12. `backend/src/auth/guards/role.guard.spec.ts`
 
-### 11. `backend/src/auth/guards/csrf.guard.spec.ts`
+Verifica o decorator `@Roles(...)` e o `RoleGuard` para perfis permitidos, negados, múltiplos e ausentes.
+
+Também cobre a resposta estável de acesso proibido sem consulta adicional ao banco.
+
+### 13. `backend/src/auth/guards/csrf.guard.spec.ts`
 
 Verifica os métodos seguros liberados, a rejeição uniforme de token ausente ou inválido e a validação obrigatória para `POST`, `PUT`, `PATCH` e `DELETE`.
 
-### 12. `backend/src/clients/clients.controller.spec.ts`
+### 14. `backend/src/clients/clients.controller.spec.ts`
 
-Executa criação, edição, alteração de situação, exclusão e consultas de Clientes contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre exclusão física sem OS, bloqueio para todos os status de OS, tradução da FK restritiva contra corrida, preservação da situação e de OS vinculadas, idempotência, normalizações, CPF/CNPJ, constraint única, validações, guards, CSRF, autorização exclusiva de Administrador, filtros, busca, ordenação, DTOs sem relações, consulta de CEP mockada sem persistência, erros e OpenAPI.
+Executa o ciclo HTTP de Clientes contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
 
-### 13. `backend/src/clients/cep/via-cep.provider.spec.ts`
+Cobre cadastro, edição, situação, exclusão, consulta, CEP, guards, CSRF, constraints e OpenAPI.
+
+### 15. `backend/src/clients/cep/via-cep.provider.spec.ts`
 
 Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da dependência externa é atingido, sem consultar a internet.
 
-### 14. `backend/src/employees/employees.controller.spec.ts`
+### 16. `backend/src/employees/employees.controller.spec.ts`
 
-Executa a criação e as consultas administrativas de Funcionários contra `portfolio_dev` com fixtures e sessões auxiliares removidas ao final; cobre criação real sem `Usuario`, situação inicial, normalizações, contatos não únicos, schema estrito, guards, CSRF, filtros, busca, ordenação, relação opcional de conta, DTOs sem dados sensíveis, erros e OpenAPI.
+Executa criação e consultas administrativas de Funcionários contra PostgreSQL, com fixtures removidas ao final.
+
+Cobre a conta opcional, normalização, validação, guards, CSRF, filtros, privacidade e OpenAPI.

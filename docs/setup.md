@@ -1,220 +1,194 @@
 # Configuração do projeto
 
-## Repositório Git
+Este guia explica como preparar um clone existente do sistema e registra as tecnologias e decisões de configuração já adotadas.
 
-O repositório foi inicializado com Git na branch principal `main` para versionar o projeto desde sua criação.
+Destina-se a pessoas e agentes que precisam executar o projeto localmente ou manter sua infraestrutura sem depender do histórico de implementação.
 
-```bash
-git init -b main
-```
+## Sumário
 
-O remote `origin` usa SSH (`git@github.com:LeoPassos98/portfolio.git`) para permitir a comunicação autenticada com o GitHub.
+- [Antes de começar](#antes-de-começar)
+- [Preparar um clone existente](#preparar-um-clone-existente)
+- [Configuração importante](#configuração-importante)
+  - [Variáveis de ambiente](#variáveis-de-ambiente)
+  - [Banco, Prisma e migrations](#banco-prisma-e-migrations)
+  - [Sessão, CSRF e CORS](#sessão-csrf-e-cors)
+  - [Documentação HTTP, CEP e logs](#documentação-http-cep-e-logs)
+- [Tecnologias configuradas](#tecnologias-configuradas)
+  - [Frontend](#frontend)
+  - [Backend](#backend)
+  - [Interface e formulários](#interface-e-formulários)
 
-## Frontend
+---
 
-O frontend foi criado com React, TypeScript e Vite para fornecer uma base tipada e um ambiente moderno de desenvolvimento e build.
+## Antes de começar
 
-```bash
-npm create vite@latest frontend -- --template react-ts
-```
+| Pré-requisito            | Uso no projeto                                         |
+| ------------------------ | ------------------------------------------------------ |
+| Git                      | Obter e atualizar o repositório.                       |
+| Node.js e npm            | Instalar dependências, executar Vite e NestJS.         |
+| PostgreSQL               | Persistir o domínio, as sessões e executar migrations. |
+| Usuário PostgreSQL local | Criar as bases indicadas nas URLs de ambiente.         |
 
-O diretório do frontend concentra os comandos e as dependências da aplicação web.
+O frontend usa, por padrão, `http://localhost:5173`; o backend usa `http://localhost:3000`. Ajuste as variáveis de ambiente se esses endereços não estiverem disponíveis.
 
-```bash
-cd frontend
-```
+## Preparar um clone existente
 
-As dependências declaradas pelo template foram instaladas para permitir o desenvolvimento e a compilação do frontend.
+### 1. Instalar dependências
 
-```bash
-npm install
-```
-
-O build foi executado para confirmar que a base do frontend compila corretamente para produção.
-
-```bash
-npm run build
-```
-
-### Cliente HTTP e ambiente da API
-
-O Axios é o transporte HTTP compartilhado do frontend. A instância em `src/shared/lib/http/apiClient.ts` usa `withCredentials: true` para que o navegador envie o cookie de sessão `HttpOnly`; o JavaScript não lê esse cookie.
-
-```bash
-cd frontend
-npm install axios
-```
-
-Copie `frontend/.env.example` para `frontend/.env` e ajuste `VITE_API_URL` para a URL do NestJS local, como `http://localhost:3000`. A variável é obrigatória para evitar que o frontend se comunique silenciosamente com um destino incorreto; `.env` permanece ignorado pelo Git.
-
-Para mutações, o cliente obtém `GET /auth/csrf` quando ainda não há token em memória e envia o resultado em `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`. O token nunca é persistido no browser e é descartado após login, troca de senha de primeiro acesso ou logout, pois essas operações regeneram ou destroem a sessão no backend.
-
-### Server state com TanStack Query
-
-O TanStack Query fornece o `QueryClient` compartilhado e a coordenação de cache de dados remotos para as features que forem integradas à API. Ele não substitui o `AuthSessionProvider`, que continua responsável pelo ciclo de sessão e por `AUTH_UNAUTHENTICATED`.
-
-```bash
-cd frontend
-npm install @tanstack/react-query
-```
-
-## Backend
-
-O backend foi criado como uma aplicação NestJS independente no diretório `backend/`, mantendo sua instalação, execução e compilação separadas do frontend.
-
-```bash
-npx @nestjs/cli@latest new backend --package-manager npm --skip-git --skip-install
-```
-
-As dependências do backend foram instaladas no próprio diretório da aplicação.
+Na raiz do repositório, instale cada aplicação separadamente:
 
 ```bash
 cd backend
 npm install
+cd ../frontend
+npm install
 ```
 
-### Configuração de ambiente
+### 2. Criar os arquivos de ambiente
 
-O `@nestjs/config` carrega e disponibiliza as variáveis de ambiente por meio do `ConfigService`, enquanto o Zod valida esse contrato no startup do backend.
+Copie os exemplos versionados e substitua os valores de exemplo por dados locais seguros:
 
 ```bash
-npm install @nestjs/config zod
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-Copie `backend/.env.example` para `backend/.env` e preencha os valores locais. O arquivo `.env` é ignorado pelo Git; o `.env.example` versionado define apenas nomes e valores seguros de exemplo.
+`backend/.env` contém as credenciais de banco e o segredo de sessão; não deve ser versionado. `frontend/.env` define `VITE_API_URL`, a URL pública da API consumida pelo navegador.
 
-### Prisma e PostgreSQL
+### 3. Preparar o PostgreSQL
 
-O Prisma ORM fornece o Client tipado para acesso ao PostgreSQL. O adapter oficial `@prisma/adapter-pg` integra esse Client ao driver `pg`, enquanto o NestJS concentra esse acesso em `DatabaseModule` e `DatabaseService`.
+Crie duas bases distintas, usando os nomes definidos em `DATABASE_URL` e `SHADOW_DATABASE_URL`. Com os valores de exemplo, elas são `portfolio` e `portfolio_shadow`:
+
+```bash
+createdb -U portfolio_user portfolio
+createdb -U portfolio_user portfolio_shadow
+```
+
+A shadow database é descartável e usada pelo Prisma Migrate para comparar migrations. Nunca use uma base com dados reais como `SHADOW_DATABASE_URL`.
+
+O último resultado consolidado da suíte integrada usou `portfolio_dev`. Se esse for o nome definido no seu ambiente, crie essa base em vez de `portfolio`.
+
+### 4. Gerar o cliente e aplicar migrations
+
+Depois de configurar as URLs do banco, valide a configuração, gere o Prisma Client e aplique as migrations já versionadas:
 
 ```bash
 cd backend
-npm install @prisma/client@7.10.0 @prisma/adapter-pg@7.10.0 pg@8.23.0
-npm install --save-dev prisma@7.10.0 dotenv@17.2.4
-npx prisma init --datasource-provider postgresql --output ../src/generated/prisma --no-skills
+npm run prisma:validate
+npm run prisma:generate
+npx prisma migrate deploy
 ```
 
-`prisma.config.ts` usa `DATABASE_URL` para os comandos do Prisma. Em runtime, a mesma variável é carregada e validada pela configuração central do NestJS e chega ao `DatabaseService` pelo `ConfigService`.
+### 5. Iniciar as aplicações
 
-O Prisma Migrate usa uma shadow database local, dedicada e descartável para comparar migrations. Crie `portfolio_shadow` separadamente de `portfolio_dev` e configure sua URL em `SHADOW_DATABASE_URL`; ela pode ser resetada pelo Prisma e nunca deve conter dados reais.
+Em terminais separados:
 
 ```bash
-createdb portfolio_shadow
+cd backend
+npm run start:dev
 ```
 
-Não use a mesma URL para `DATABASE_URL` e `SHADOW_DATABASE_URL`.
+```bash
+cd frontend
+npm run dev
+```
 
-Após alterar o schema ou a configuração do generator, valide-o e gere novamente o Prisma Client:
+O backend expõe a Swagger UI em `http://localhost:3000/api/docs`. Para escolher as verificações após uma alteração, consulte [Testes e validações](testing.md).
+
+## Configuração importante
+
+### Variáveis de ambiente
+
+| Arquivo         | Variáveis                                                 | Finalidade                                                           |
+| --------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `backend/.env`  | `NODE_ENV`, `PORT`, `DATABASE_URL`, `SHADOW_DATABASE_URL` | Ambiente, porta e conexões PostgreSQL.                               |
+| `backend/.env`  | `SESSION_SECRET`, `SESSION_MAX_AGE_MS`, `FRONTEND_ORIGIN` | Assinatura e duração da sessão, além da origem autorizada pelo CORS. |
+| `frontend/.env` | `VITE_API_URL`                                            | URL do NestJS usada pelo Axios.                                      |
+
+O backend valida seu ambiente com Zod no startup.
+
+`SESSION_MAX_AGE_MS` deve ser um inteiro positivo; o padrão é 28.800.000 ms (8 horas). `SESSION_SECRET` deve ser longo, secreto e exclusivo do ambiente.
+
+### Banco, Prisma e migrations
+
+O Prisma fornece acesso tipado ao PostgreSQL por meio de `DatabaseModule` e `DatabaseService`. O adapter oficial `@prisma/adapter-pg` usa o driver `pg`.
+
+`prisma.config.ts` lê as duas URLs de ambiente.
+
+A migration inicial inclui constraints `CHECK (valor >= 0)` em `ordem_servico` e `historico_ordem_servico`.
+
+Elas existem porque o Prisma Schema não representa esse tipo de constraint diretamente.
+
+Ao alterar `schema.prisma`, valide e gere novamente o cliente:
 
 ```bash
+cd backend
 npm run prisma:validate
 npm run prisma:generate
 ```
 
-### Modelo físico e migration inicial do domínio
+Use `npx prisma migrate dev --name <nome-da-migration>` somente ao criar uma migration local. Para aplicar as migrations já versionadas em um clone, use o comando da etapa 4.
 
-O schema Prisma mapeia o modelo físico PostgreSQL de clientes, funcionários, usuários, ordens de serviço e seus snapshots históricos. A primeira migration foi produzida a partir de um schema vazio com `migrate diff`, sem conexão a um banco autenticado; o comando exige apenas que `DATABASE_URL` já esteja disponível para o `prisma.config.ts`, mas não acessa a URL quando as duas pontas do diff são schemas.
+### Sessão, CSRF e CORS
 
-```bash
-npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script
-```
+`express-session` mantém no cookie apenas o identificador assinado. `connect-pg-simple` persiste a sessão na tabela `session`; o startup não cria nem altera essa tabela.
 
-O SQL gerado recebeu manualmente as constraints `CHECK (valor >= 0)` em `ordem_servico` e `historico_ordem_servico`, pois o Prisma Schema não representa `CHECK` diretamente. A segunda constraint mantém o snapshot submetido à mesma integridade monetária da ordem original.
+O cookie usa `HttpOnly`, `SameSite=Lax`, caminho `/` e duração configurável. `Secure` é ativado apenas em produção.
 
-### Sessões persistidas no PostgreSQL
+O store usa `disableTouch` e o middleware usa `rolling: false`, portanto cada acesso não renova a expiração.
 
-O `express-session` controla o ciclo de sessão HTTP e mantém no cookie apenas o identificador assinado. O `connect-pg-simple` persiste os dados da sessão no PostgreSQL, usando a tabela de infraestrutura `session` versionada pelo Prisma Migrate; o startup não cria nem altera essa tabela.
+Para mutações, o frontend obtém `GET /auth/csrf` e envia o token em `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`.
 
-```bash
-cd backend
-npm install express-session@1.19.0 connect-pg-simple@10.0.0
-npm install --save-dev @types/express-session@1.19.0 @types/connect-pg-simple@7.0.3
-npx prisma migrate dev --name add_session_store
-```
+O token fica somente em memória e é invalidado quando login, primeiro acesso ou logout regeneram ou encerram a sessão.
 
-A migration cria `session` com `sid` como chave primária, `sess` em JSON e `expire` com índice `IDX_session_expire`, estrutura compatível com o store. `SESSION_MAX_AGE_MS` controla a validade fixa, com padrão de 28.800.000 ms (8 horas), e deve ser um inteiro positivo. O store usa `disableTouch` e o middleware usa `rolling: false` para não renovar a expiração em cada acesso.
+`FRONTEND_ORIGIN` define uma única origem explícita para o CORS com credenciais. Não use `origin: '*'` com autenticação por cookie.
 
-O cookie tem `HttpOnly`, `SameSite=Lax`, caminho `/` e `maxAge` configurável; `Secure` é habilitado somente em produção. Não há domínio configurado e nem dados de usuário no cookie. `SESSION_SECRET` assina o identificador de sessão e deve continuar sendo um segredo longo fora do controle de versão.
+CORS restringe origens; CSRF valida a mutação; autorização do NestJS continua sendo uma camada separada.
 
-### Proteção CSRF e CORS
+### Documentação HTTP, CEP e logs
 
-O backend usa o Synchronizer Token Pattern: `GET /auth/csrf` cria, persiste e retorna um token aleatório associado apenas à sessão server-side. O cliente deve enviar esse valor no cabeçalho `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`; o token não é gravado em cookie próprio nem registrado em logs.
+Com o backend em execução, a Swagger UI está em `http://localhost:3000/api/docs`, e o OpenAPI JSON está em `http://localhost:3000/api/docs/openapi.json`.
 
-O token é invalidado naturalmente quando a sessão é regenerada no login ou na troca obrigatória de senha, ou destruída no logout. Após essas operações, obtenha um novo token com `GET /auth/csrf` antes de executar outra mutação.
+`GET /clients/cep/:cep` consulta o ViaCEP pelo `fetch` nativo do Node. O navegador consome apenas o contrato interno do backend.
 
-O CORS usa a variável já obrigatória `FRONTEND_ORIGIN` como origem explícita, habilita `credentials: true` para o cookie de sessão e permite o cabeçalho `X-CSRF-Token`. Não use `origin: '*'` com autenticação por cookie. CORS controla quais origens o navegador pode chamar; CSRF valida que uma mutação apresentou o token ligado à sessão, e nenhum deles substitui a autorização do NestJS ou o `SameSite=Lax` do cookie.
+A integração tem timeout e os testes usam mocks, sem depender da internet.
 
-### Documentação HTTP com OpenAPI
+O NestJS usa `ConsoleLogger` e `Logger` nativos. Em desenvolvimento e testes, os logs são legíveis; em produção, são JSON.
 
-O `@nestjs/swagger` integra o NestJS à especificação OpenAPI e disponibiliza uma Swagger UI navegável para os contratos HTTP da API.
+Logs e respostas sanitizadas não incluem segredos, credenciais, URLs completas de conexão, cookies, tokens ou corpos completos de requisição.
 
-```bash
-cd backend
-npm install @nestjs/swagger@12.0.1
-```
+## Tecnologias configuradas
 
-Com o backend em execução, a interface está em `http://localhost:3000/api/docs` e o documento OpenAPI JSON em `http://localhost:3000/api/docs/openapi.json`.
+Esta seção registra comandos usados ao adicionar tecnologias ao projeto.
 
-### Consulta de CEP via ViaCEP
+Não os execute novamente apenas para preparar um clone existente; para isso, use `npm install` na seção inicial.
 
-O backend consulta o ViaCEP exclusivamente pelo `fetch` nativo do Node em `GET /clients/cep/:cep`; o navegador consome apenas o contrato interno de endereço da API. A integração possui timeout explícito e os testes substituem a fronteira HTTP por mocks, portanto não dependem de acesso à internet.
+### Frontend
 
-### Logs nativos do NestJS
+| Tecnologia               | Motivo                                                                  | Comando registrado                                       |
+| ------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------- |
+| React, TypeScript e Vite | Base tipada da SPA e ambiente de desenvolvimento e build.               | `npm create vite@latest frontend -- --template react-ts` |
+| Axios                    | Cliente HTTP compartilhado com `withCredentials` e CSRF em memória.     | `cd frontend && npm install axios`                       |
+| TanStack Query           | Cache e coordenação de server state, sem substituir o estado de sessão. | `cd frontend && npm install @tanstack/react-query`       |
 
-O bootstrap usa exclusivamente `ConsoleLogger` e `Logger` nativos do NestJS. Em desenvolvimento e testes, os logs permanecem legíveis no terminal; em produção, a saída é estruturada em JSON para consumo pelo ambiente de execução.
+### Backend
 
-```bash
-cd backend
-NODE_ENV=production npm run start:prod
-```
+| Tecnologia                        | Motivo                                                           | Comando registrado                                                                    |
+| --------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| NestJS                            | API independente, módulos e infraestrutura de execução.          | `npx @nestjs/cli@latest new backend --package-manager npm --skip-git --skip-install`  |
+| `@nestjs/config` e Zod            | Leitura e validação do ambiente no startup.                      | `cd backend && npm install @nestjs/config zod`                                        |
+| Prisma, adapter PostgreSQL e `pg` | Client tipado e acesso PostgreSQL pelo NestJS.                   | `cd backend && npm install @prisma/client@7.10.0 @prisma/adapter-pg@7.10.0 pg@8.23.0` |
+| Prisma CLI e dotenv               | Migrations, geração de client e leitura de ambiente pelo Prisma. | `cd backend && npm install --save-dev prisma@7.10.0 dotenv@17.2.4`                    |
+| Sessões PostgreSQL                | Sessão server-side persistida e revogável.                       | `cd backend && npm install express-session@1.19.0 connect-pg-simple@10.0.0`           |
+| OpenAPI                           | Swagger UI e contrato HTTP navegável.                            | `cd backend && npm install @nestjs/swagger@12.0.1`                                    |
+| Argon2id                          | Hash e verificação reutilizáveis de senhas.                      | `cd backend && npm install argon2@0.45.1`                                             |
 
-Não são registrados segredos, credenciais, URLs de conexão completas, cookies, tokens ou corpos completos de requisições. Falhas internas retornam uma resposta HTTP sanitizada, enquanto a ocorrência é registrada internamente sem anexar mensagem ou stack arbitrárias.
+### Interface e formulários
 
-### Hash de senhas com Argon2id
-
-O pacote `argon2` fornece ao `PasswordService` uma infraestrutura reutilizável para gerar o hash persistível em `Usuario.senha_hash` e verificar senhas sem descriptografar ou armazenar a senha original. O algoritmo Argon2id usa salt gerado e incorporado automaticamente ao hash; o serviço adota uma configuração base de 19 MiB de memória, duas iterações e paralelismo 1.
-
-```bash
-cd backend
-npm install argon2@0.45.1
-```
-
-## Tailwind CSS
-
-O Tailwind CSS foi adicionado para permitir a criação dos estilos da interface por meio de classes utilitárias integradas ao Vite.
-
-```bash
-npm install tailwindcss @tailwindcss/vite
-```
-
-## Tipografia
-
-A fonte variável IBM Plex Sans foi adicionada de forma self-hosted para ser empacotada com a aplicação, sem depender de uma requisição externa em runtime.
-
-```bash
-npm install @fontsource-variable/ibm-plex-sans
-```
-
-## Navegação
-
-O React Router será responsável pela navegação client-side da SPA, usando Declarative Mode para definir a estrutura de rotas com componentes React.
-
-```bash
-npm install react-router
-```
-
-## Formulários
-
-O React Hook Form foi adicionado para gerenciar o estado e a submissão dos formulários da aplicação.
-
-```bash
-npm install react-hook-form
-```
-
-## Validação
-
-O Zod foi adicionado para definir os schemas de validação, enquanto `@hookform/resolvers` integra esses schemas ao React Hook Form.
-
-```bash
-npm install zod @hookform/resolvers
-```
+| Tecnologia      | Motivo                                                | Comando registrado                                              |
+| --------------- | ----------------------------------------------------- | --------------------------------------------------------------- |
+| Tailwind CSS    | Classes utilitárias integradas ao Vite.               | `cd frontend && npm install tailwindcss @tailwindcss/vite`      |
+| IBM Plex Sans   | Fonte self-hosted, sem requisição externa em runtime. | `cd frontend && npm install @fontsource-variable/ibm-plex-sans` |
+| React Router    | Navegação client-side declarativa da SPA.             | `cd frontend && npm install react-router`                       |
+| React Hook Form | Estado e submissão de formulários.                    | `cd frontend && npm install react-hook-form`                    |
+| Zod e resolvers | Schemas de validação integrados aos formulários.      | `cd frontend && npm install zod @hookform/resolvers`            |

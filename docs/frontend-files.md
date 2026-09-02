@@ -1,25 +1,29 @@
 # Mapa da Estrutura Frontend
 
-Este documento organiza os arquivos autorais relevantes do frontend por famílias funcionais e estruturais. Dentro de cada família, os arquivos seguem a ordem de criação; quando surgiram no mesmo commit, a ordem é estrutural, pois o Git não registra uma sequência interna.
+Este documento organiza os arquivos autorais relevantes do frontend por famílias funcionais e estruturais.
+
+Dentro de cada família, os arquivos seguem a ordem de criação. Quando surgiram no mesmo commit, a ordem é estrutural, pois o Git não registra uma sequência interna.
+
+Destina-se a pessoas e agentes que precisam localizar responsabilidades no frontend sem depender do histórico da implementação.
 
 As descrições representam a responsabilidade atual de cada arquivo. Este mapa não substitui o histórico do Git.
 
 ## Visão rápida
 
-| Área | Responsabilidade | Arquivos |
-| --- | --- | ---: |
-| Configuração e entrada | Inicialização, rotas, providers e build do frontend | 3 |
-| Infraestrutura HTTP | Cliente Axios compartilhado, ambiente e CSRF em memória | 1 |
-| Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state | 1 |
-| Estilos e tema | Estilos globais e tokens visuais | 1 |
-| Componentes UI | Elementos reutilizáveis da interface | 7 |
-| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes | 6 |
-| Layouts | Estruturas compartilhadas de páginas | 3 |
-| Autenticação | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
-| Dashboard | Visões administrativa e individual de métricas | 5 |
-| Ordens de Serviço | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks | 11 |
-| Clientes | Listagem, cadastro e edição reais, com mocks preservados para Ordens | 8 |
-| Funcionários | Listagem mockada, perfil, formulários validados, situação e gestão de acesso | 11 |
+| Área                    | Responsabilidade                                                                  | Arquivos |
+| ----------------------- | --------------------------------------------------------------------------------- | -------: |
+| Configuração e entrada  | Inicialização, rotas, providers e build do frontend                               |        3 |
+| Infraestrutura HTTP     | Cliente Axios compartilhado, ambiente e CSRF em memória                           |        1 |
+| Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state                |        1 |
+| Estilos e tema          | Estilos globais e tokens visuais                                                  |        1 |
+| Componentes UI          | Elementos reutilizáveis da interface                                              |        7 |
+| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        6 |
+| Layouts                 | Estruturas compartilhadas de páginas                                              |        3 |
+| Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
+| Dashboard               | Visões administrativa e individual de métricas                                    |        5 |
+| Ordens de Serviço       | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks          |       11 |
+| Clientes                | Listagem, cadastro e edição reais, com mocks preservados para Ordens              |        8 |
+| Funcionários            | Listagem mockada, perfil, formulários validados, situação e gestão de acesso      |       11 |
 
 ## Sumário
 
@@ -46,7 +50,9 @@ Diretório principal: `frontend/`
 
 ### 1. `frontend/src/main.tsx`
 
-Carrega a fonte e os estilos globais, monta `App` no DOM e compõe os providers de server state, autenticação real, feedback de sucesso e navegação com `QueryClientProvider`, `AuthSessionProvider`, `SuccessFeedbackProvider` e `BrowserRouter`.
+Carrega a fonte e os estilos globais e monta `App` no DOM.
+
+Compõe os providers de server state, autenticação, feedback de sucesso e navegação.
 
 ### 2. `frontend/src/App.tsx`
 
@@ -66,7 +72,9 @@ Diretório principal: `frontend/src/shared/lib/http/`
 
 ### 1. `frontend/src/shared/lib/http/apiClient.ts`
 
-Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`, falha sem a URL da API, anexa o token CSRF mantido somente em memória às mutações, invalida-o após troca de sessão e encaminha centralmente `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
+Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`; falha sem a URL da API.
+
+Anexa o token CSRF em memória às mutações, invalida-o após troca de sessão e encaminha `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
 
 ---
 
@@ -126,7 +134,9 @@ Campo de texto longo tipado com propriedades nativas. Padroniza dimensões, foco
 
 ### 7. `frontend/src/components/ui/SearchableSelect.tsx`
 
-Combobox reutilizável sem dependências externas, com busca textual, seleção explícita, lista acessível, navegação por teclado e integração de valor/erro com formulários; usado pelos seletores de Cliente e Responsável da OS.
+Combobox reutilizável sem dependências externas, com busca textual, seleção explícita e lista acessível.
+
+Integra valor e erro com formulários e atende aos seletores de Cliente e Responsável da OS.
 
 ---
 
@@ -142,11 +152,15 @@ Apresenta uma mensagem acessível para ausência de conteúdo, com título e des
 
 ### 2. `frontend/src/components/feedback/ConfirmationDialog.tsx`
 
-Apresenta confirmação explícita reutilizável para ações críticas, com modal acessível, foco contido, suporte a Escape e retorno do foco ao controle de origem; usado no cancelamento de OS e na exclusão de Cliente.
+Apresenta confirmação reutilizável para ações críticas em um modal acessível.
+
+Mantém foco, aceita Escape e devolve o foco ao controle de origem. É usada no cancelamento de OS e na exclusão de Cliente.
 
 ### 3. `frontend/src/components/feedback/useUnsavedChangesGuard.tsx`
 
-Expõe a proteção reutilizável contra abandono de formulários alterados: usa `isDirty`, intercepta links internos compatíveis com o roteamento declarativo, mantém o destino pendente até confirmação e registra o aviso nativo de `beforeunload`.
+Expõe proteção reutilizável contra abandono de formulários alterados a partir de `isDirty`.
+
+Intercepta links internos compatíveis, mantém o destino pendente até confirmação e registra o aviso nativo de `beforeunload`.
 
 ### 4. `frontend/src/components/feedback/SuccessFeedbackContext.ts`
 
@@ -174,7 +188,9 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas em frame desktop centralizado, com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão; preserva a rolagem própria da sidebar e do drawer mobile, além de encerrar a sessão real antes de voltar ao Login.
+Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão.
+
+Preserva a rolagem própria da sidebar e do drawer mobile. Também encerra a sessão real antes de voltar ao Login.
 
 ### 3. `frontend/src/components/layout/AppBrand.tsx`
 
@@ -198,7 +214,9 @@ Define com Zod as regras de Login, normaliza o e-mail de login e exporta `LoginF
 
 ### 3. `frontend/src/features/auth/pages/FirstAccessPage.tsx`
 
-Implementa com React Hook Form e Zod o fluxo obrigatório de definição e confirmação da nova senha no `AuthLayout`, submetendo a alteração real e navegando ao Dashboard apenas depois da sessão atualizada.
+Implementa no `AuthLayout` a definição e confirmação obrigatória da nova senha com React Hook Form e Zod.
+
+Submete a alteração real e navega ao Dashboard somente depois da atualização da sessão.
 
 ### 4. `frontend/src/features/auth/schemas/firstAccessSchema.ts`
 
@@ -210,7 +228,9 @@ Declara o Context tipado da autenticação real, com sessão, bootstrap, ações
 
 ### 6. `frontend/src/features/auth/context/AuthSessionProvider.tsx`
 
-Restaura a sessão por `/auth/session`, mantém a fonte global de autenticação e expõe login, troca de senha, logout, nova tentativa do bootstrap e limpeza central após `AUTH_UNAUTHENTICATED`.
+Restaura a sessão por `/auth/session` e mantém a fonte global de autenticação.
+
+Expõe login, troca de senha, logout, nova tentativa de bootstrap e limpeza central após `AUTH_UNAUTHENTICATED`.
 
 ### 7. `frontend/src/features/auth/hooks/useAuthSession.ts`
 
@@ -218,11 +238,15 @@ Expõe o hook de consumo seguro apenas da sessão atual para telas e componentes
 
 ### 8. `frontend/src/features/auth/components/ProtectedRoute.tsx`
 
-Centraliza o guard reutilizável das rotas internas, aguardando o bootstrap, exigindo sessão, encaminhando troca obrigatória de senha ao primeiro acesso e preservando o redirecionamento de perfil sem permissão ao Dashboard com o feedback contextual previsto.
+Centraliza o guard reutilizável das rotas internas e aguarda o bootstrap de sessão.
+
+Exige autenticação, encaminha a troca obrigatória de senha ao primeiro acesso e redireciona perfil sem permissão ao Dashboard com feedback contextual.
 
 ### 9. `frontend/src/features/auth/api/authApi.ts`
 
-Expõe as funções HTTP reais de login, restauração de sessão, troca de senha de primeiro acesso e logout, com contratos independentes do modelo da aplicação e invalidação do CSRF após as mutações que regeneram ou encerram a sessão.
+Expõe as funções HTTP reais de login, restauração de sessão, primeiro acesso e logout.
+
+Mantém contratos independentes do modelo da aplicação e invalida o CSRF após mutações que regeneram ou encerram a sessão.
 
 ### 10. `frontend/src/features/auth/types/authenticatedSession.ts`
 
@@ -246,7 +270,9 @@ Diretório principal: `frontend/src/features/dashboard/`
 
 ### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Compõe o Dashboard administrativo ou individual conforme o perfil da sessão autenticada compartilhada, recebe o feedback contextual de acesso negado do guard e delega o painel individual ao componente compartilhado.
+Compõe o Dashboard administrativo ou individual conforme o perfil da sessão autenticada.
+
+Recebe o feedback do guard e delega o painel individual ao componente compartilhado.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 
@@ -278,19 +304,27 @@ Lista ordens em tabela desktop ou lista mobile, controla filtros, busca e pagina
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define `Order`, seus status e visibilidade, incluindo os vínculos imutáveis ao Cliente e ao funcionário responsável e os dados de serviço, valor, observações e datas usados nos mocks, Detalhes e futura edição.
+Define `Order`, seus status e regras de visibilidade.
+
+Inclui vínculos imutáveis ao Cliente e ao responsável, além dos dados usados em mocks, detalhes e futura edição.
 
 ### 3. `frontend/src/features/orders/mocks/orders.ts`
 
-Exporta ordens de protótipo completas como `Order[]`, com vínculos de Cliente e responsável, dados de serviço, valor, visibilidade, observações e datas para apresentação por rota, regras de acesso e bloqueio da exclusão de Clientes vinculados.
+Exporta ordens de protótipo completas como `Order[]`.
+
+Fornece vínculos, dados de serviço, visibilidade, observações e datas para rotas, regras de acesso e bloqueio da exclusão de Clientes vinculados.
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem completa pela rota, aplica as políticas compartilhadas de visibilidade, edição e reabertura à ação disponível, apresenta os dados de forma responsiva e permite a reabertura conceitual de OS Cancelada por Administrador sem alterar mocks.
+Obtém a ordem completa pela rota e aplica as políticas compartilhadas de visibilidade, edição e reabertura.
+
+Apresenta os dados de forma responsiva e permite a reabertura conceitual de OS cancelada por Administrador sem alterar mocks.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Obtém a ordem pela rota, aplica as regras de visibilidade e edição antes de compor o formulário compartilhado e aceita o estado ativo conceitual vindo da reabertura de Cancelada, mantendo cliente e número somente leitura e sem persistência.
+Obtém a ordem pela rota e aplica as regras de visibilidade e edição antes de compor o formulário compartilhado.
+
+Aceita o estado ativo conceitual da reabertura de Cancelada e mantém Cliente e número somente leitura, sem persistência.
 
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
@@ -306,7 +340,11 @@ Exporta snapshots mockados e tipados com versões e estados anteriores completos
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
-Reúne a estrutura visual reutilizável e validada de criação e edição de OS, incluindo os seletores pesquisáveis de Cliente e Responsável para Administrador; consome as permissões e transições centralizadas para manter campos somente leitura, montar somente as opções válidas de Status, confirmar o cancelamento e proteger alterações pendentes antes de abandonar o formulário.
+Reúne a estrutura visual reutilizável e validada de criação e edição de OS.
+
+Inclui seletores pesquisáveis para Administrador e consome permissões e transições centralizadas.
+
+Mantém campos somente leitura, mostra status válidos, confirma cancelamento e protege alterações pendentes.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
@@ -314,7 +352,11 @@ Define as validações compartilhadas e as restrições configuráveis de criaç
 
 ### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
 
-Centraliza as políticas mockadas de consulta, edição, transição de Status e reabertura da OS: Administrador vê todas e pode reabrir Canceladas para estados ativos; Funcionário vê as próprias e as públicas de outros responsáveis e só edita as próprias em aberto. É reutilizada por listagem, Detalhes, rota e formulário de edição.
+Centraliza políticas mockadas de consulta, edição, transição de status e reabertura da OS.
+
+Administrador vê todas e reabre Canceladas. Funcionário vê as próprias e as públicas de outros responsáveis, mas edita somente as próprias em aberto.
+
+É reutilizada por listagem, detalhes, rota e formulário.
 
 ---
 
@@ -334,15 +376,25 @@ Exporta clientes representativos usados somente pelas features ainda mockadas, e
 
 ### 3. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
-Exibe em `AppLayout` a listagem real responsiva de Clientes com TanStack Query, busca e filtro de status sincronizados com a URL, skeleton inicial, erro recuperável, estados vazios e acesso à edição; clientes ativos permanecem como padrão.
+Exibe em `AppLayout` a listagem real e responsiva de Clientes com TanStack Query.
+
+Sincroniza busca e filtro de status com a URL e fornece skeleton, erro recuperável, estados vazios e acesso à edição. Clientes ativos permanecem como padrão.
 
 ### 4. `frontend/src/features/clients/pages/ClientCreatePage.tsx`
 
-Implementa no `AppLayout` o cadastro real de Cliente com mutation TanStack Query, feedback após confirmação do servidor, invalidação da listagem e proteção contra abandono. Consulta CEP pelo contrato NestJS no blur, preenche somente os dados de endereço disponíveis via React Hook Form e mantém o fallback manual quando o CEP não é encontrado ou o fornecedor falha.
+Implementa no `AppLayout` o cadastro real de Cliente com mutation TanStack Query.
+
+Exibe feedback após confirmação do servidor, invalida a listagem e protege alterações pendentes.
+
+Consulta CEP no blur, preenche somente dados disponíveis e mantém fallback manual quando o CEP não é encontrado ou o fornecedor falha.
 
 ### 5. `frontend/src/features/clients/pages/ClientEditPage.tsx`
 
-Carrega o Cliente real pela rota, monta o formulário somente após o detalhe confirmado e persiste edição cadastral com proteção contra abandono. Administrador também altera situação e exclui com mutations separadas; a regra de OS vinculada é confirmada pelo backend. Funcionário edita somente os dados cadastrais.
+Carrega o Cliente pela rota e monta o formulário somente após confirmar o detalhe.
+
+Persiste edição cadastral com proteção contra abandono.
+
+Administrador também altera situação e exclui com mutations separadas; Funcionário edita somente dados cadastrais. O backend confirma a regra de OS vinculada.
 
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
@@ -350,7 +402,9 @@ Define com Zod as validações e normalizações reutilizadas nos formulários d
 
 ### 7. `frontend/src/features/clients/api/clientsApi.ts`
 
-Concentra os endpoints tipados de Clientes na única instância Axios compartilhada, separa contratos HTTP do NestJS dos modelos do React e traduz cadastro, detalhe, listagem, situação e CEP sem expor o fornecedor externo.
+Concentra os endpoints tipados de Clientes na instância Axios compartilhada.
+
+Separa os contratos HTTP do NestJS dos modelos React e traduz cadastro, detalhe, listagem, situação e CEP sem expor o fornecedor externo.
 
 ### 8. `frontend/src/features/clients/api/clientQueryKeys.ts`
 
@@ -366,15 +420,25 @@ Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Exibe em `AppLayout` a consulta mockada responsiva de funcionários, com busca por nome, telefone ou e-mail, filtro de situação sincronizado com a URL, tabela no desktop, lista no mobile, estados vazios e acesso ao Perfil do Funcionário; a situação do cadastro e da conta permanecem distintas.
+Exibe em `AppLayout` a consulta mockada e responsiva de Funcionários.
+
+Oferece busca, filtro de situação sincronizado com a URL, tabela no desktop, lista no mobile, estados vazios e acesso ao Perfil.
+
+A situação do cadastro e da conta permanecem distintas.
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
-Implementa no `AppLayout` o cadastro responsivo do funcionário com React Hook Form, validação compartilhada com Zod e proteção contra abandono quando houver alterações não salvas; a conta de acesso continua separada.
+Implementa no `AppLayout` o cadastro responsivo de Funcionário com React Hook Form e Zod.
+
+Protege alterações não salvas; a conta de acesso continua separada.
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
-Carrega o funcionário mockado pela rota para validar os valores cadastrais e os formulários de criação ou alteração da conta de acesso, mantendo separados e-mail de contato e e-mail de login; protege qualquer alteração pendente desses formulários e aplica visualmente as regras de situação e preservação da última conta ativa de Administrador, sem persistência.
+Carrega o Funcionário mockado pela rota para validar dados cadastrais e os formulários de criação ou alteração da conta de acesso.
+
+Mantém separados e-mail de contato e e-mail de login e protege alterações pendentes.
+
+Aplica visualmente as regras de situação e preservação da última conta ativa de Administrador, sem persistência.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
@@ -394,15 +458,21 @@ Define com Zod as validações e normalizações reutilizadas nos dados cadastra
 
 ### 8. `frontend/src/features/employees/schemas/employeeAccessSchema.ts`
 
-Define com Zod as validações reutilizadas da criação e alteração de contas de acesso, incluindo normalização do e-mail de login, situação da conta existente e confirmação da senha temporária.
+Define com Zod as validações reutilizadas de criação e alteração de contas de acesso.
+
+Inclui normalização do e-mail de login, situação da conta existente e confirmação da senha temporária.
 
 ### 9. `frontend/src/features/employees/lib/employeeStatus.ts`
 
-Centraliza a disponibilidade mockada de alteração da situação do Funcionário a partir das OS sob sua responsabilidade, bloqueando somente a inativação enquanto existir OS Aguardando ou Em andamento e preservando a independência da conta de acesso na reativação.
+Centraliza a disponibilidade mockada de alteração da situação do Funcionário a partir das OS sob sua responsabilidade.
+
+Bloqueia somente a inativação enquanto existir OS Aguardando ou Em andamento e preserva a independência da conta na reativação.
 
 ### 10. `frontend/src/features/employees/lib/employeeAccessStatus.ts`
 
-Centraliza a relação mockada entre as situações do cadastro e da conta de acesso: cadastro inativo força a conta associada a Inativa, enquanto a reativação preserva conta inativa ou ausência de conta; também expõe a disponibilidade dos controles de conta e perfil.
+Centraliza a relação mockada entre as situações do cadastro e da conta de acesso.
+
+Cadastro inativo força a conta associada a Inativa; reativação preserva conta inativa ou ausência de conta. Também expõe a disponibilidade dos controles de conta e perfil.
 
 ### 11. `frontend/src/features/employees/lib/employeeAdministrator.ts`
 
