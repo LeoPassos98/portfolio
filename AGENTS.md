@@ -9,6 +9,33 @@ Sempre que uma tecnologia, ferramenta ou configuração estrutural for adicionad
 
 Não registrar comandos de inspeção ou verificação temporária.
 
+## Documentação de testes
+
+`docs/testing.md` é o documento oficial para explicar a estratégia de testes do projeto, o motivo das validações, os resultados dos marcos relevantes e observações ou limitações conhecidas.
+
+Antes de concluir uma tarefa que adiciona ou altera testes, avalie se `docs/testing.md` precisa ser atualizado.
+
+Atualize `docs/testing.md` quando ocorrer pelo menos uma destas situações:
+
+- uma nova categoria, ferramenta ou estratégia de teste passar a ser usada;
+- mudar a forma de validar banco de dados, autenticação, segurança, integrações externas, frontend ou navegador;
+- uma feature ou etapa relevante for encerrada/auditada e houver um novo resultado consolidado que ajude a entender o estado do projeto;
+- comandos, ambiente, fixtures ou procedimento de limpeza dos testes mudarem de forma permanente;
+- uma auditoria ou defeito revelar uma observação, limitação ou risco relevante sobre o que os testes cobrem;
+- o significado dos resultados documentados deixar de representar o estado atual do projeto.
+
+Não atualizar `docs/testing.md` apenas porque alguns testes foram adicionados dentro de uma estratégia já documentada ou porque o contador total mudou durante uma etapa intermediária. Prefira registrar resultados em marcos compreensíveis.
+
+Ao atualizar o documento, priorize explicar:
+
+- para que o grupo de testes serve;
+- por que ele existe;
+- o que ele efetivamente valida;
+- qual foi o resultado consolidado;
+- observações, limitações ou dependências relevantes.
+
+Não transformar `docs/testing.md` em uma lista de todos os casos de teste individuais. Os arquivos de teste continuam sendo a fonte detalhada dos casos executáveis.
+
 ## Commits
 
 - Cada commit deve representar uma única mudança lógica.
