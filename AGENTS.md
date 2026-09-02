@@ -11,30 +11,36 @@ Não registrar comandos de inspeção ou verificação temporária.
 
 ## Documentação de testes
 
-`docs/testing.md` é o documento oficial para explicar a estratégia de testes do projeto, o motivo das validações, os resultados dos marcos relevantes e observações ou limitações conhecidas.
+### Fonte documental
 
-Antes de concluir uma tarefa que adiciona ou altera testes, avalie se `docs/testing.md` precisa ser atualizado.
+`docs/testing.md` é o catálogo oficial dos testes e validações concretas do projeto. Os arquivos de teste continuam sendo a fonte executável; o catálogo indica onde estão, o que comprovam e por que existem.
 
-Atualize `docs/testing.md` quando ocorrer pelo menos uma destas situações:
+### Quando atualizar
 
-- uma nova categoria, ferramenta ou estratégia de teste passar a ser usada;
-- mudar a forma de validar banco de dados, autenticação, segurança, integrações externas, frontend ou navegador;
-- uma feature ou etapa relevante for encerrada/auditada e houver um novo resultado consolidado que ajude a entender o estado do projeto;
-- comandos, ambiente, fixtures ou procedimento de limpeza dos testes mudarem de forma permanente;
-- uma auditoria ou defeito revelar uma observação, limitação ou risco relevante sobre o que os testes cobrem;
-- o significado dos resultados documentados deixar de representar o estado atual do projeto.
+Atualize `docs/testing.md` na mesma tarefa, antes do commit final, quando aplicável, sempre que ela:
 
-Não atualizar `docs/testing.md` apenas porque alguns testes foram adicionados dentro de uma estratégia já documentada ou porque o contador total mudou durante uma etapa intermediária. Prefira registrar resultados em marcos compreensíveis.
+- criar ou remover um arquivo de teste autoral;
+- adicionar, remover ou alterar substancialmente cenários relevantes de um arquivo existente;
+- mudar a finalidade de um arquivo de teste;
+- introduzir uma nova forma concreta de validação;
+- executar e consolidar uma auditoria, smoke ou validação de navegador relevante que mereça registro.
 
-Ao atualizar o documento, priorize explicar:
+Quando novos casos relevantes forem adicionados a um arquivo já catalogado, atualize a entrada existente em vez de criar uma entrada histórica duplicada.
 
-- para que o grupo de testes serve;
-- por que ele existe;
-- o que ele efetivamente valida;
-- qual foi o resultado consolidado;
-- observações, limitações ou dependências relevantes.
+### O que registrar
 
-Não transformar `docs/testing.md` em uma lista de todos os casos de teste individuais. Os arquivos de teste continuam sendo a fonte detalhada dos casos executáveis.
+Para testes automatizados, registre o caminho exato, a finalidade, os cenários relevantes, a justificativa, as regras ou comportamentos comprovados, a infraestrutura importante, o resultado conhecido e observações ou limitações quando existirem.
+
+Para validações manuais, registre o fluxo validado, o motivo, o resultado, o marco ou commit relevante e observações úteis.
+
+### O que não fazer
+
+- não transformar `docs/testing.md` em tutorial genérico;
+- não explicar apenas conceitos como “o que é teste unitário”;
+- não listar testes que não existem;
+- não copiar integralmente o código dos testes;
+- não atualizar apenas o contador sem atualizar algo que melhore a compreensão;
+- não substituir os arquivos de teste como fonte executável.
 
 ## Commits
 
