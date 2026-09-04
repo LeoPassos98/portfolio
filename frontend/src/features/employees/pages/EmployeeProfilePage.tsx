@@ -1,9 +1,17 @@
 import { Link, useParams } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
+import { Button } from '../../../components/ui/Button'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 import { EmployeePerformancePanel } from '../../dashboard/components/EmployeePerformancePanel'
-import { mockEmployees } from '../mocks/employees'
+import { isAxiosError } from 'axios'
+import { employeesQueryKeys } from '../api/employeeQueryKeys'
+import {
+  getEmployee,
+  type EmployeeHttpErrorResponse,
+} from '../api/employeesApi'
 
 const employeeStatusDetails = {
   active: { label: 'Ativo', variant: 'success' },
@@ -20,11 +28,53 @@ const accessProfileLabels = {
   employee: 'Funcionário',
 } as const
 
+function isEmployeeApiError(
+  error: unknown,
+  code: EmployeeHttpErrorResponse['code'],
+) {
+  return (
+    isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
+  )
+}
+
+function EmployeeProfileSkeleton() {
+  return (
+    <AppLayout>
+      <div className="animate-pulse" aria-label="Carregando funcionário">
+        <div className="h-5 w-48 rounded bg-neutral-bg" />
+        <div className="mt-6 h-8 w-64 rounded bg-neutral-bg" />
+        <div className="mt-3 h-5 w-40 rounded bg-neutral-bg" />
+        <div className="bg-surface mt-6 rounded-ui border border-neutral-bg p-4 sm:p-6">
+          <div className="h-6 w-56 rounded bg-neutral-bg" />
+          <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {[0, 1, 2, 3, 4].map((item) => (
+              <div key={item}>
+                <div className="h-4 w-32 rounded bg-neutral-bg" />
+                <div className="mt-2 h-5 w-44 rounded bg-neutral-bg" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  )
+}
+
 function EmployeeProfilePage() {
   const { employeeId } = useParams<{ employeeId: string }>()
-  const employee = mockEmployees.find((item) => item.id === employeeId)
+  const {
+    data: employee,
+    error,
+    isError,
+    isPending,
+    refetch,
+  } = useQuery({
+    queryKey: employeesQueryKeys.detail(employeeId ?? ''),
+    queryFn: () => getEmployee(employeeId!),
+    enabled: Boolean(employeeId),
+  })
 
-  if (!employee) {
+  if (!employeeId || isEmployeeApiError(error, 'EMPLOYEE_NOT_FOUND')) {
     return (
       <AppLayout>
         <Link
@@ -38,6 +88,28 @@ function EmployeeProfilePage() {
             title="Funcionário não encontrado"
             description="Não foi possível localizar o funcionário solicitado."
           />
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (isPending) {
+    return <EmployeeProfileSkeleton />
+  }
+
+  if (isError || !employee) {
+    return (
+      <AppLayout>
+        <div className="space-y-4">
+          <EmptyState
+            title="Não foi possível carregar o funcionário"
+            description="Verifique sua conexão e tente novamente."
+          />
+          <div className="flex justify-center">
+            <Button type="button" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
         </div>
       </AppLayout>
     )
@@ -141,7 +213,7 @@ function EmployeeProfilePage() {
         </dl>
       </section>
 
-      {/* No protótipo, employeeId define o funcionário analisado; futuramente os dados virão da API. */}
+      {/* O painel de desempenho permanece mockado nesta etapa. */}
       <EmployeePerformancePanel
         employeeId={employee.id}
         context="administrative"

@@ -442,7 +442,9 @@ Aplica visualmente as regras de situação e preservação da última conta ativ
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
-Reúne dados administrativos, situação da conta, ações de edição e acesso e o painel compartilhado de desempenho do funcionário selecionado pela rota.
+Consulta o perfil administrativo real do Funcionário com TanStack Query, incluindo a conta de acesso opcional, loading, erro com retry e estado de não encontrado.
+
+Preserva as ações de edição e acesso; o painel compartilhado de desempenho continua mockado nesta etapa.
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 
@@ -480,9 +482,9 @@ Centraliza a verificação mockada que impede remover a última conta ativa de A
 
 ### 12. `frontend/src/features/employees/api/employeesApi.ts`
 
-Concentra a consulta tipada de Funcionários na instância Axios compartilhada.
+Concentra as consultas tipadas de listagem e detalhe de Funcionários na instância Axios compartilhada.
 
-Separa o contrato HTTP do NestJS do item de listagem do React e mapeia a conta opcional sem inventar o e-mail de login ausente nessa rota.
+Separa os contratos HTTP do NestJS dos modelos React e mapeia a conta opcional; `loginEmail` só existe no detalhe, onde a API o fornece.
 
 ### 13. `frontend/src/features/employees/api/employeeQueryKeys.ts`
 
