@@ -36,6 +36,10 @@ import {
   type EmployeeAccessCreateInput,
 } from './employee-access-create.schema.js';
 import {
+  employeeAccessStatusUpdateSchema,
+  type EmployeeAccessStatusUpdateInput,
+} from './employee-access-status-update.schema.js';
+import {
   employeeCreateSchema,
   type EmployeeCreateInput,
 } from './employee-create.schema.js';
@@ -168,7 +172,7 @@ export class EmployeesController {
   @ApiCreatedResponse({
     type: EmployeeDetailResponse,
     description:
-      'Conta ativa criada com troca obrigatória de senha pendente, sem expor credenciais.',
+      'Conta criada com a mesma situação do Funcionário e troca obrigatória de senha pendente, sem expor credenciais.',
   })
   @ApiBadRequestResponse({
     description: 'Identificador ou corpo da requisição inválido.',
@@ -195,6 +199,56 @@ export class EmployeesController {
     input: EmployeeAccessCreateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.createAccess(id, input);
+  }
+
+  @Patch(':id/account/status')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Altera a situação da conta de acesso' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: {
+        status: {
+          type: 'string',
+          enum: ['active', 'inactive'],
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: EmployeeDetailResponse,
+    description:
+      'Situação da conta alterada sem modificar o cadastro ou a credencial.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Funcionário não encontrado (EMPLOYEE_NOT_FOUND) ou sem conta de acesso (EMPLOYEE_ACCESS_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'A ativação exige Funcionário ativo (EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION) e a inativação preserva o último Administrador ativo (LAST_ACTIVE_ADMIN_REQUIRED).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  updateAccessStatus(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeAccessStatusUpdateSchema))
+    input: EmployeeAccessStatusUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.updateAccessStatus(id, input);
   }
 
   @Put(':id')

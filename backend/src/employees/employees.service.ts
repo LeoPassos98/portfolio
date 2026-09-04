@@ -13,6 +13,7 @@ import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
+import type { EmployeeAccessStatusUpdateInput } from './employee-access-status-update.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
 import { EmployeeListItemResponse } from './employee-list-item-response.dto.js';
@@ -38,6 +39,16 @@ export const LAST_ACTIVE_ADMIN_REQUIRED_ERROR = {
 export const EMPLOYEE_ACCESS_ALREADY_EXISTS_ERROR = {
   code: 'EMPLOYEE_ACCESS_ALREADY_EXISTS',
   message: 'Employee already has an access account',
+} as const;
+
+export const EMPLOYEE_ACCESS_NOT_FOUND_ERROR = {
+  code: 'EMPLOYEE_ACCESS_NOT_FOUND',
+  message: 'Employee access account not found',
+} as const;
+
+export const EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION_ERROR = {
+  code: 'EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION',
+  message: 'Employee must be active before activating the access account',
 } as const;
 
 export const LOGIN_EMAIL_ALREADY_EXISTS_ERROR = {
@@ -110,7 +121,13 @@ function toEmployeeDetail(
 
   return {
     ...employeeDetail,
-    conta: usuario,
+    conta: usuario
+      ? {
+          emailLogin: usuario.emailLogin,
+          ativo: usuario.ativo,
+          perfil: usuario.perfil,
+        }
+      : null,
   };
 }
 
@@ -209,6 +226,21 @@ export class EmployeesService {
     return toEmployeeDetail(transition.employee);
   }
 
+  async updateAccessStatus(
+    id: string,
+    { status }: EmployeeAccessStatusUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    const transition = await this.executeAccessStatusTransition(id, status);
+
+    if (transition.revokedUserId) {
+      await this.sessionStoreService.revokeUserSessions(
+        transition.revokedUserId,
+      );
+    }
+
+    return toEmployeeDetail(transition.employee);
+  }
+
   async findAll({
     status,
     search,
@@ -275,29 +307,10 @@ export class EmployeesService {
     id: string,
     status: EmployeeStatusUpdateInput['status'],
   ): Promise<EmployeeStatusTransition> {
-    for (
-      let attempt = 1;
-      attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS;
-      attempt += 1
-    ) {
-      try {
-        return await this.database.$transaction(
-          (transaction) => this.transitionStatus(transaction, id, status),
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-        );
-      } catch (error: unknown) {
-        if (
-          this.isSerializationConflictError(error) &&
-          attempt < MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS
-        ) {
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    throw new Error('Employee status transition exhausted its retry limit.');
+    return this.executeSerializableTransaction(
+      (transaction) => this.transitionStatus(transaction, id, status),
+      'Employee status transition exhausted its retry limit.',
+    );
   }
 
   private async executeAccessCreation(
@@ -308,23 +321,43 @@ export class EmployeesService {
   ): Promise<
     Prisma.FuncionarioGetPayload<{ select: typeof employeeDetailSelect }>
   > {
+    return this.executeSerializableTransaction(
+      (transaction) =>
+        this.createAccessInTransaction(
+          transaction,
+          employeeId,
+          loginEmail,
+          profile,
+          senhaHash,
+        ),
+      'Employee access creation exhausted its retry limit.',
+    );
+  }
+
+  private async executeAccessStatusTransition(
+    employeeId: string,
+    status: EmployeeAccessStatusUpdateInput['status'],
+  ): Promise<EmployeeStatusTransition> {
+    return this.executeSerializableTransaction(
+      (transaction) =>
+        this.transitionAccessStatus(transaction, employeeId, status),
+      'Employee access status transition exhausted its retry limit.',
+    );
+  }
+
+  private async executeSerializableTransaction<TResult>(
+    operation: (transaction: Prisma.TransactionClient) => Promise<TResult>,
+    exhaustedMessage: string,
+  ): Promise<TResult> {
     for (
       let attempt = 1;
       attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS;
       attempt += 1
     ) {
       try {
-        return await this.database.$transaction(
-          (transaction) =>
-            this.createAccessInTransaction(
-              transaction,
-              employeeId,
-              loginEmail,
-              profile,
-              senhaHash,
-            ),
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-        );
+        return await this.database.$transaction(operation, {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        });
       } catch (error: unknown) {
         if (
           this.isSerializationConflictError(error) &&
@@ -337,7 +370,7 @@ export class EmployeesService {
       }
     }
 
-    throw new Error('Employee access creation exhausted its retry limit.');
+    throw new Error(exhaustedMessage);
   }
 
   private async createAccessInTransaction(
@@ -426,6 +459,57 @@ export class EmployeesService {
     return {
       employee: updatedEmployee,
       revokedUserId: shouldDeactivateAccount ? employee.usuario!.id : null,
+    };
+  }
+
+  private async transitionAccessStatus(
+    transaction: Prisma.TransactionClient,
+    employeeId: string,
+    status: EmployeeAccessStatusUpdateInput['status'],
+  ): Promise<EmployeeStatusTransition> {
+    const employee = await transaction.funcionario.findUnique({
+      where: { id: employeeId },
+      select: employeeStatusSelect,
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (!employee.usuario) {
+      throw new NotFoundException(EMPLOYEE_ACCESS_NOT_FOUND_ERROR);
+    }
+
+    const shouldBeActive = status === 'active';
+
+    if (shouldBeActive && !employee.ativo) {
+      throw new ConflictException(
+        EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION_ERROR,
+      );
+    }
+
+    if (employee.usuario.ativo === shouldBeActive) {
+      return {
+        employee,
+        revokedUserId: shouldBeActive ? null : employee.usuario.id,
+      };
+    }
+
+    if (!shouldBeActive && employee.usuario.perfil === Perfil.ADMINISTRADOR) {
+      await this.ensureAnotherActiveAdministrator(transaction);
+    }
+
+    const updatedAccount = await transaction.usuario.update({
+      where: { id: employee.usuario.id },
+      data: { ativo: shouldBeActive },
+      select: {
+        funcionario: { select: employeeStatusSelect },
+      },
+    });
+
+    return {
+      employee: updatedAccount.funcionario,
+      revokedUserId: shouldBeActive ? null : employee.usuario.id,
     };
   }
 
