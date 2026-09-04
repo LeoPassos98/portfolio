@@ -270,6 +270,15 @@ describe('EmployeesController', () => {
     };
   }
 
+  function updateEmployeeAccessProfileBody(
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      profile: 'administrator',
+      ...overrides,
+    };
+  }
+
   function createEmployeeAccessBody(overrides: Record<string, unknown> = {}) {
     return {
       loginEmail: 'maria@login.example.test',
@@ -978,6 +987,509 @@ describe('EmployeesController', () => {
     ]);
     expect(persistedEmployee.ativo).toBe(false);
     expect(persistedAccount.ativo).toBe(false);
+  });
+
+  it('promotes an employee account, changes only its profile, revokes target sessions, and applies the new profile on login', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const password = 'senha preservada no perfil';
+    const employee = await createEmployeeFixture({
+      conta: {
+        emailLogin: `promocao-${crypto.randomUUID()}@example.test`,
+        senhaHash: await passwordService.hash(password),
+        perfil: 'FUNCIONARIO',
+        deveAlterarSenha: false,
+      },
+    });
+    const employeeBefore = await database.funcionario.findUniqueOrThrow({
+      where: { id: employee.id },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const firstTargetSession = await createSessionForUser(employee.usuario!.id);
+    const secondTargetSession = await createSessionForUser(
+      employee.usuario!.id,
+    );
+    const otherEmployee = await createEmployeeFixture({ conta: {} });
+    const otherSession = await createSessionForUser(otherEmployee.usuario!.id);
+
+    const response = await agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.OK);
+    const [employeeAfter, accountAfter, targetSessions, otherSessions] =
+      await Promise.all([
+        database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+        database.usuario.findUniqueOrThrow({
+          where: { id: employee.usuario!.id },
+        }),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = ANY($1)',
+          [[firstTargetSession.sessionId, secondTargetSession.sessionId]],
+        ),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = $1',
+          [otherSession.sessionId],
+        ),
+      ]);
+
+    expect(response.body).toEqual({
+      id: employee.id,
+      nome: employee.nome,
+      telefone: employee.telefone,
+      email: employee.email,
+      ativo: true,
+      criadoEm: employee.criadoEm.toISOString(),
+      conta: {
+        emailLogin: accountBefore.emailLogin,
+        ativo: true,
+        perfil: 'ADMINISTRADOR',
+      },
+    });
+    expect(response.body.conta).not.toHaveProperty('senhaHash');
+    expect(response.body.conta).not.toHaveProperty('deveAlterarSenha');
+    expect(employeeAfter).toEqual(employeeBefore);
+    expect(accountAfter).toEqual({
+      ...accountBefore,
+      perfil: 'ADMINISTRADOR',
+    });
+    expect(targetSessions.rowCount).toBe(0);
+    expect(otherSessions.rowCount).toBe(1);
+    await firstTargetSession.agent
+      .get('/auth/session')
+      .expect(HttpStatus.UNAUTHORIZED);
+    await secondTargetSession.agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', secondTargetSession.csrfToken)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+    await otherSession.agent.get('/auth/session').expect(HttpStatus.OK);
+
+    const loginAgent = request.agent(app);
+    const loginCsrfResponse = await loginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(loginCsrfResponse.headers['set-cookie']?.[0]));
+    const loginResponse = await loginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', loginCsrfResponse.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password })
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(loginResponse.headers['set-cookie']?.[0]));
+    expect(loginResponse.body).toMatchObject({
+      id: employee.usuario!.id,
+      perfil: 'ADMINISTRADOR',
+      funcionarioId: employee.id,
+      deveAlterarSenha: false,
+    });
+  });
+
+  it('demotes an active administrator when another remains and preserves credentials and employee data', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      conta: {
+        emailLogin: `despromocao-${crypto.randomUUID()}@example.test`,
+        senhaHash: 'hash-administrador-preservado',
+        perfil: 'ADMINISTRADOR',
+        deveAlterarSenha: true,
+      },
+    });
+    const employeeBefore = await database.funcionario.findUniqueOrThrow({
+      where: { id: employee.id },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    await waitForActiveAdministratorCount(2);
+
+    const response = await agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessProfileBody({ profile: 'employee' }))
+      .expect(HttpStatus.OK);
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      }),
+    ).resolves.toEqual({ ...accountBefore, perfil: 'FUNCIONARIO' });
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      ativo: employee.ativo,
+      conta: {
+        emailLogin: accountBefore.emailLogin,
+        ativo: accountBefore.ativo,
+        perfil: 'FUNCIONARIO',
+      },
+    });
+  });
+
+  it('changes the profile of an inactive account for an inactive employee without reactivating either', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      ativo: false,
+      conta: {
+        ativo: false,
+        perfil: 'ADMINISTRADOR',
+        senhaHash: 'hash-inativo-preservado',
+        deveAlterarSenha: true,
+      },
+    });
+    const employeeBefore = await database.funcionario.findUniqueOrThrow({
+      where: { id: employee.id },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const staleSession = await createSessionForUser(employee.usuario!.id);
+
+    const response = await agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessProfileBody({ profile: 'employee' }))
+      .expect(HttpStatus.OK);
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      }),
+    ).resolves.toEqual({ ...accountBefore, perfil: 'FUNCIONARIO' });
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        staleSession.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      ativo: false,
+      conta: { ativo: false, perfil: 'FUNCIONARIO' },
+    });
+  });
+
+  it.each([
+    ['administrator', 'ADMINISTRADOR', true],
+    ['employee', 'FUNCIONARIO', false],
+  ] as const)(
+    'repeats the current %s profile without changing data or revoking sessions',
+    async (profile, persistedProfile, deveAlterarSenha) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+      const employee = await createEmployeeFixture({
+        conta: {
+          perfil: persistedProfile,
+          senhaHash: `hash-idempotente-${profile}`,
+          deveAlterarSenha,
+        },
+      });
+      const employeeBefore = await database.funcionario.findUniqueOrThrow({
+        where: { id: employee.id },
+      });
+      const accountBefore = await database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      });
+      const existingSession = await createSessionForUser(employee.usuario!.id);
+
+      const firstResponse = await agent
+        .patch(`/employees/${employee.id}/account/profile`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(updateEmployeeAccessProfileBody({ profile }))
+        .expect(HttpStatus.OK);
+      const secondResponse = await agent
+        .patch(`/employees/${employee.id}/account/profile`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(updateEmployeeAccessProfileBody({ profile }))
+        .expect(HttpStatus.OK);
+
+      expect(secondResponse.body).toEqual(firstResponse.body);
+      await expect(
+        database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      ).resolves.toEqual(employeeBefore);
+      await expect(
+        database.usuario.findUniqueOrThrow({
+          where: { id: employee.usuario!.id },
+        }),
+      ).resolves.toEqual(accountBefore);
+      await expect(
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = $1',
+          [existingSession.sessionId],
+        ),
+      ).resolves.toMatchObject({ rowCount: 1 });
+      await existingSession.agent.get('/auth/session').expect(HttpStatus.OK);
+    },
+  );
+
+  it('returns EMPLOYEE_NOT_FOUND when changing the profile for an unknown employee', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+    await agent
+      .patch(`/employees/${crypto.randomUUID()}/account/profile`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_NOT_FOUND',
+        message: 'Employee not found',
+      });
+  });
+
+  it('returns EMPLOYEE_ACCESS_NOT_FOUND without creating an account when changing profile', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture();
+
+    await agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_ACCESS_NOT_FOUND',
+        message: 'Employee access account not found',
+      });
+    await expect(
+      database.usuario.findUnique({ where: { funcionarioId: employee.id } }),
+    ).resolves.toBeNull();
+  });
+
+  it.each([
+    ['invalid id', 'not-a-uuid', updateEmployeeAccessProfileBody()],
+    [
+      'invalid profile',
+      crypto.randomUUID(),
+      updateEmployeeAccessProfileBody({ profile: 'manager' }),
+    ],
+    [
+      'unexpected field',
+      crypto.randomUUID(),
+      updateEmployeeAccessProfileBody({ ativo: false }),
+    ],
+  ])(
+    'rejects access profile update with %s',
+    async (_description, id, body) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+      await agent
+        .patch(`/employees/${id}/account/profile`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(body)
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body: responseBody }) => {
+          expect(responseBody).toMatchObject({
+            statusCode: HttpStatus.BAD_REQUEST,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          });
+        });
+    },
+  );
+
+  it('requires session, completed first access, administrator role, and valid CSRF to change access profile', async () => {
+    const employee = await createEmployeeFixture({ conta: {} });
+    const unauthenticatedAgent = request.agent(app);
+    const unauthenticatedCsrf = await unauthenticatedAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(unauthenticatedCsrf.headers['set-cookie']?.[0]),
+    );
+
+    await unauthenticatedAgent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', unauthenticatedCsrf.body.csrfToken as string)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.UNAUTHORIZED)
+      .expect({
+        statusCode: HttpStatus.UNAUTHORIZED,
+        code: 'AUTH_UNAUTHENTICATED',
+        message: 'Authentication required',
+      });
+
+    const pending = await createAuthenticatedAgentWithCsrf({
+      deveAlterarSenha: true,
+    });
+    await pending.agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', pending.csrfToken)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+
+    const employeeAgent = await createAuthenticatedAgentWithCsrf({
+      perfil: 'FUNCIONARIO',
+    });
+    await employeeAgent.agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', employeeAgent.csrfToken)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_FORBIDDEN',
+        message: 'You do not have permission to access this resource',
+      });
+
+    const administrator = await createAuthenticatedAgent();
+    await administrator
+      .patch(`/employees/${employee.id}/account/profile`)
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+    await administrator
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', 'invalid-token')
+      .send(updateEmployeeAccessProfileBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+  });
+
+  it('keeps the last active administrator profile and sessions unchanged', async () => {
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    const session = await createSessionForUser(employee.usuario!.id);
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    await waitForActiveAdministratorCount(1);
+
+    await session.agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', session.csrfToken)
+      .send(updateEmployeeAccessProfileBody({ profile: 'employee' }))
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'LAST_ACTIVE_ADMIN_REQUIRED',
+        message: 'At least one active administrator account must remain',
+      });
+
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      }),
+    ).resolves.toEqual(accountBefore);
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        session.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    await session.agent.get('/auth/session').expect(HttpStatus.OK);
+  });
+
+  it('allows an administrator to demote their own account when another active administrator remains and revokes the current session', async () => {
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    await createEmployeeFixture({ conta: { perfil: 'ADMINISTRADOR' } });
+    const session = await createSessionForUser(employee.usuario!.id);
+    await waitForActiveAdministratorCount(2);
+
+    const response = await session.agent
+      .patch(`/employees/${employee.id}/account/profile`)
+      .set('X-CSRF-Token', session.csrfToken)
+      .send(updateEmployeeAccessProfileBody({ profile: 'employee' }))
+      .expect(HttpStatus.OK);
+
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      ativo: true,
+      conta: { ativo: true, perfil: 'FUNCIONARIO' },
+    });
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        session.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await session.agent.get('/auth/session').expect(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('keeps at least one active administrator during concurrent profile demotions', async () => {
+    const firstAdministrator = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    const secondAdministrator = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    const firstSession = await createSessionForUser(
+      firstAdministrator.usuario!.id,
+    );
+    const secondSession = await createSessionForUser(
+      secondAdministrator.usuario!.id,
+    );
+    await waitForActiveAdministratorCount(2);
+
+    const responses = await Promise.all([
+      firstSession.agent
+        .patch(`/employees/${firstAdministrator.id}/account/profile`)
+        .set('X-CSRF-Token', firstSession.csrfToken)
+        .send(updateEmployeeAccessProfileBody({ profile: 'employee' })),
+      secondSession.agent
+        .patch(`/employees/${secondAdministrator.id}/account/profile`)
+        .set('X-CSRF-Token', secondSession.csrfToken)
+        .send(updateEmployeeAccessProfileBody({ profile: 'employee' })),
+    ]);
+    const [activeAdministrators, employeeProfiles, remainingSessions] =
+      await Promise.all([
+        database.usuario.count({
+          where: { perfil: 'ADMINISTRADOR', ativo: true },
+        }),
+        database.usuario.findMany({
+          where: {
+            id: {
+              in: [
+                firstAdministrator.usuario!.id,
+                secondAdministrator.usuario!.id,
+              ],
+            },
+          },
+          orderBy: { perfil: 'asc' },
+          select: { perfil: true },
+        }),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = ANY($1)',
+          [[firstSession.sessionId, secondSession.sessionId]],
+        ),
+      ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      HttpStatus.OK,
+      HttpStatus.CONFLICT,
+    ]);
+    expect(
+      responses.find((response) => response.status === HttpStatus.CONFLICT)
+        ?.body,
+    ).toMatchObject({ code: 'LAST_ACTIVE_ADMIN_REQUIRED' });
+    expect(activeAdministrators).toBe(1);
+    expect(employeeProfiles.map(({ perfil }) => perfil).sort()).toEqual([
+      'ADMINISTRADOR',
+      'FUNCIONARIO',
+    ]);
+    expect(remainingSessions.rowCount).toBe(1);
   });
 
   it('suspends only employee access despite active orders and revokes every target session and CSRF context', async () => {
@@ -2485,6 +2997,8 @@ describe('EmployeesController', () => {
       response.body.paths['/employees/{id}/account'].post;
     const accountStatusUpdateOperation =
       response.body.paths['/employees/{id}/account/status'].patch;
+    const accountProfileUpdateOperation =
+      response.body.paths['/employees/{id}/account/profile'].patch;
     const detailOperation = response.body.paths['/employees/{id}'].get;
     const updateOperation = response.body.paths['/employees/{id}'].put;
     const statusUpdateOperation =
@@ -2503,6 +3017,9 @@ describe('EmployeesController', () => {
     );
     expect(
       Object.keys(response.body.paths['/employees/{id}/account/status']),
+    ).toEqual(['patch']);
+    expect(
+      Object.keys(response.body.paths['/employees/{id}/account/profile']),
     ).toEqual(['patch']);
     expect(createOperation.parameters).toEqual(
       expect.arrayContaining([
@@ -2620,6 +3137,42 @@ describe('EmployeesController', () => {
     expect(accountStatusUpdateOperation.responses['409'].description).toContain(
       'LAST_ACTIVE_ADMIN_REQUIRED',
     );
+    expect(accountProfileUpdateOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      accountProfileUpdateOperation.requestBody.content['application/json']
+        .schema,
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['profile'],
+      properties: {
+        profile: {
+          type: 'string',
+          enum: ['administrator', 'employee'],
+        },
+      },
+    });
+    for (const status of ['200', '400', '401', '403', '404', '409']) {
+      expect(accountProfileUpdateOperation.responses).toHaveProperty(status);
+    }
+    expect(
+      accountProfileUpdateOperation.responses['404'].description,
+    ).toContain('EMPLOYEE_NOT_FOUND');
+    expect(
+      accountProfileUpdateOperation.responses['404'].description,
+    ).toContain('EMPLOYEE_ACCESS_NOT_FOUND');
+    expect(
+      accountProfileUpdateOperation.responses['409'].description,
+    ).toContain('LAST_ACTIVE_ADMIN_REQUIRED');
     expect(updateOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

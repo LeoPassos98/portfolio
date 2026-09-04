@@ -13,6 +13,7 @@ import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
+import type { EmployeeAccessProfileUpdateInput } from './employee-access-profile-update.schema.js';
 import type { EmployeeAccessStatusUpdateInput } from './employee-access-status-update.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
@@ -107,7 +108,10 @@ type EmployeeStatusTransition = {
   revokedUserId: string | null;
 };
 
-const profileByInput: Record<EmployeeAccessCreateInput['profile'], Perfil> = {
+const profileByInput: Record<
+  EmployeeAccessProfileUpdateInput['profile'],
+  Perfil
+> = {
   administrator: Perfil.ADMINISTRADOR,
   employee: Perfil.FUNCIONARIO,
 };
@@ -241,6 +245,21 @@ export class EmployeesService {
     return toEmployeeDetail(transition.employee);
   }
 
+  async updateAccessProfile(
+    id: string,
+    { profile }: EmployeeAccessProfileUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    const transition = await this.executeAccessProfileTransition(id, profile);
+
+    if (transition.revokedUserId) {
+      await this.sessionStoreService.revokeUserSessions(
+        transition.revokedUserId,
+      );
+    }
+
+    return toEmployeeDetail(transition.employee);
+  }
+
   async findAll({
     status,
     search,
@@ -342,6 +361,17 @@ export class EmployeesService {
       (transaction) =>
         this.transitionAccessStatus(transaction, employeeId, status),
       'Employee access status transition exhausted its retry limit.',
+    );
+  }
+
+  private async executeAccessProfileTransition(
+    employeeId: string,
+    profile: EmployeeAccessProfileUpdateInput['profile'],
+  ): Promise<EmployeeStatusTransition> {
+    return this.executeSerializableTransaction(
+      (transaction) =>
+        this.transitionAccessProfile(transaction, employeeId, profile),
+      'Employee access profile transition exhausted its retry limit.',
     );
   }
 
@@ -510,6 +540,52 @@ export class EmployeesService {
     return {
       employee: updatedAccount.funcionario,
       revokedUserId: shouldBeActive ? null : employee.usuario.id,
+    };
+  }
+
+  private async transitionAccessProfile(
+    transaction: Prisma.TransactionClient,
+    employeeId: string,
+    profile: EmployeeAccessProfileUpdateInput['profile'],
+  ): Promise<EmployeeStatusTransition> {
+    const employee = await transaction.funcionario.findUnique({
+      where: { id: employeeId },
+      select: employeeStatusSelect,
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (!employee.usuario) {
+      throw new NotFoundException(EMPLOYEE_ACCESS_NOT_FOUND_ERROR);
+    }
+
+    const updatedProfile = profileByInput[profile];
+
+    if (employee.usuario.perfil === updatedProfile) {
+      return { employee, revokedUserId: null };
+    }
+
+    if (
+      employee.usuario.ativo &&
+      employee.usuario.perfil === Perfil.ADMINISTRADOR &&
+      updatedProfile === Perfil.FUNCIONARIO
+    ) {
+      await this.ensureAnotherActiveAdministrator(transaction);
+    }
+
+    const updatedAccount = await transaction.usuario.update({
+      where: { id: employee.usuario.id },
+      data: { perfil: updatedProfile },
+      select: {
+        funcionario: { select: employeeStatusSelect },
+      },
+    });
+
+    return {
+      employee: updatedAccount.funcionario,
+      revokedUserId: employee.usuario.id,
     };
   }
 

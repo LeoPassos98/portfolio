@@ -36,6 +36,10 @@ import {
   type EmployeeAccessCreateInput,
 } from './employee-access-create.schema.js';
 import {
+  employeeAccessProfileUpdateSchema,
+  type EmployeeAccessProfileUpdateInput,
+} from './employee-access-profile-update.schema.js';
+import {
   employeeAccessStatusUpdateSchema,
   type EmployeeAccessStatusUpdateInput,
 } from './employee-access-status-update.schema.js';
@@ -249,6 +253,56 @@ export class EmployeesController {
     input: EmployeeAccessStatusUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.updateAccessStatus(id, input);
+  }
+
+  @Patch(':id/account/profile')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Altera o perfil da conta de acesso' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['profile'],
+      properties: {
+        profile: {
+          type: 'string',
+          enum: ['administrator', 'employee'],
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: EmployeeDetailResponse,
+    description:
+      'Perfil alterado sem modificar a situação, o cadastro ou as credenciais. Uma mudança real revoga todas as sessões da conta.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Funcionário não encontrado (EMPLOYEE_NOT_FOUND) ou sem conta de acesso (EMPLOYEE_ACCESS_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'A despromoção preserva o último Administrador ativo (LAST_ACTIVE_ADMIN_REQUIRED).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  updateAccessProfile(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeAccessProfileUpdateSchema))
+    input: EmployeeAccessProfileUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.updateAccessProfile(id, input);
   }
 
   @Put(':id')

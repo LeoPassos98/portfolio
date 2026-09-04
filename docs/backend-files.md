@@ -18,7 +18,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                       |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                            |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend              |       16 |
-| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       13 |
+| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       14 |
 | Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id                                                                       |        3 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                        |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                                   |        1 |
@@ -310,7 +310,7 @@ Orquestra a consulta de CEP sem acessar persistência e converte as saídas do p
 
 ## Funcionários
 
-Expõe a criação, a edição cadastral, as situações do cadastro e da conta, a criação explícita de conta e as consultas administrativas reais de Funcionários no PostgreSQL.
+Expõe a criação, a edição cadastral, as situações do cadastro e da conta, a alteração de perfil, a criação explícita de conta e as consultas administrativas reais de Funcionários no PostgreSQL.
 
 `Funcionario.usuario?` é uma relação 1:0..1: o funcionário pode não ter conta, ou ter uma conta ativa ou inativa.
 
@@ -336,7 +336,7 @@ Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opc
 
 ### 5. `backend/src/employees/employees.service.ts`
 
-Cria, edita, altera as situações do cadastro e da conta, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
+Cria, edita, altera as situações do cadastro e da conta, altera o perfil, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
 
 Na criação de conta, reutiliza `PasswordService`, normaliza o e-mail de login, converte o perfil público para o enum interno e define explicitamente a situação inicial conforme o Funcionário. Executa a criação em transação serializável, com retentativa para `P2034` e o SQLSTATE `40001` exposto pelo adapter PostgreSQL, preservando o invariante de que Funcionário inativo não possui conta ativa. Converte a unicidade de e-mail e de funcionário, inclusive em corrida, nos conflitos estáveis `LOGIN_EMAIL_ALREADY_EXISTS` e `EMPLOYEE_ACCESS_ALREADY_EXISTS`.
 
@@ -346,11 +346,13 @@ Na inativação, bloqueia OS ativas e a remoção do último Administrador ativo
 
 Na administração separada da conta, altera somente `Usuario.ativo`, permite suspender o acesso de Funcionário ativo mesmo com OS, preserva credencial, perfil e e-mail de login e revoga todas as sessões na inativação. A reativação exige `Funcionario.ativo`, não recupera sessões e mantém `senhaHash` e `deveAlterarSenha`. Transações serializáveis com retentativa de `P2034` e SQLSTATE `40001` protegem o último Administrador ativo e o invariante Funcionário × conta sob concorrência.
 
+Na alteração de perfil, modifica somente `Usuario.perfil` em conta ativa ou inativa, preserva cadastro, situação, e-mail e credencial e revoga todas as sessões apenas quando há mudança real. A mesma transação serializável impede que despromoções concorrentes removam todos os Administradores ativos; a autoalteração permitida conclui a resposta antes de a sessão revogada deixar de autenticar novas requisições.
+
 Traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e id, projeta `usuario` para `conta` e retorna `EMPLOYEE_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/employees/employees.controller.ts`
 
-Define criação, edição cadastral, situação do Funcionário, criação e situação da conta de acesso, listagem e detalhe de Funcionários.
+Define criação, edição cadastral, situação do Funcionário, criação, situação e perfil da conta de acesso, listagem e detalhe de Funcionários.
 
 O controller exige `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` de Administrador. Mutações recebem CSRF global; entradas, DTOs e erros são descritos com Zod e OpenAPI.
 
@@ -385,6 +387,10 @@ Normaliza somente o e-mail de login; preserva a senha exatamente como recebida, 
 ### 13. `backend/src/employees/employee-access-status-update.schema.ts`
 
 Declara com Zod estrito o body da administração da conta de acesso, aceitando exclusivamente `status` com `active` ou `inactive`.
+
+### 14. `backend/src/employees/employee-access-profile-update.schema.ts`
+
+Declara com Zod estrito o body da alteração de perfil da conta, aceitando exclusivamente o contrato público `profile` com `administrator` ou `employee`.
 
 ---
 
