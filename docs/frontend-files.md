@@ -436,9 +436,11 @@ Protege alterações não salvas, bloqueia envios duplicados, sincroniza o cache
 
 Carrega o Funcionário real da rota com TanStack Query, incluindo skeleton, erro com retry e estado específico para `EMPLOYEE_NOT_FOUND`.
 
-Atualiza nome, telefone e e-mail de contato por `PUT`, a situação do Funcionário por `PATCH` separado, a situação da conta por `PATCH /employees/:id/account/status` e o perfil por `PATCH /employees/:id/account/profile`; cada mutation sincroniza o detalhe e invalida as listagens.
+Atualiza nome, telefone e e-mail de contato por `PUT`, a situação do Funcionário por `PATCH` separado e os campos independentes da conta por `PATCH /employees/:id/account/status`, `PATCH /employees/:id/account/profile` e `PATCH /employees/:id/account/login-email`; cada mutation sincroniza o detalhe e invalida as listagens.
 
-Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. O perfil exibido sempre vem do cache do detalhe, aguarda a resposta do backend e trata `LAST_ACTIVE_ADMIN_REQUIRED`; e-mail de login e senha da conta existente continuam mockados.
+O formulário editável de acesso contém somente o e-mail de login e reseta para a resposta normalizada da API após persistir; perfil e situação seguem seus controles independentes. A redefinição administrativa de senha permanece fora da integração.
+
+Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. O perfil exibido sempre vem do cache do detalhe, aguarda a resposta do backend e trata `LAST_ACTIVE_ADMIN_REQUIRED`; a redefinição administrativa de senha continua mockada.
 
 Mantém separados e-mail de contato e e-mail de login e protege alterações pendentes.
 
@@ -464,9 +466,9 @@ Define com Zod as validações e normalizações reutilizadas nos dados cadastra
 
 ### 8. `frontend/src/features/employees/schemas/employeeAccessSchema.ts`
 
-Define com Zod as validações reutilizadas de criação e alteração de contas de acesso.
+Define com Zod as validações reutilizadas de criação de conta e alteração do e-mail de login.
 
-Inclui normalização do e-mail de login, situação da conta existente e confirmação da senha temporária.
+Inclui normalização do e-mail de login, perfil e confirmação da senha temporária exigidos na criação.
 
 ### 9. `frontend/src/features/employees/lib/employeeStatus.ts`
 
@@ -482,7 +484,7 @@ Cadastro inativo força a conta associada a Inativa; reativação preserva conta
 
 ### 11. `frontend/src/features/employees/api/employeesApi.ts`
 
-Concentra as consultas, a criação, a edição cadastral, a criação de conta e as alterações independentes de situação e perfil na instância Axios compartilhada.
+Concentra as consultas, a criação, a edição cadastral, a criação de conta e as alterações independentes de situação, perfil e e-mail de login na instância Axios compartilhada.
 
 Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e traduz os formulários de criação, edição e acesso para os contratos HTTP; `loginEmail` só existe no detalhe, onde a API o fornece.
 

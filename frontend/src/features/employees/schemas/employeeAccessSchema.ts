@@ -8,7 +8,6 @@ const loginEmailSchema = z
   .email('Informe um e-mail de login válido')
 
 const accessProfileSchema = z.enum(['administrator', 'employee'])
-const accessStatusSchema = z.enum(['active', 'inactive'])
 
 const temporaryPasswordSchema = z
   .string()
@@ -18,13 +17,12 @@ const temporaryPasswordSchema = z
 
 const employeeAccessUpdateSchema = z.object({
   loginEmail: loginEmailSchema,
-  profile: accessProfileSchema,
-  status: accessStatusSchema,
 })
 
-const employeeAccessCreationSchema = employeeAccessUpdateSchema
-  .omit({ status: true })
-  .extend({
+const employeeAccessCreationSchema = z
+  .object({
+    loginEmail: loginEmailSchema,
+    profile: accessProfileSchema,
     initialPassword: temporaryPasswordSchema,
     confirmPassword: z.string().min(1, 'Confirme a senha temporária'),
   })
@@ -39,17 +37,12 @@ type EmployeeAccessCreationFormData = z.input<
 type EmployeeAccessCreationFormValues = z.output<
   typeof employeeAccessCreationSchema
 >
-type EmployeeAccessUpdateFormData = z.input<
-  typeof employeeAccessUpdateSchema
->
+type EmployeeAccessUpdateFormData = z.input<typeof employeeAccessUpdateSchema>
 type EmployeeAccessUpdateFormValues = z.output<
   typeof employeeAccessUpdateSchema
 >
 
-export {
-  employeeAccessCreationSchema,
-  employeeAccessUpdateSchema,
-}
+export { employeeAccessCreationSchema, employeeAccessUpdateSchema }
 export type {
   EmployeeAccessCreationFormData,
   EmployeeAccessCreationFormValues,

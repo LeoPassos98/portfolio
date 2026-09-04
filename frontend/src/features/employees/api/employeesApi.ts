@@ -77,6 +77,10 @@ type EmployeeAccessProfileUpdateRequest = {
   profile: EmployeeAccessProfile
 }
 
+type EmployeeAccessLoginEmailUpdateRequest = {
+  loginEmail: string
+}
+
 type EmployeeAccessCreateHttpBody = Pick<
   EmployeeAccessCreationFormValues,
   'loginEmail' | 'profile' | 'initialPassword' | 'confirmPassword'
@@ -235,6 +239,18 @@ async function updateEmployeeAccessProfile(
   return toEmployee(data)
 }
 
+async function updateEmployeeAccessLoginEmail(
+  id: string,
+  loginEmail: string,
+): Promise<Employee> {
+  const { data } = await apiClient.patch<EmployeeHttpResponse>(
+    `/employees/${id}/account/login-email`,
+    { loginEmail } satisfies EmployeeAccessLoginEmailUpdateRequest,
+  )
+
+  return toEmployee(data)
+}
+
 export {
   createEmployee,
   createEmployeeAccess,
@@ -243,12 +259,14 @@ export {
   toEmployee,
   toEmployeeListItem,
   updateEmployee,
+  updateEmployeeAccessLoginEmail,
   updateEmployeeAccessProfile,
   updateEmployeeAccessStatus,
   updateEmployeeStatus,
 }
 export type {
   EmployeeAccessCreateHttpBody,
+  EmployeeAccessLoginEmailUpdateRequest,
   EmployeeAccessProfileUpdateRequest,
   EmployeeAccessStatusUpdateRequest,
   EmployeeCreateHttpBody,

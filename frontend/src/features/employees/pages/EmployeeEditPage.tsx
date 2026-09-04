@@ -22,6 +22,7 @@ import {
   createEmployeeAccess,
   getEmployee,
   updateEmployee,
+  updateEmployeeAccessLoginEmail,
   updateEmployeeAccessProfile,
   updateEmployeeAccessStatus,
   updateEmployeeStatus,
@@ -105,6 +106,9 @@ function EmployeeEditPage() {
   const [accessProfileError, setAccessProfileError] = useState<string | null>(
     null,
   )
+  const [accessLoginEmailError, setAccessLoginEmailError] = useState<
+    string | null
+  >(null)
   const [accessCreationMessage, setAccessCreationMessage] = useState<
     string | null
   >(null)
@@ -157,8 +161,10 @@ function EmployeeEditPage() {
   const {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
-    setValue: setAccessUpdateValue,
+    clearErrors: clearAccessUpdateErrors,
     formState: { errors: accessUpdateErrors, isDirty: isAccessUpdateDirty },
+    reset: resetAccessUpdate,
+    setError: setAccessUpdateFieldError,
   } = useForm<
     EmployeeAccessUpdateFormData,
     unknown,
@@ -168,14 +174,10 @@ function EmployeeEditPage() {
     values: employee?.access
       ? {
           loginEmail: employee.access.loginEmail,
-          profile: employee.access.profile,
-          status: employee.access.status,
         }
       : undefined,
     defaultValues: {
       loginEmail: '',
-      profile: 'employee',
-      status: 'inactive',
     },
   })
   const { confirmationDialog } = useUnsavedChangesGuard(
@@ -197,6 +199,10 @@ function EmployeeEditPage() {
   const accessProfileMutation = useMutation({
     mutationFn: (profile: EmployeeAccessProfile) =>
       updateEmployeeAccessProfile(employeeId!, profile),
+  })
+  const accessLoginEmailMutation = useMutation({
+    mutationFn: (loginEmail: string) =>
+      updateEmployeeAccessLoginEmail(employeeId!, loginEmail),
   })
   const createAccessMutation = useMutation({
     mutationFn: (values: EmployeeAccessCreationFormValues) =>
@@ -242,10 +248,6 @@ function EmployeeEditPage() {
       const updatedEmployee = await statusMutation.mutateAsync(status)
 
       await synchronizeEmployee(updatedEmployee)
-      setAccessUpdateValue(
-        'status',
-        updatedEmployee.access?.status ?? 'inactive',
-      )
       resetEmployee(toEmployeeFormData(updatedEmployee))
       showSuccess(
         updatedEmployee.status === 'inactive'
@@ -448,7 +450,70 @@ function EmployeeEditPage() {
     }
   }
 
-  function onUpdateAccess() {}
+  async function onUpdateAccess(values: EmployeeAccessUpdateFormValues) {
+    if (
+      !employeeId ||
+      !employee?.access ||
+      accessLoginEmailMutation.isPending
+    ) {
+      return
+    }
+
+    setAccessLoginEmailError(null)
+    clearAccessUpdateErrors('loginEmail')
+
+    try {
+      const updatedEmployee = await accessLoginEmailMutation.mutateAsync(
+        values.loginEmail,
+      )
+
+      await synchronizeEmployee(updatedEmployee)
+      resetAccessUpdate({
+        loginEmail: updatedEmployee.access?.loginEmail ?? values.loginEmail,
+      })
+      showSuccess('E-mail de login atualizado com sucesso.')
+    } catch (accessLoginEmailMutationError) {
+      if (
+        isEmployeeApiError(
+          accessLoginEmailMutationError,
+          'LOGIN_EMAIL_ALREADY_EXISTS',
+        )
+      ) {
+        setAccessUpdateFieldError('loginEmail', {
+          type: 'server',
+          message: 'Este e-mail de login já está em uso por outra conta.',
+        })
+        return
+      }
+
+      if (
+        isEmployeeApiError(
+          accessLoginEmailMutationError,
+          'EMPLOYEE_ACCESS_NOT_FOUND',
+        )
+      ) {
+        setAccessLoginEmailError(
+          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      if (
+        isEmployeeApiError(accessLoginEmailMutationError, 'EMPLOYEE_NOT_FOUND')
+      ) {
+        setAccessLoginEmailError(
+          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      setAccessLoginEmailError(
+        'Não foi possível atualizar o e-mail de login. Tente novamente.',
+      )
+    }
+  }
 
   if (!employeeId || isEmployeeApiError(error, 'EMPLOYEE_NOT_FOUND')) {
     return (
@@ -688,10 +753,11 @@ function EmployeeEditPage() {
                   aria-invalid={Boolean(accessUpdateErrors.loginEmail)}
                   aria-required="true"
                   aria-describedby={
-                    accessUpdateErrors.loginEmail
+                    accessUpdateErrors.loginEmail || accessLoginEmailError
                       ? 'employee-login-email-error'
                       : undefined
                   }
+                  disabled={accessLoginEmailMutation.isPending}
                   {...registerAccessUpdate('loginEmail')}
                 />
                 {accessUpdateErrors.loginEmail?.message && (
@@ -700,6 +766,15 @@ function EmployeeEditPage() {
                     className="text-error text-sm"
                   >
                     {accessUpdateErrors.loginEmail.message}
+                  </p>
+                )}
+                {accessLoginEmailError && (
+                  <p
+                    id="employee-login-email-error"
+                    role="alert"
+                    className="text-error text-sm"
+                  >
+                    {accessLoginEmailError}
                   </p>
                 )}
               </div>
@@ -744,7 +819,6 @@ function EmployeeEditPage() {
                 <Label htmlFor="employee-access-status">
                   Situação da conta
                 </Label>
-                <input type="hidden" {...registerAccessUpdate('status')} />
                 <Select
                   id="employee-access-status"
                   value={currentEmployeeAccessStatus ?? 'inactive'}
@@ -791,8 +865,14 @@ function EmployeeEditPage() {
               </div>
             </div>
 
-            <Button className="mt-4" type="submit">
-              Salvar acesso
+            <Button
+              className="mt-4"
+              type="submit"
+              disabled={accessLoginEmailMutation.isPending}
+            >
+              {accessLoginEmailMutation.isPending
+                ? 'Salvando e-mail...'
+                : 'Salvar e-mail de login'}
             </Button>
           </form>
         ) : (
