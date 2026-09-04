@@ -338,7 +338,7 @@ Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opc
 
 Cria, edita, altera situação, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
 
-Na criação de conta, reutiliza `PasswordService`, normaliza o e-mail de login, converte o perfil público para o enum interno e deixa os defaults de conta ativos no banco. Converte a unicidade de e-mail e de funcionário, inclusive em corrida, nos conflitos estáveis `LOGIN_EMAIL_ALREADY_EXISTS` e `EMPLOYEE_ACCESS_ALREADY_EXISTS`.
+Na criação de conta, reutiliza `PasswordService`, normaliza o e-mail de login, converte o perfil público para o enum interno e define explicitamente a situação inicial conforme o Funcionário. Executa a criação em transação serializável, com retentativa para `P2034` e o SQLSTATE `40001` exposto pelo adapter PostgreSQL, preservando o invariante de que Funcionário inativo não possui conta ativa. Converte a unicidade de e-mail e de funcionário, inclusive em corrida, nos conflitos estáveis `LOGIN_EMAIL_ALREADY_EXISTS` e `EMPLOYEE_ACCESS_ALREADY_EXISTS`.
 
 Na edição cadastral, atualiza exclusivamente nome, telefone e e-mail, sem alterar situação, conta ou relações.
 

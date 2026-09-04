@@ -45,7 +45,7 @@ export const LOGIN_EMAIL_ALREADY_EXISTS_ERROR = {
   message: 'Login email already exists',
 } as const;
 
-const MAX_STATUS_UPDATE_ATTEMPTS = 3;
+const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 3;
 
 const employeeListSelect = {
   id: true,
@@ -165,39 +165,21 @@ export class EmployeesService {
     employeeId: string,
     { loginEmail, profile, initialPassword }: EmployeeAccessCreateInput,
   ): Promise<EmployeeDetailResponse> {
-    const employee = await this.database.funcionario.findUnique({
-      where: { id: employeeId },
-      select: { id: true, usuario: { select: { id: true } } },
-    });
-
-    if (!employee) {
-      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
-    }
-
-    if (employee.usuario) {
-      throw new ConflictException(EMPLOYEE_ACCESS_ALREADY_EXISTS_ERROR);
-    }
-
     const senhaHash = await this.passwordService.hash(initialPassword);
 
     try {
-      const account = await this.database.usuario.create({
-        data: {
-          emailLogin: loginEmail,
-          senhaHash,
-          perfil: profileByInput[profile],
-          funcionarioId: employee.id,
-        },
-        select: {
-          funcionario: { select: employeeDetailSelect },
-        },
-      });
+      const employee = await this.executeAccessCreation(
+        employeeId,
+        loginEmail,
+        profile,
+        senhaHash,
+      );
 
-      return toEmployeeDetail(account.funcionario);
+      return toEmployeeDetail(employee);
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
         const account = await this.database.usuario.findUnique({
-          where: { funcionarioId: employee.id },
+          where: { funcionarioId: employeeId },
           select: { id: true },
         });
 
@@ -293,7 +275,11 @@ export class EmployeesService {
     id: string,
     status: EmployeeStatusUpdateInput['status'],
   ): Promise<EmployeeStatusTransition> {
-    for (let attempt = 1; attempt <= MAX_STATUS_UPDATE_ATTEMPTS; attempt += 1) {
+    for (
+      let attempt = 1;
+      attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS;
+      attempt += 1
+    ) {
       try {
         return await this.database.$transaction(
           (transaction) => this.transitionStatus(transaction, id, status),
@@ -301,9 +287,8 @@ export class EmployeesService {
         );
       } catch (error: unknown) {
         if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === 'P2034' &&
-          attempt < MAX_STATUS_UPDATE_ATTEMPTS
+          this.isSerializationConflictError(error) &&
+          attempt < MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS
         ) {
           continue;
         }
@@ -313,6 +298,84 @@ export class EmployeesService {
     }
 
     throw new Error('Employee status transition exhausted its retry limit.');
+  }
+
+  private async executeAccessCreation(
+    employeeId: string,
+    loginEmail: string,
+    profile: EmployeeAccessCreateInput['profile'],
+    senhaHash: string,
+  ): Promise<
+    Prisma.FuncionarioGetPayload<{ select: typeof employeeDetailSelect }>
+  > {
+    for (
+      let attempt = 1;
+      attempt <= MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS;
+      attempt += 1
+    ) {
+      try {
+        return await this.database.$transaction(
+          (transaction) =>
+            this.createAccessInTransaction(
+              transaction,
+              employeeId,
+              loginEmail,
+              profile,
+              senhaHash,
+            ),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (error: unknown) {
+        if (
+          this.isSerializationConflictError(error) &&
+          attempt < MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS
+        ) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new Error('Employee access creation exhausted its retry limit.');
+  }
+
+  private async createAccessInTransaction(
+    transaction: Prisma.TransactionClient,
+    employeeId: string,
+    loginEmail: string,
+    profile: EmployeeAccessCreateInput['profile'],
+    senhaHash: string,
+  ): Promise<
+    Prisma.FuncionarioGetPayload<{ select: typeof employeeDetailSelect }>
+  > {
+    const employee = await transaction.funcionario.findUnique({
+      where: { id: employeeId },
+      select: { id: true, ativo: true, usuario: { select: { id: true } } },
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (employee.usuario) {
+      throw new ConflictException(EMPLOYEE_ACCESS_ALREADY_EXISTS_ERROR);
+    }
+
+    const account = await transaction.usuario.create({
+      data: {
+        emailLogin: loginEmail,
+        senhaHash,
+        perfil: profileByInput[profile],
+        ativo: employee.ativo,
+        funcionarioId: employee.id,
+      },
+      select: {
+        funcionario: { select: employeeDetailSelect },
+      },
+    });
+
+    return account.funcionario;
   }
 
   private async transitionStatus(
@@ -404,6 +467,25 @@ export class EmployeesService {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === 'P2002'
+    );
+  }
+
+  private isSerializationConflictError(error: unknown): boolean {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return error.code === 'P2034';
+    }
+
+    if (typeof error !== 'object' || error === null || !('cause' in error)) {
+      return false;
+    }
+
+    const { cause } = error;
+
+    return (
+      typeof cause === 'object' &&
+      cause !== null &&
+      'originalCode' in cause &&
+      cause.originalCode === '40001'
     );
   }
 }

@@ -629,6 +629,71 @@ describe('EmployeesController', () => {
     expect(response.body.conta).not.toHaveProperty('senhaHash');
   });
 
+  it('creates an inactive account for an inactive employee and keeps it inactive after reactivation', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({ ativo: false });
+    const loginEmail = `conta-inativa-${crypto.randomUUID()}@example.test`;
+    const initialPassword = 'senha inicial de conta inativa';
+    const response = await agent
+      .post(`/employees/${employee.id}/account`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        createEmployeeAccessBody({
+          loginEmail,
+          initialPassword,
+          confirmPassword: initialPassword,
+        }),
+      )
+      .expect(HttpStatus.CREATED);
+    const persisted = await database.usuario.findUniqueOrThrow({
+      where: { funcionarioId: employee.id },
+    });
+    userIds.push(persisted.id);
+
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      ativo: false,
+      conta: {
+        emailLogin: loginEmail,
+        ativo: false,
+        perfil: 'FUNCIONARIO',
+      },
+    });
+    expect(persisted).toMatchObject({
+      ativo: false,
+      deveAlterarSenha: true,
+    });
+    await expect(
+      passwordService.verify(persisted.senhaHash, initialPassword),
+    ).resolves.toBe(true);
+
+    const loginAgent = request.agent(app);
+    const loginCsrf = await loginAgent.get('/auth/csrf').expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(loginCsrf.headers['set-cookie']?.[0]));
+    await loginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', loginCsrf.body.csrfToken as string)
+      .send({ email: loginEmail, password: initialPassword })
+      .expect(HttpStatus.UNAUTHORIZED);
+
+    const reactivated = await agent
+      .patch(`/employees/${employee.id}/status`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeStatusBody({ status: 'active' }))
+      .expect(HttpStatus.OK);
+
+    expect(reactivated.body).toMatchObject({
+      id: employee.id,
+      ativo: true,
+      conta: { ativo: false },
+    });
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ).resolves.toMatchObject({ ativo: false, deveAlterarSenha: true });
+  });
+
   it('persists the administrator profile when creating an employee account', async () => {
     const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
     const employee = await createEmployeeFixture();
@@ -870,6 +935,40 @@ describe('EmployeesController', () => {
       message: 'Login email already exists',
     });
     expect(accounts).toHaveLength(1);
+  });
+
+  it('never leaves an active account when account creation and employee deactivation race', async () => {
+    const employee = await createEmployeeFixture({ ativo: true });
+    const accountAdministrator = await createAuthenticatedAgentWithCsrf();
+    const statusAdministrator = await createAuthenticatedAgentWithCsrf();
+    const responses = await Promise.all([
+      accountAdministrator.agent
+        .post(`/employees/${employee.id}/account`)
+        .set('X-CSRF-Token', accountAdministrator.csrfToken)
+        .send(
+          createEmployeeAccessBody({
+            loginEmail: `concorrencia-${crypto.randomUUID()}@example.test`,
+          }),
+        ),
+      statusAdministrator.agent
+        .patch(`/employees/${employee.id}/status`)
+        .set('X-CSRF-Token', statusAdministrator.csrfToken)
+        .send(updateEmployeeStatusBody()),
+    ]);
+    const [persistedEmployee, persistedAccount] = await Promise.all([
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ]);
+    userIds.push(persistedAccount.id);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      HttpStatus.OK,
+      HttpStatus.CREATED,
+    ]);
+    expect(persistedEmployee.ativo).toBe(false);
+    expect(persistedAccount.ativo).toBe(false);
   });
 
   it('allows an administrator to update an active employee without an account', async () => {
