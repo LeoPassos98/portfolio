@@ -22,6 +22,7 @@ import { wouldRemoveLastActiveAdmin } from '../lib/employeeAdministrator'
 import { mockEmployees } from '../mocks/employees'
 import { employeesQueryKeys } from '../api/employeeQueryKeys'
 import {
+  createEmployeeAccess,
   getEmployee,
   updateEmployee,
   updateEmployeeStatus,
@@ -99,6 +100,9 @@ function EmployeeEditPage() {
   const { showSuccess } = useSuccessFeedback()
   const [formError, setFormError] = useState<string | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [accessCreationMessage, setAccessCreationMessage] = useState<
+    string | null
+  >(null)
   const {
     data: employee,
     error,
@@ -126,8 +130,11 @@ function EmployeeEditPage() {
     },
   })
   const {
+    clearErrors: clearAccessCreationErrors,
     register: registerAccessCreation,
     handleSubmit: handleSubmitAccessCreation,
+    reset: resetAccessCreation,
+    setError: setAccessCreationFieldError,
     formState: { errors: accessCreationErrors, isDirty: isAccessCreationDirty },
   } = useForm<
     EmployeeAccessCreationFormData,
@@ -183,6 +190,10 @@ function EmployeeEditPage() {
   const statusMutation = useMutation({
     mutationFn: (status: EmployeeStatus) =>
       updateEmployeeStatus(employeeId!, status),
+  })
+  const createAccessMutation = useMutation({
+    mutationFn: (values: EmployeeAccessCreationFormValues) =>
+      createEmployeeAccess(employeeId!, values),
   })
 
   async function synchronizeEmployee(updatedEmployee: Employee) {
@@ -258,7 +269,42 @@ function EmployeeEditPage() {
     }
   }
 
-  function onCreateAccess() {}
+  async function onCreateAccess(values: EmployeeAccessCreationFormValues) {
+    if (!employeeId || createAccessMutation.isPending) {
+      return
+    }
+
+    setAccessCreationMessage(null)
+    clearAccessCreationErrors('loginEmail')
+
+    try {
+      const updatedEmployee = await createAccessMutation.mutateAsync(values)
+
+      await synchronizeEmployee(updatedEmployee)
+      resetAccessCreation()
+      showSuccess('Conta de acesso criada com sucesso.')
+    } catch (creationError) {
+      if (isEmployeeApiError(creationError, 'LOGIN_EMAIL_ALREADY_EXISTS')) {
+        setAccessCreationFieldError('loginEmail', {
+          type: 'server',
+          message: 'Este e-mail de login já está em uso por outra conta.',
+        })
+        return
+      }
+
+      if (isEmployeeApiError(creationError, 'EMPLOYEE_ACCESS_ALREADY_EXISTS')) {
+        setAccessCreationMessage(
+          'Este funcionário já possui uma conta de acesso.',
+        )
+        await refetch()
+        return
+      }
+
+      setAccessCreationMessage(
+        'Não foi possível criar a conta de acesso. Tente novamente.',
+      )
+    }
+  }
 
   function onUpdateAccess() {}
 
@@ -504,6 +550,11 @@ function EmployeeEditPage() {
             <StatusBadge variant="neutral">Sem acesso</StatusBadge>
           )}
         </div>
+        {accessCreationMessage && (
+          <p role="alert" className="text-error mt-4 text-sm">
+            {accessCreationMessage}
+          </p>
+        )}
 
         {employee.access ? (
           <form
@@ -741,8 +792,14 @@ function EmployeeEditPage() {
               </div>
             </div>
 
-            <Button className="mt-4" type="submit">
-              Criar acesso
+            <Button
+              className="mt-4"
+              type="submit"
+              disabled={createAccessMutation.isPending}
+            >
+              {createAccessMutation.isPending
+                ? 'Criando acesso...'
+                : 'Criar acesso'}
             </Button>
           </form>
         )}

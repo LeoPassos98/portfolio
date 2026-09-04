@@ -436,7 +436,9 @@ Protege alterações não salvas, bloqueia envios duplicados, sincroniza o cache
 
 Carrega o Funcionário real da rota com TanStack Query, incluindo skeleton, erro com retry e estado específico para `EMPLOYEE_NOT_FOUND`.
 
-Atualiza nome, telefone e e-mail de contato por `PUT`, e a situação por `PATCH` separado; sincroniza detalhe e listagens no cache e apresenta os conflitos de OS ativa e último Administrador retornados pelo backend. Os formulários de criação e administração da conta de acesso continuam mockados nesta etapa.
+Atualiza nome, telefone e e-mail de contato por `PUT`, e a situação por `PATCH` separado; sincroniza detalhe e listagens no cache e apresenta os conflitos de OS ativa e último Administrador retornados pelo backend.
+
+Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. Os controles de situação, perfil, e-mail de login e senha da conta existente continuam mockados.
 
 Mantém separados e-mail de contato e e-mail de login e protege alterações pendentes.
 
@@ -484,9 +486,9 @@ Centraliza a verificação mockada que impede remover a última conta ativa de A
 
 ### 12. `frontend/src/features/employees/api/employeesApi.ts`
 
-Concentra as consultas, a criação, a edição cadastral e a alteração de situação tipadas de Funcionários na instância Axios compartilhada.
+Concentra as consultas, a criação, a edição cadastral, a alteração de situação e a criação de conta de acesso tipadas de Funcionários na instância Axios compartilhada.
 
-Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e traduz os formulários de criação e edição para os contratos HTTP; `loginEmail` só existe no detalhe, onde a API o fornece.
+Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e traduz os formulários de criação, edição e acesso para os contratos HTTP; `loginEmail` só existe no detalhe, onde a API o fornece.
 
 ### 13. `frontend/src/features/employees/api/employeeQueryKeys.ts`
 

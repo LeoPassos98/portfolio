@@ -8,6 +8,7 @@ import type {
   EmployeeStatus,
 } from '../types/employee'
 import type { EmployeeFormValues } from '../schemas/employeeSchema'
+import type { EmployeeAccessCreationFormValues } from '../schemas/employeeAccessSchema'
 
 type EmployeeListParams = {
   status?: EmployeeStatus | 'all'
@@ -16,8 +17,10 @@ type EmployeeListParams = {
 
 type EmployeeHttpErrorCode =
   | 'EMPLOYEE_NOT_FOUND'
+  | 'EMPLOYEE_ACCESS_ALREADY_EXISTS'
   | 'EMPLOYEE_HAS_ACTIVE_ORDERS'
   | 'LAST_ACTIVE_ADMIN_REQUIRED'
+  | 'LOGIN_EMAIL_ALREADY_EXISTS'
 
 type EmployeeHttpErrorResponse = HttpErrorResponse & {
   code: EmployeeHttpErrorCode
@@ -63,6 +66,11 @@ type EmployeeUpdateHttpBody = Omit<EmployeeCreateHttpBody, 'status'>
 type EmployeeStatusUpdateRequest = {
   status: EmployeeStatus
 }
+
+type EmployeeAccessCreateHttpBody = Pick<
+  EmployeeAccessCreationFormValues,
+  'loginEmail' | 'profile' | 'initialPassword' | 'confirmPassword'
+>
 
 function toEmployeeStatus(ativo: boolean): EmployeeStatus {
   return ativo ? 'active' : 'inactive'
@@ -146,6 +154,24 @@ async function createEmployee(values: EmployeeFormValues): Promise<Employee> {
   return toEmployee(data)
 }
 
+async function createEmployeeAccess(
+  id: string,
+  values: EmployeeAccessCreationFormValues,
+): Promise<Employee> {
+  const body: EmployeeAccessCreateHttpBody = {
+    loginEmail: values.loginEmail,
+    profile: values.profile,
+    initialPassword: values.initialPassword,
+    confirmPassword: values.confirmPassword,
+  }
+  const { data } = await apiClient.post<EmployeeHttpResponse>(
+    `/employees/${id}/account`,
+    body,
+  )
+
+  return toEmployee(data)
+}
+
 async function updateEmployee(
   id: string,
   values: EmployeeFormValues,
@@ -177,6 +203,7 @@ async function updateEmployeeStatus(
 
 export {
   createEmployee,
+  createEmployeeAccess,
   getEmployee,
   listEmployees,
   toEmployee,
@@ -185,6 +212,7 @@ export {
   updateEmployeeStatus,
 }
 export type {
+  EmployeeAccessCreateHttpBody,
   EmployeeCreateHttpBody,
   EmployeeAccessHttpResponse,
   EmployeeDetailAccessHttpResponse,
