@@ -1,44 +1,44 @@
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { isAxiosError } from "axios";
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { Link, useParams } from "react-router";
-import { EmptyState } from "../../../components/feedback/EmptyState";
-import { useSuccessFeedback } from "../../../components/feedback/useSuccessFeedback";
-import { useUnsavedChangesGuard } from "../../../components/feedback/useUnsavedChangesGuard";
-import { AppLayout } from "../../../components/layout/AppLayout";
-import { Button } from "../../../components/ui/Button";
-import { Input } from "../../../components/ui/Input";
-import { Label } from "../../../components/ui/Label";
-import { Select } from "../../../components/ui/Select";
-import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { Link, useParams } from 'react-router'
+import { EmptyState } from '../../../components/feedback/EmptyState'
+import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
+import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
+import { AppLayout } from '../../../components/layout/AppLayout'
+import { Button } from '../../../components/ui/Button'
+import { Input } from '../../../components/ui/Input'
+import { Label } from '../../../components/ui/Label'
+import { Select } from '../../../components/ui/Select'
+import { StatusBadge } from '../../../components/ui/StatusBadge'
 import {
   getEmployeeAccessProfileAvailability,
   getEmployeeAccessStatus,
   getEmployeeAccessStatusAvailability,
-} from "../lib/employeeAccessStatus";
-import { wouldRemoveLastActiveAdmin } from "../lib/employeeAdministrator";
-import { mockEmployees } from "../mocks/employees";
-import { employeesQueryKeys } from "../api/employeeQueryKeys";
+} from '../lib/employeeAccessStatus'
+import { wouldRemoveLastActiveAdmin } from '../lib/employeeAdministrator'
+import { mockEmployees } from '../mocks/employees'
+import { employeesQueryKeys } from '../api/employeeQueryKeys'
 import {
   getEmployee,
   updateEmployee,
   updateEmployeeStatus,
   type EmployeeHttpErrorResponse,
-} from "../api/employeesApi";
-import type { HttpErrorResponse } from "../../../shared/lib/http/apiClient";
+} from '../api/employeesApi'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 import type {
   Employee,
   EmployeeAccessProfile,
   EmployeeAccessStatus,
   EmployeeStatus,
-} from "../types/employee";
+} from '../types/employee'
 import {
   employeeSchema,
   type EmployeeFormData,
   type EmployeeFormValues,
-} from "../schemas/employeeSchema";
+} from '../schemas/employeeSchema'
 import {
   employeeAccessCreationSchema,
   employeeAccessUpdateSchema,
@@ -46,20 +46,20 @@ import {
   type EmployeeAccessCreationFormValues,
   type EmployeeAccessUpdateFormData,
   type EmployeeAccessUpdateFormValues,
-} from "../schemas/employeeAccessSchema";
+} from '../schemas/employeeAccessSchema'
 
 const accessStatusDetails = {
-  active: { label: "Ativa", variant: "success" },
-  inactive: { label: "Inativa", variant: "neutral" },
-} as const;
+  active: { label: 'Ativa', variant: 'success' },
+  inactive: { label: 'Inativa', variant: 'neutral' },
+} as const
 
 function isEmployeeApiError(
   error: unknown,
-  code: EmployeeHttpErrorResponse["code"],
+  code: EmployeeHttpErrorResponse['code'],
 ) {
   return (
     isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
-  );
+  )
 }
 
 function toEmployeeFormData(employee: Employee): EmployeeFormData {
@@ -68,7 +68,7 @@ function toEmployeeFormData(employee: Employee): EmployeeFormData {
     phone: employee.phone,
     contactEmail: employee.contactEmail,
     status: employee.status,
-  };
+  }
 }
 
 function EmployeeEditSkeleton() {
@@ -90,15 +90,15 @@ function EmployeeEditSkeleton() {
         </div>
       </div>
     </AppLayout>
-  );
+  )
 }
 
 function EmployeeEditPage() {
-  const { employeeId } = useParams<{ employeeId: string }>();
-  const queryClient = useQueryClient();
-  const { showSuccess } = useSuccessFeedback();
-  const [formError, setFormError] = useState<string | null>(null);
-  const [statusError, setStatusError] = useState<string | null>(null);
+  const { employeeId } = useParams<{ employeeId: string }>()
+  const queryClient = useQueryClient()
+  const { showSuccess } = useSuccessFeedback()
+  const [formError, setFormError] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
   const {
     data: employee,
     error,
@@ -106,10 +106,10 @@ function EmployeeEditPage() {
     isPending,
     refetch,
   } = useQuery({
-    queryKey: employeesQueryKeys.detail(employeeId ?? ""),
+    queryKey: employeesQueryKeys.detail(employeeId ?? ''),
     queryFn: () => getEmployee(employeeId!),
     enabled: Boolean(employeeId),
-  });
+  })
   const {
     register: registerEmployee,
     handleSubmit: handleSubmitEmployee,
@@ -119,12 +119,12 @@ function EmployeeEditPage() {
     resolver: zodResolver(employeeSchema),
     values: employee ? toEmployeeFormData(employee) : undefined,
     defaultValues: {
-      name: "",
-      phone: "",
-      contactEmail: "",
-      status: "active",
+      name: '',
+      phone: '',
+      contactEmail: '',
+      status: 'active',
     },
-  });
+  })
   const {
     register: registerAccessCreation,
     handleSubmit: handleSubmitAccessCreation,
@@ -136,18 +136,18 @@ function EmployeeEditPage() {
   >({
     resolver: zodResolver(employeeAccessCreationSchema),
     defaultValues: {
-      loginEmail: "",
-      profile: "employee",
-      initialPassword: "",
-      confirmPassword: "",
+      loginEmail: '',
+      profile: 'employee',
+      initialPassword: '',
+      confirmPassword: '',
     },
-  });
+  })
   const [employeeAccessStatus, setEmployeeAccessStatus] =
     useState<EmployeeAccessStatus | null>(() =>
-      getEmployeeAccessStatus("active", null),
-    );
+      getEmployeeAccessStatus('active', null),
+    )
   const [employeeAccessProfile, setEmployeeAccessProfile] =
-    useState<EmployeeAccessProfile | null>(null);
+    useState<EmployeeAccessProfile | null>(null)
   const {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
@@ -167,94 +167,94 @@ function EmployeeEditPage() {
         }
       : undefined,
     defaultValues: {
-      loginEmail: "",
-      profile: "employee",
-      status: "inactive",
+      loginEmail: '',
+      profile: 'employee',
+      status: 'inactive',
     },
-  });
+  })
   const { confirmationDialog } = useUnsavedChangesGuard(
     isEmployeeDirty || isAccessCreationDirty || isAccessUpdateDirty,
-  );
+  )
 
   const updateMutation = useMutation({
     mutationFn: (values: EmployeeFormValues) =>
       updateEmployee(employeeId!, values),
-  });
+  })
   const statusMutation = useMutation({
     mutationFn: (status: EmployeeStatus) =>
       updateEmployeeStatus(employeeId!, status),
-  });
+  })
 
   async function synchronizeEmployee(updatedEmployee: Employee) {
     queryClient.setQueryData(
       employeesQueryKeys.detail(updatedEmployee.id),
       updatedEmployee,
-    );
+    )
     await queryClient.invalidateQueries({
       queryKey: employeesQueryKeys.lists(),
-    });
+    })
   }
 
   async function onSubmit(values: EmployeeFormValues) {
     if (updateMutation.isPending) {
-      return;
+      return
     }
 
-    setFormError(null);
+    setFormError(null)
 
     try {
-      const updatedEmployee = await updateMutation.mutateAsync(values);
+      const updatedEmployee = await updateMutation.mutateAsync(values)
 
-      await synchronizeEmployee(updatedEmployee);
-      resetEmployee(toEmployeeFormData(updatedEmployee));
-      showSuccess("Funcionário atualizado com sucesso.");
+      await synchronizeEmployee(updatedEmployee)
+      resetEmployee(toEmployeeFormData(updatedEmployee))
+      showSuccess('Funcionário atualizado com sucesso.')
     } catch {
-      setFormError("Não foi possível salvar as alterações. Tente novamente.");
+      setFormError('Não foi possível salvar as alterações. Tente novamente.')
     }
   }
 
   async function handleStatusChange(status: EmployeeStatus) {
     if (!employee || status === employee.status || statusMutation.isPending) {
-      return;
+      return
     }
 
-    setStatusError(null);
+    setStatusError(null)
 
     try {
-      const updatedEmployee = await statusMutation.mutateAsync(status);
+      const updatedEmployee = await statusMutation.mutateAsync(status)
 
-      await synchronizeEmployee(updatedEmployee);
-      setEmployeeAccessStatus(updatedEmployee.access?.status ?? null);
+      await synchronizeEmployee(updatedEmployee)
+      setEmployeeAccessStatus(updatedEmployee.access?.status ?? null)
       setAccessUpdateValue(
-        "status",
-        updatedEmployee.access?.status ?? "inactive",
-      );
-      resetEmployee(toEmployeeFormData(updatedEmployee));
+        'status',
+        updatedEmployee.access?.status ?? 'inactive',
+      )
+      resetEmployee(toEmployeeFormData(updatedEmployee))
       showSuccess(
-        updatedEmployee.status === "inactive"
-          ? "Funcionário desativado com sucesso."
-          : "Funcionário reativado com sucesso.",
-      );
+        updatedEmployee.status === 'inactive'
+          ? 'Funcionário desativado com sucesso.'
+          : 'Funcionário reativado com sucesso.',
+      )
     } catch (statusMutationError) {
       if (
-        isEmployeeApiError(statusMutationError, "EMPLOYEE_HAS_ACTIVE_ORDERS")
+        isEmployeeApiError(statusMutationError, 'EMPLOYEE_HAS_ACTIVE_ORDERS')
       ) {
         setStatusError(
-          "Não é possível inativar este funcionário porque possui uma OS aguardando ou em andamento sob sua responsabilidade.",
-        );
-        return;
+          'Não é possível inativar este funcionário porque possui uma OS aguardando ou em andamento sob sua responsabilidade.',
+        )
+        return
       }
 
       if (
-        isEmployeeApiError(statusMutationError, "LAST_ACTIVE_ADMIN_REQUIRED")
+        isEmployeeApiError(statusMutationError, 'LAST_ACTIVE_ADMIN_REQUIRED')
       ) {
         setStatusError(
-          "Não é possível inativar este funcionário porque sua conta é a última conta ativa de Administrador.",
-        );
-        return;
+          'Não é possível inativar este funcionário porque sua conta é a última conta ativa de Administrador.',
+        )
+        return
       }
 
-      setStatusError("Não foi possível atualizar a situação. Tente novamente.");
+      setStatusError('Não foi possível atualizar a situação. Tente novamente.')
     }
   }
 
@@ -262,7 +262,7 @@ function EmployeeEditPage() {
 
   function onUpdateAccess() {}
 
-  if (!employeeId || isEmployeeApiError(error, "EMPLOYEE_NOT_FOUND")) {
+  if (!employeeId || isEmployeeApiError(error, 'EMPLOYEE_NOT_FOUND')) {
     return (
       <AppLayout>
         <Link
@@ -278,11 +278,11 @@ function EmployeeEditPage() {
           />
         </div>
       </AppLayout>
-    );
+    )
   }
 
   if (isPending) {
-    return <EmployeeEditSkeleton />;
+    return <EmployeeEditSkeleton />
   }
 
   if (isError || !employee) {
@@ -300,52 +300,54 @@ function EmployeeEditPage() {
           </div>
         </div>
       </AppLayout>
-    );
+    )
   }
 
   const currentEmployeeAccessStatus = getEmployeeAccessStatus(
     employee.status,
     employeeAccessStatus ?? employee.access?.status ?? null,
-  );
+  )
   const accessStatus = currentEmployeeAccessStatus
     ? accessStatusDetails[currentEmployeeAccessStatus]
-    : null;
+    : null
+  const currentEmployeeAccessProfile =
+    employeeAccessProfile ?? employee.access?.profile ?? null
   const wouldInactivateAccessRemoveLastActiveAdmin = wouldRemoveLastActiveAdmin(
     mockEmployees,
     employee.id,
-    "inactive",
-    employeeAccessProfile,
-  );
+    'inactive',
+    currentEmployeeAccessProfile,
+  )
   const wouldRemoveProfileFromLastActiveAdmin = wouldRemoveLastActiveAdmin(
     mockEmployees,
     employee.id,
     currentEmployeeAccessStatus,
-    "employee",
-  );
+    'employee',
+  )
   const accessStatusAvailability = getEmployeeAccessStatusAvailability(
     employee.status,
     currentEmployeeAccessStatus,
     wouldInactivateAccessRemoveLastActiveAdmin,
-  );
+  )
   const accessProfileAvailability = getEmployeeAccessProfileAvailability(
     wouldRemoveProfileFromLastActiveAdmin,
-  );
+  )
   const employeeAccessStatusDescriptionIds = [
-    accessUpdateErrors.status ? "employee-access-status-error" : null,
+    accessUpdateErrors.status ? 'employee-access-status-error' : null,
     accessStatusAvailability.description
-      ? "employee-access-status-description"
+      ? 'employee-access-status-description'
       : null,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ')
   const employeeAccessProfileDescriptionIds = [
-    accessUpdateErrors.profile ? "employee-profile-error" : null,
+    accessUpdateErrors.profile ? 'employee-profile-error' : null,
     accessProfileAvailability.description
-      ? "employee-profile-description"
+      ? 'employee-profile-description'
       : null,
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ')
 
   return (
     <AppLayout>
@@ -375,9 +377,9 @@ function EmployeeEditPage() {
                 aria-invalid={Boolean(employeeErrors.name)}
                 aria-required="true"
                 aria-describedby={
-                  employeeErrors.name ? "edit-employee-name-error" : undefined
+                  employeeErrors.name ? 'edit-employee-name-error' : undefined
                 }
-                {...registerEmployee("name")}
+                {...registerEmployee('name')}
               />
               {employeeErrors.name?.message && (
                 <p id="edit-employee-name-error" className="text-error text-sm">
@@ -397,8 +399,8 @@ function EmployeeEditPage() {
                 aria-required="true"
                 onChange={(event) => {
                   const status = event.target
-                    .value as EmployeeFormData["status"];
-                  void handleStatusChange(status);
+                    .value as EmployeeFormData['status']
+                  void handleStatusChange(status)
                 }}
               >
                 <option value="active">Ativo</option>
@@ -435,9 +437,9 @@ function EmployeeEditPage() {
                 aria-invalid={Boolean(employeeErrors.phone)}
                 aria-required="true"
                 aria-describedby={
-                  employeeErrors.phone ? "edit-employee-phone-error" : undefined
+                  employeeErrors.phone ? 'edit-employee-phone-error' : undefined
                 }
-                {...registerEmployee("phone")}
+                {...registerEmployee('phone')}
               />
               {employeeErrors.phone?.message && (
                 <p
@@ -459,10 +461,10 @@ function EmployeeEditPage() {
                 aria-required="true"
                 aria-describedby={
                   employeeErrors.contactEmail
-                    ? "edit-employee-email-error"
+                    ? 'edit-employee-email-error'
                     : undefined
                 }
-                {...registerEmployee("contactEmail")}
+                {...registerEmployee('contactEmail')}
               />
               {employeeErrors.contactEmail?.message && (
                 <p
@@ -521,10 +523,10 @@ function EmployeeEditPage() {
                   aria-required="true"
                   aria-describedby={
                     accessUpdateErrors.loginEmail
-                      ? "employee-login-email-error"
+                      ? 'employee-login-email-error'
                       : undefined
                   }
-                  {...registerAccessUpdate("loginEmail")}
+                  {...registerAccessUpdate('loginEmail')}
                 />
                 {accessUpdateErrors.loginEmail?.message && (
                   <p
@@ -538,10 +540,10 @@ function EmployeeEditPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="employee-profile">Perfil</Label>
-                <input type="hidden" {...registerAccessUpdate("profile")} />
+                <input type="hidden" {...registerAccessUpdate('profile')} />
                 <Select
                   id="employee-profile"
-                  value={employeeAccessProfile ?? "employee"}
+                  value={currentEmployeeAccessProfile ?? 'employee'}
                   disabled={!accessProfileAvailability.canChangeAccessProfile}
                   aria-invalid={Boolean(accessUpdateErrors.profile)}
                   aria-required="true"
@@ -549,13 +551,13 @@ function EmployeeEditPage() {
                     employeeAccessProfileDescriptionIds || undefined
                   }
                   onChange={(event) => {
-                    const profile = event.target.value as EmployeeAccessProfile;
+                    const profile = event.target.value as EmployeeAccessProfile
 
-                    setEmployeeAccessProfile(profile);
-                    setAccessUpdateValue("profile", profile, {
+                    setEmployeeAccessProfile(profile)
+                    setAccessUpdateValue('profile', profile, {
                       shouldDirty: true,
                       shouldValidate: true,
-                    });
+                    })
                   }}
                 >
                   <option value="employee">Funcionário</option>
@@ -580,10 +582,10 @@ function EmployeeEditPage() {
                 <Label htmlFor="employee-access-status">
                   Situação da conta
                 </Label>
-                <input type="hidden" {...registerAccessUpdate("status")} />
+                <input type="hidden" {...registerAccessUpdate('status')} />
                 <Select
                   id="employee-access-status"
-                  value={currentEmployeeAccessStatus ?? "inactive"}
+                  value={currentEmployeeAccessStatus ?? 'inactive'}
                   disabled={!accessStatusAvailability.canChangeAccessStatus}
                   aria-invalid={Boolean(accessUpdateErrors.status)}
                   aria-required="true"
@@ -591,13 +593,13 @@ function EmployeeEditPage() {
                     employeeAccessStatusDescriptionIds || undefined
                   }
                   onChange={(event) => {
-                    const status = event.target.value as EmployeeAccessStatus;
+                    const status = event.target.value as EmployeeAccessStatus
 
-                    setEmployeeAccessStatus(status);
-                    setAccessUpdateValue("status", status, {
+                    setEmployeeAccessStatus(status)
+                    setAccessUpdateValue('status', status, {
                       shouldDirty: true,
                       shouldValidate: true,
-                    });
+                    })
                   }}
                 >
                   <option value="active">Ativa</option>
@@ -648,10 +650,10 @@ function EmployeeEditPage() {
                   aria-required="true"
                   aria-describedby={
                     accessCreationErrors.loginEmail
-                      ? "employee-login-email-error"
+                      ? 'employee-login-email-error'
                       : undefined
                   }
-                  {...registerAccessCreation("loginEmail")}
+                  {...registerAccessCreation('loginEmail')}
                 />
                 {accessCreationErrors.loginEmail?.message && (
                   <p
@@ -671,10 +673,10 @@ function EmployeeEditPage() {
                   aria-required="true"
                   aria-describedby={
                     accessCreationErrors.profile
-                      ? "employee-profile-error"
+                      ? 'employee-profile-error'
                       : undefined
                   }
-                  {...registerAccessCreation("profile")}
+                  {...registerAccessCreation('profile')}
                 >
                   <option value="employee">Funcionário</option>
                   <option value="administrator">Administrador</option>
@@ -696,10 +698,10 @@ function EmployeeEditPage() {
                   aria-required="true"
                   aria-describedby={
                     accessCreationErrors.initialPassword
-                      ? "employee-initial-password-error"
+                      ? 'employee-initial-password-error'
                       : undefined
                   }
-                  {...registerAccessCreation("initialPassword")}
+                  {...registerAccessCreation('initialPassword')}
                 />
                 {accessCreationErrors.initialPassword?.message && (
                   <p
@@ -723,10 +725,10 @@ function EmployeeEditPage() {
                   aria-required="true"
                   aria-describedby={
                     accessCreationErrors.confirmPassword
-                      ? "employee-confirm-password-error"
+                      ? 'employee-confirm-password-error'
                       : undefined
                   }
-                  {...registerAccessCreation("confirmPassword")}
+                  {...registerAccessCreation('confirmPassword')}
                 />
                 {accessCreationErrors.confirmPassword?.message && (
                   <p
@@ -753,8 +755,8 @@ function EmployeeEditPage() {
           disabled={updateMutation.isPending}
         >
           {updateMutation.isPending
-            ? "Salvando alterações..."
-            : "Salvar alterações"}
+            ? 'Salvando alterações...'
+            : 'Salvar alterações'}
         </Button>
         <Link
           to={`/employees/${employee.id}`}
@@ -765,7 +767,7 @@ function EmployeeEditPage() {
       </div>
       {confirmationDialog}
     </AppLayout>
-  );
+  )
 }
 
-export { EmployeeEditPage };
+export { EmployeeEditPage }
