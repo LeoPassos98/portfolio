@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -6,18 +7,61 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
-import { mockEmployees } from '../mocks/employees'
+import { employeesQueryKeys } from '../api/employeeQueryKeys'
+import { listEmployees } from '../api/employeesApi'
 import type { EmployeeStatus } from '../types/employee'
 
-const employeeStatuses: readonly EmployeeStatus[] = ['active', 'inactive']
+const employeeStatuses = ['active', 'inactive', 'all'] as const
+
+type EmployeeListStatus = EmployeeStatus | 'all'
 
 const accessProfileLabels = {
   administrator: 'Administrador',
   employee: 'Funcionário',
 } as const
 
-function isEmployeeStatus(value: string | null): value is EmployeeStatus {
+function isEmployeeStatus(value: string | null): value is EmployeeListStatus {
   return value !== null && employeeStatuses.some((status) => status === value)
+}
+
+function EmployeesListSkeleton() {
+  return (
+    <>
+      <ul
+        className="mt-8 space-y-4 md:hidden"
+        aria-label="Carregando funcionários"
+      >
+        {[0, 1, 2].map((item) => (
+          <li
+            key={item}
+            className="bg-surface animate-pulse rounded-ui border border-neutral-bg p-4"
+          >
+            <div className="h-5 w-40 rounded bg-neutral-bg" />
+            <div className="mt-3 h-4 w-28 rounded bg-neutral-bg" />
+            <div className="mt-5 h-4 w-36 rounded bg-neutral-bg" />
+          </li>
+        ))}
+      </ul>
+
+      <div
+        className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block"
+        aria-label="Carregando funcionários"
+      >
+        <div className="bg-neutral-bg h-12" />
+        {[0, 1, 2].map((item) => (
+          <div
+            key={item}
+            className="bg-surface flex animate-pulse gap-8 border-t border-neutral-bg px-4 py-4"
+          >
+            <div className="h-4 w-1/4 rounded bg-neutral-bg" />
+            <div className="h-4 w-1/4 rounded bg-neutral-bg" />
+            <div className="h-4 w-1/4 rounded bg-neutral-bg" />
+            <div className="h-4 w-16 rounded bg-neutral-bg" />
+          </div>
+        ))}
+      </div>
+    </>
+  )
 }
 
 function EmployeesPage() {
@@ -25,23 +69,20 @@ function EmployeesPage() {
   const statusParam = searchParams.get('status')
   const status = isEmployeeStatus(statusParam) ? statusParam : 'active'
   const search = searchParams.get('search') ?? ''
-  const employeesByStatus =
-    statusParam === 'all'
-      ? mockEmployees
-      : mockEmployees.filter((employee) => employee.status === status)
-  const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
-  const normalizedPhoneSearch = search.replaceAll(/\D/g, '')
-  const visibleEmployees = normalizedSearch
-    ? employeesByStatus.filter(
-        (employee) =>
-          [employee.name, employee.contactEmail].some((value) =>
-            value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
-          ) ||
-          (normalizedPhoneSearch !== '' &&
-            employee.phone.replaceAll(/\D/g, '').includes(normalizedPhoneSearch)),
-      )
-    : employeesByStatus
-  const hasActiveFilters = statusParam === 'inactive' || search.trim() !== ''
+  const listParams = {
+    status,
+    ...(search.trim() === '' ? {} : { search: search.trim() }),
+  } as const
+  const {
+    data: employees = [],
+    isError,
+    isPending,
+    refetch,
+  } = useQuery({
+    queryKey: employeesQueryKeys.list(listParams),
+    queryFn: () => listEmployees(listParams),
+  })
+  const hasActiveFilters = status !== 'active' || search.trim() !== ''
 
   function clearFilters() {
     setSearchParams({})
@@ -50,9 +91,7 @@ function EmployeesPage() {
   return (
     <AppLayout>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-foreground text-2xl font-bold">
-          Funcionários
-        </h1>
+        <h1 className="text-foreground text-2xl font-bold">Funcionários</h1>
         <Link
           to="/employees/new"
           className="bg-primary inline-flex rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
@@ -105,7 +144,23 @@ function EmployeesPage() {
         />
       </div>
 
-      {visibleEmployees.length === 0 && (
+      {isPending && <EmployeesListSkeleton />}
+
+      {isError && (
+        <div className="mt-8 space-y-4">
+          <EmptyState
+            title="Não foi possível carregar os funcionários"
+            description="Verifique sua conexão e tente novamente."
+          />
+          <div className="flex justify-center">
+            <Button type="button" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!isPending && !isError && employees.length === 0 && (
         <div className="mt-8 space-y-4">
           <EmptyState
             title={
@@ -129,9 +184,9 @@ function EmployeesPage() {
         </div>
       )}
 
-      {visibleEmployees.length > 0 && (
+      {!isPending && !isError && employees.length > 0 && (
         <ul className="mt-8 space-y-4 md:hidden">
-          {visibleEmployees.map((employee) => (
+          {employees.map((employee) => (
             <li
               key={employee.id}
               className="bg-surface rounded-ui border border-neutral-bg p-4"
@@ -152,7 +207,9 @@ function EmployeesPage() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-neutral text-xs">Situação do funcionário</dt>
+                  <dt className="text-neutral text-xs">
+                    Situação do funcionário
+                  </dt>
                   <dd className="mt-1">
                     <StatusBadge
                       variant={
@@ -199,7 +256,7 @@ function EmployeesPage() {
         </ul>
       )}
 
-      {visibleEmployees.length > 0 && (
+      {!isPending && !isError && employees.length > 0 && (
         <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
           <table className="w-full text-left">
             <caption className="sr-only">Lista de funcionários</caption>
@@ -223,7 +280,7 @@ function EmployeesPage() {
               </tr>
             </thead>
             <tbody className="bg-surface divide-y divide-neutral-bg">
-              {visibleEmployees.map((employee) => (
+              {employees.map((employee) => (
                 <tr key={employee.id}>
                   <td className="px-4 py-3">
                     <Link

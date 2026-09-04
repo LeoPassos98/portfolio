@@ -15,9 +15,22 @@ type Employee = {
   } | null
 }
 
+type EmployeeListItem = {
+  id: string
+  name: string
+  phone: string
+  contactEmail: string
+  status: EmployeeStatus
+  access: {
+    status: EmployeeAccessStatus
+    profile: EmployeeAccessProfile
+  } | null
+}
+
 export type {
   Employee,
   EmployeeAccessProfile,
   EmployeeAccessStatus,
+  EmployeeListItem,
   EmployeeStatus,
 }

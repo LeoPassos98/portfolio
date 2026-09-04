@@ -23,7 +23,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Dashboard               | Visões administrativa e individual de métricas                                    |        5 |
 | Ordens de Serviço       | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks          |       11 |
 | Clientes                | Listagem, cadastro e edição reais, com mocks preservados para Ordens              |        8 |
-| Funcionários            | Listagem mockada, perfil, formulários validados, situação e gestão de acesso      |       11 |
+| Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
 
 ## Sumário
 
@@ -420,9 +420,9 @@ Diretório principal: `frontend/src/features/employees/`
 
 ### 1. `frontend/src/features/employees/pages/EmployeesPage.tsx`
 
-Exibe em `AppLayout` a consulta mockada e responsiva de Funcionários.
+Exibe em `AppLayout` a listagem real e responsiva de Funcionários com TanStack Query.
 
-Oferece busca, filtro de situação sincronizado com a URL, tabela no desktop, lista no mobile, estados vazios e acesso ao Perfil.
+Envia busca e filtro de situação sincronizados com a URL ao backend, apresenta loading, erro com retry, tabela no desktop, lista no mobile, estados vazios e acesso ao Perfil.
 
 A situação do cadastro e da conta permanecem distintas.
 
@@ -446,11 +446,11 @@ Reúne dados administrativos, situação da conta, ações de edição e acesso 
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 
-Exporta funcionários representativos, com dados de conta ativa, inativa ou ausente, para a listagem, edição e Perfil administrativo mockados.
+Exporta funcionários representativos, com dados de conta ativa, inativa ou ausente, para edição, Perfil administrativo e demais fluxos mockados ainda não integrados.
 
 ### 6. `frontend/src/features/employees/types/employee.ts`
 
-Define o formato, as situações e os dados de login da conta de acesso usados pela consulta e edição mockadas de funcionários.
+Define o formato de detalhe, o item específico de listagem, as situações e os dados de login da conta de acesso usados pelos fluxos de funcionários.
 
 ### 7. `frontend/src/features/employees/schemas/employeeSchema.ts`
 
@@ -477,3 +477,13 @@ Cadastro inativo força a conta associada a Inativa; reativação preserva conta
 ### 11. `frontend/src/features/employees/lib/employeeAdministrator.ts`
 
 Centraliza a verificação mockada que impede remover a última conta ativa de Administrador, reutilizada pelos controles de situação do cadastro, conta e perfil.
+
+### 12. `frontend/src/features/employees/api/employeesApi.ts`
+
+Concentra a consulta tipada de Funcionários na instância Axios compartilhada.
+
+Separa o contrato HTTP do NestJS do item de listagem do React e mapeia a conta opcional sem inventar o e-mail de login ausente nessa rota.
+
+### 13. `frontend/src/features/employees/api/employeeQueryKeys.ts`
+
+Centraliza as query keys de listagem e detalhe de Funcionários, com os parâmetros de filtro e busca usados pela query real.
