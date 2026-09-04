@@ -1,72 +1,81 @@
-import { apiClient } from '../../../shared/lib/http/apiClient'
-import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
+import { apiClient } from "../../../shared/lib/http/apiClient";
+import type { HttpErrorResponse } from "../../../shared/lib/http/apiClient";
 import type {
   Employee,
   EmployeeAccessProfile,
   EmployeeAccessStatus,
   EmployeeListItem,
   EmployeeStatus,
-} from '../types/employee'
-import type { EmployeeFormValues } from '../schemas/employeeSchema'
+} from "../types/employee";
+import type { EmployeeFormValues } from "../schemas/employeeSchema";
 
 type EmployeeListParams = {
-  status?: EmployeeStatus | 'all'
-  search?: string
-}
+  status?: EmployeeStatus | "all";
+  search?: string;
+};
 
-type EmployeeHttpErrorCode = 'EMPLOYEE_NOT_FOUND'
+type EmployeeHttpErrorCode =
+  | "EMPLOYEE_NOT_FOUND"
+  | "EMPLOYEE_HAS_ACTIVE_ORDERS"
+  | "LAST_ACTIVE_ADMIN_REQUIRED";
 
 type EmployeeHttpErrorResponse = HttpErrorResponse & {
-  code: EmployeeHttpErrorCode
-}
+  code: EmployeeHttpErrorCode;
+};
 
 type EmployeeAccessHttpResponse = {
-  ativo: boolean
-  perfil: 'ADMINISTRADOR' | 'FUNCIONARIO'
-}
+  ativo: boolean;
+  perfil: "ADMINISTRADOR" | "FUNCIONARIO";
+};
 
 type EmployeeListItemHttpResponse = {
-  id: string
-  nome: string
-  telefone: string
-  email: string
-  ativo: boolean
-  conta: EmployeeAccessHttpResponse | null
-}
+  id: string;
+  nome: string;
+  telefone: string;
+  email: string;
+  ativo: boolean;
+  conta: EmployeeAccessHttpResponse | null;
+};
 
 type EmployeeDetailAccessHttpResponse = EmployeeAccessHttpResponse & {
-  emailLogin: string
-}
+  emailLogin: string;
+};
 
 type EmployeeHttpResponse = {
-  id: string
-  nome: string
-  telefone: string
-  email: string
-  ativo: boolean
-  criadoEm: string
-  conta: EmployeeDetailAccessHttpResponse | null
-}
+  id: string;
+  nome: string;
+  telefone: string;
+  email: string;
+  ativo: boolean;
+  criadoEm: string;
+  conta: EmployeeDetailAccessHttpResponse | null;
+};
 
 type EmployeeCreateHttpBody = {
-  nome: string
-  telefone: string
-  email: string
-  status: 'active' | 'inactive'
-}
+  nome: string;
+  telefone: string;
+  email: string;
+  status: "active" | "inactive";
+};
+
+type EmployeeUpdateHttpBody = Omit<EmployeeCreateHttpBody, "status">;
+
+type EmployeeStatusUpdateRequest = {
+  status: EmployeeStatus;
+};
 
 function toEmployeeStatus(ativo: boolean): EmployeeStatus {
-  return ativo ? 'active' : 'inactive'
+  return ativo ? "active" : "inactive";
 }
 
 function toEmployeeAccessStatus(ativo: boolean): EmployeeAccessStatus {
-  return ativo ? 'active' : 'inactive'
+  return ativo ? "active" : "inactive";
 }
 
 function toEmployeeAccessProfile(
-  perfil: EmployeeAccessHttpResponse['perfil'],
+  perfil: EmployeeAccessHttpResponse["perfil"],
 ): EmployeeAccessProfile {
-  return perfil === 'ADMINISTRADOR' ? 'administrator' : 'employee'
+  return perfil === "ADMINISTRADOR" ? "administrator" : "employee";
 }
 
 function toEmployeeListItem(
@@ -84,7 +93,7 @@ function toEmployeeListItem(
           profile: toEmployeeAccessProfile(employee.conta.perfil),
         }
       : null,
-  }
+  };
 }
 
 function toEmployee(employee: EmployeeHttpResponse): Employee {
@@ -101,7 +110,7 @@ function toEmployee(employee: EmployeeHttpResponse): Employee {
           profile: toEmployeeAccessProfile(employee.conta.perfil),
         }
       : null,
-  }
+  };
 }
 
 async function listEmployees({
@@ -109,17 +118,19 @@ async function listEmployees({
   search,
 }: EmployeeListParams = {}): Promise<EmployeeListItem[]> {
   const { data } = await apiClient.get<EmployeeListItemHttpResponse[]>(
-    '/employees',
+    "/employees",
     { params: { status, search } },
-  )
+  );
 
-  return data.map(toEmployeeListItem)
+  return data.map(toEmployeeListItem);
 }
 
 async function getEmployee(id: string): Promise<Employee> {
-  const { data } = await apiClient.get<EmployeeHttpResponse>(`/employees/${id}`)
+  const { data } = await apiClient.get<EmployeeHttpResponse>(
+    `/employees/${id}`,
+  );
 
-  return toEmployee(data)
+  return toEmployee(data);
 }
 
 async function createEmployee(values: EmployeeFormValues): Promise<Employee> {
@@ -128,13 +139,42 @@ async function createEmployee(values: EmployeeFormValues): Promise<Employee> {
     telefone: values.phone,
     email: values.contactEmail,
     status: values.status,
-  }
+  };
   const { data } = await apiClient.post<EmployeeHttpResponse>(
-    '/employees',
+    "/employees",
     body,
-  )
+  );
 
-  return toEmployee(data)
+  return toEmployee(data);
+}
+
+async function updateEmployee(
+  id: string,
+  values: EmployeeFormValues,
+): Promise<Employee> {
+  const body: EmployeeUpdateHttpBody = {
+    nome: values.name,
+    telefone: values.phone,
+    email: values.contactEmail,
+  };
+  const { data } = await apiClient.put<EmployeeHttpResponse>(
+    `/employees/${id}`,
+    body,
+  );
+
+  return toEmployee(data);
+}
+
+async function updateEmployeeStatus(
+  id: string,
+  status: EmployeeStatus,
+): Promise<Employee> {
+  const { data } = await apiClient.patch<EmployeeHttpResponse>(
+    `/employees/${id}/status`,
+    { status } satisfies EmployeeStatusUpdateRequest,
+  );
+
+  return toEmployee(data);
 }
 
 export {
@@ -143,7 +183,9 @@ export {
   listEmployees,
   toEmployee,
   toEmployeeListItem,
-}
+  updateEmployee,
+  updateEmployeeStatus,
+};
 export type {
   EmployeeCreateHttpBody,
   EmployeeAccessHttpResponse,
@@ -153,4 +195,6 @@ export type {
   EmployeeHttpResponse,
   EmployeeListItemHttpResponse,
   EmployeeListParams,
-}
+  EmployeeStatusUpdateRequest,
+  EmployeeUpdateHttpBody,
+};
