@@ -17,7 +17,9 @@ type EmployeeListParams = {
 
 type EmployeeHttpErrorCode =
   | 'EMPLOYEE_NOT_FOUND'
+  | 'EMPLOYEE_ACCESS_NOT_FOUND'
   | 'EMPLOYEE_ACCESS_ALREADY_EXISTS'
+  | 'EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION'
   | 'EMPLOYEE_HAS_ACTIVE_ORDERS'
   | 'LAST_ACTIVE_ADMIN_REQUIRED'
   | 'LOGIN_EMAIL_ALREADY_EXISTS'
@@ -65,6 +67,10 @@ type EmployeeUpdateHttpBody = Omit<EmployeeCreateHttpBody, 'status'>
 
 type EmployeeStatusUpdateRequest = {
   status: EmployeeStatus
+}
+
+type EmployeeAccessStatusUpdateRequest = {
+  status: EmployeeAccessStatus
 }
 
 type EmployeeAccessCreateHttpBody = Pick<
@@ -201,6 +207,18 @@ async function updateEmployeeStatus(
   return toEmployee(data)
 }
 
+async function updateEmployeeAccessStatus(
+  id: string,
+  status: EmployeeAccessStatus,
+): Promise<Employee> {
+  const { data } = await apiClient.patch<EmployeeHttpResponse>(
+    `/employees/${id}/account/status`,
+    { status } satisfies EmployeeAccessStatusUpdateRequest,
+  )
+
+  return toEmployee(data)
+}
+
 export {
   createEmployee,
   createEmployeeAccess,
@@ -209,10 +227,12 @@ export {
   toEmployee,
   toEmployeeListItem,
   updateEmployee,
+  updateEmployeeAccessStatus,
   updateEmployeeStatus,
 }
 export type {
   EmployeeAccessCreateHttpBody,
+  EmployeeAccessStatusUpdateRequest,
   EmployeeCreateHttpBody,
   EmployeeAccessHttpResponse,
   EmployeeDetailAccessHttpResponse,

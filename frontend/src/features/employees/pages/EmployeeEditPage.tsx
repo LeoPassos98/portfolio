@@ -25,6 +25,7 @@ import {
   createEmployeeAccess,
   getEmployee,
   updateEmployee,
+  updateEmployeeAccessStatus,
   updateEmployeeStatus,
   type EmployeeHttpErrorResponse,
 } from '../api/employeesApi'
@@ -100,6 +101,9 @@ function EmployeeEditPage() {
   const { showSuccess } = useSuccessFeedback()
   const [formError, setFormError] = useState<string | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
+  const [accessStatusError, setAccessStatusError] = useState<string | null>(
+    null,
+  )
   const [accessCreationMessage, setAccessCreationMessage] = useState<
     string | null
   >(null)
@@ -149,10 +153,6 @@ function EmployeeEditPage() {
       confirmPassword: '',
     },
   })
-  const [employeeAccessStatus, setEmployeeAccessStatus] =
-    useState<EmployeeAccessStatus | null>(() =>
-      getEmployeeAccessStatus('active', null),
-    )
   const [employeeAccessProfile, setEmployeeAccessProfile] =
     useState<EmployeeAccessProfile | null>(null)
   const {
@@ -190,6 +190,10 @@ function EmployeeEditPage() {
   const statusMutation = useMutation({
     mutationFn: (status: EmployeeStatus) =>
       updateEmployeeStatus(employeeId!, status),
+  })
+  const accessStatusMutation = useMutation({
+    mutationFn: (status: EmployeeAccessStatus) =>
+      updateEmployeeAccessStatus(employeeId!, status),
   })
   const createAccessMutation = useMutation({
     mutationFn: (values: EmployeeAccessCreationFormValues) =>
@@ -235,7 +239,6 @@ function EmployeeEditPage() {
       const updatedEmployee = await statusMutation.mutateAsync(status)
 
       await synchronizeEmployee(updatedEmployee)
-      setEmployeeAccessStatus(updatedEmployee.access?.status ?? null)
       setAccessUpdateValue(
         'status',
         updatedEmployee.access?.status ?? 'inactive',
@@ -306,6 +309,79 @@ function EmployeeEditPage() {
     }
   }
 
+  async function handleAccessStatusChange(status: EmployeeAccessStatus) {
+    if (
+      !employeeId ||
+      !employee?.access ||
+      status === employee.access.status ||
+      accessStatusMutation.isPending
+    ) {
+      return
+    }
+
+    setAccessStatusError(null)
+
+    try {
+      const updatedEmployee = await accessStatusMutation.mutateAsync(status)
+
+      await synchronizeEmployee(updatedEmployee)
+      showSuccess(
+        updatedEmployee.access?.status === 'inactive'
+          ? 'Conta de acesso inativada com sucesso.'
+          : 'Conta de acesso reativada com sucesso.',
+      )
+    } catch (accessStatusMutationError) {
+      if (
+        isEmployeeApiError(
+          accessStatusMutationError,
+          'EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION',
+        )
+      ) {
+        setAccessStatusError(
+          'Não é possível ativar a conta enquanto o cadastro do funcionário estiver inativo.',
+        )
+        return
+      }
+
+      if (
+        isEmployeeApiError(
+          accessStatusMutationError,
+          'LAST_ACTIVE_ADMIN_REQUIRED',
+        )
+      ) {
+        setAccessStatusError(
+          'Não é possível inativar a última conta ativa de Administrador.',
+        )
+        return
+      }
+
+      if (
+        isEmployeeApiError(
+          accessStatusMutationError,
+          'EMPLOYEE_ACCESS_NOT_FOUND',
+        )
+      ) {
+        setAccessStatusError(
+          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      if (isEmployeeApiError(accessStatusMutationError, 'EMPLOYEE_NOT_FOUND')) {
+        setAccessStatusError(
+          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      setAccessStatusError(
+        'Não foi possível atualizar a situação da conta. Tente novamente.',
+      )
+    }
+  }
+
   function onUpdateAccess() {}
 
   if (!employeeId || isEmployeeApiError(error, 'EMPLOYEE_NOT_FOUND')) {
@@ -351,19 +427,13 @@ function EmployeeEditPage() {
 
   const currentEmployeeAccessStatus = getEmployeeAccessStatus(
     employee.status,
-    employeeAccessStatus ?? employee.access?.status ?? null,
+    employee.access?.status ?? null,
   )
   const accessStatus = currentEmployeeAccessStatus
     ? accessStatusDetails[currentEmployeeAccessStatus]
     : null
   const currentEmployeeAccessProfile =
     employeeAccessProfile ?? employee.access?.profile ?? null
-  const wouldInactivateAccessRemoveLastActiveAdmin = wouldRemoveLastActiveAdmin(
-    mockEmployees,
-    employee.id,
-    'inactive',
-    currentEmployeeAccessProfile,
-  )
   const wouldRemoveProfileFromLastActiveAdmin = wouldRemoveLastActiveAdmin(
     mockEmployees,
     employee.id,
@@ -373,13 +443,12 @@ function EmployeeEditPage() {
   const accessStatusAvailability = getEmployeeAccessStatusAvailability(
     employee.status,
     currentEmployeeAccessStatus,
-    wouldInactivateAccessRemoveLastActiveAdmin,
   )
   const accessProfileAvailability = getEmployeeAccessProfileAvailability(
     wouldRemoveProfileFromLastActiveAdmin,
   )
   const employeeAccessStatusDescriptionIds = [
-    accessUpdateErrors.status ? 'employee-access-status-error' : null,
+    accessStatusError ? 'employee-access-status-error' : null,
     accessStatusAvailability.description
       ? 'employee-access-status-description'
       : null,
@@ -637,8 +706,11 @@ function EmployeeEditPage() {
                 <Select
                   id="employee-access-status"
                   value={currentEmployeeAccessStatus ?? 'inactive'}
-                  disabled={!accessStatusAvailability.canChangeAccessStatus}
-                  aria-invalid={Boolean(accessUpdateErrors.status)}
+                  disabled={
+                    !accessStatusAvailability.canChangeAccessStatus ||
+                    accessStatusMutation.isPending
+                  }
+                  aria-invalid={Boolean(accessStatusError)}
                   aria-required="true"
                   aria-describedby={
                     employeeAccessStatusDescriptionIds || undefined
@@ -646,22 +718,24 @@ function EmployeeEditPage() {
                   onChange={(event) => {
                     const status = event.target.value as EmployeeAccessStatus
 
-                    setEmployeeAccessStatus(status)
-                    setAccessUpdateValue('status', status, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
+                    void handleAccessStatusChange(status)
                   }}
                 >
                   <option value="active">Ativa</option>
                   <option value="inactive">Inativa</option>
                 </Select>
-                {accessUpdateErrors.status?.message && (
+                {accessStatusMutation.isPending && (
+                  <p className="text-neutral text-sm">
+                    Atualizando situação da conta...
+                  </p>
+                )}
+                {accessStatusError && (
                   <p
                     id="employee-access-status-error"
+                    role="alert"
                     className="text-error text-sm"
                   >
-                    {accessUpdateErrors.status.message}
+                    {accessStatusError}
                   </p>
                 )}
                 {accessStatusAvailability.description && (

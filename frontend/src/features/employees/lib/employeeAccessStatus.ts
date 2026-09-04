@@ -1,7 +1,4 @@
-import type {
-  EmployeeAccessStatus,
-  EmployeeStatus,
-} from '../types/employee'
+import type { EmployeeAccessStatus, EmployeeStatus } from '../types/employee'
 
 type EmployeeAccessStatusAvailability = {
   canChangeAccessStatus: boolean
@@ -27,7 +24,6 @@ function getEmployeeAccessStatus(
 function getEmployeeAccessStatusAvailability(
   employeeStatus: EmployeeStatus,
   accessStatus: EmployeeAccessStatus | null,
-  wouldRemoveLastActiveAdmin: boolean,
 ): EmployeeAccessStatusAvailability {
   if (!accessStatus) {
     return {
@@ -41,14 +37,6 @@ function getEmployeeAccessStatusAvailability(
       canChangeAccessStatus: false,
       description:
         'A conta permanece inativa enquanto o cadastro do funcionário estiver inativo.',
-    }
-  }
-
-  if (wouldRemoveLastActiveAdmin) {
-    return {
-      canChangeAccessStatus: false,
-      description:
-        'Não é possível inativar a última conta ativa de Administrador.',
     }
   }
 

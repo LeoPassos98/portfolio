@@ -436,13 +436,13 @@ Protege alterações não salvas, bloqueia envios duplicados, sincroniza o cache
 
 Carrega o Funcionário real da rota com TanStack Query, incluindo skeleton, erro com retry e estado específico para `EMPLOYEE_NOT_FOUND`.
 
-Atualiza nome, telefone e e-mail de contato por `PUT`, e a situação por `PATCH` separado; sincroniza detalhe e listagens no cache e apresenta os conflitos de OS ativa e último Administrador retornados pelo backend.
+Atualiza nome, telefone e e-mail de contato por `PUT`, a situação do Funcionário por `PATCH` separado e a situação da conta por `PATCH /employees/:id/account/status`; sincroniza detalhe e listagens no cache e apresenta os conflitos retornados pelo backend.
 
-Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. Os controles de situação, perfil, e-mail de login e senha da conta existente continuam mockados.
+Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. Perfil, e-mail de login e senha da conta existente continuam mockados; a última conta ativa de Administrador é validada pelo backend para a situação da conta.
 
 Mantém separados e-mail de contato e e-mail de login e protege alterações pendentes.
 
-Aplica visualmente as regras de situação e preservação da última conta ativa de Administrador, sem persistência.
+Aplica visualmente a relação entre cadastro e acesso; a preservação mockada da última conta ativa de Administrador permanece somente no perfil, que ainda não tem persistência.
 
 ### 4. `frontend/src/features/employees/pages/EmployeeProfilePage.tsx`
 
@@ -476,17 +476,17 @@ Bloqueia somente a inativação enquanto existir OS Aguardando ou Em andamento e
 
 ### 10. `frontend/src/features/employees/lib/employeeAccessStatus.ts`
 
-Centraliza a relação mockada entre as situações do cadastro e da conta de acesso.
+Centraliza a relação visual entre as situações do cadastro e da conta de acesso.
 
-Cadastro inativo força a conta associada a Inativa; reativação preserva conta inativa ou ausência de conta. Também expõe a disponibilidade dos controles de conta e perfil.
+Cadastro inativo força a conta associada a Inativa; reativação preserva conta inativa ou ausência de conta. Também expõe a disponibilidade visual dos controles de conta e perfil, sem antecipar a regra do último Administrador para a situação da conta.
 
 ### 11. `frontend/src/features/employees/lib/employeeAdministrator.ts`
 
-Centraliza a verificação mockada que impede remover a última conta ativa de Administrador, reutilizada pelos controles de situação do cadastro, conta e perfil.
+Centraliza a verificação mockada que impede remover a última conta ativa de Administrador, usada somente pelo controle de perfil ainda não integrado.
 
 ### 12. `frontend/src/features/employees/api/employeesApi.ts`
 
-Concentra as consultas, a criação, a edição cadastral, a alteração de situação e a criação de conta de acesso tipadas de Funcionários na instância Axios compartilhada.
+Concentra as consultas, a criação, a edição cadastral, as alterações de situação e a criação de conta de acesso tipadas de Funcionários na instância Axios compartilhada.
 
 Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e traduz os formulários de criação, edição e acesso para os contratos HTTP; `loginEmail` só existe no detalhe, onde a API o fornece.
 
