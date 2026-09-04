@@ -5,11 +5,6 @@ type EmployeeAccessStatusAvailability = {
   description: string | null
 }
 
-type EmployeeAccessProfileAvailability = {
-  canChangeAccessProfile: boolean
-  description: string | null
-}
-
 function getEmployeeAccessStatus(
   employeeStatus: EmployeeStatus,
   accessStatus: EmployeeAccessStatus | null,
@@ -47,25 +42,4 @@ function getEmployeeAccessStatusAvailability(
   }
 }
 
-function getEmployeeAccessProfileAvailability(
-  wouldRemoveLastActiveAdmin: boolean,
-): EmployeeAccessProfileAvailability {
-  if (wouldRemoveLastActiveAdmin) {
-    return {
-      canChangeAccessProfile: false,
-      description:
-        'Não é possível remover o perfil da última conta ativa de Administrador.',
-    }
-  }
-
-  return {
-    canChangeAccessProfile: true,
-    description: null,
-  }
-}
-
-export {
-  getEmployeeAccessProfileAvailability,
-  getEmployeeAccessStatus,
-  getEmployeeAccessStatusAvailability,
-}
+export { getEmployeeAccessStatus, getEmployeeAccessStatusAvailability }

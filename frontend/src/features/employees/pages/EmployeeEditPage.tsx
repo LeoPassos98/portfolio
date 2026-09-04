@@ -14,17 +14,15 @@ import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import {
-  getEmployeeAccessProfileAvailability,
   getEmployeeAccessStatus,
   getEmployeeAccessStatusAvailability,
 } from '../lib/employeeAccessStatus'
-import { wouldRemoveLastActiveAdmin } from '../lib/employeeAdministrator'
-import { mockEmployees } from '../mocks/employees'
 import { employeesQueryKeys } from '../api/employeeQueryKeys'
 import {
   createEmployeeAccess,
   getEmployee,
   updateEmployee,
+  updateEmployeeAccessProfile,
   updateEmployeeAccessStatus,
   updateEmployeeStatus,
   type EmployeeHttpErrorResponse,
@@ -104,6 +102,9 @@ function EmployeeEditPage() {
   const [accessStatusError, setAccessStatusError] = useState<string | null>(
     null,
   )
+  const [accessProfileError, setAccessProfileError] = useState<string | null>(
+    null,
+  )
   const [accessCreationMessage, setAccessCreationMessage] = useState<
     string | null
   >(null)
@@ -153,8 +154,6 @@ function EmployeeEditPage() {
       confirmPassword: '',
     },
   })
-  const [employeeAccessProfile, setEmployeeAccessProfile] =
-    useState<EmployeeAccessProfile | null>(null)
   const {
     register: registerAccessUpdate,
     handleSubmit: handleSubmitAccessUpdate,
@@ -194,6 +193,10 @@ function EmployeeEditPage() {
   const accessStatusMutation = useMutation({
     mutationFn: (status: EmployeeAccessStatus) =>
       updateEmployeeAccessStatus(employeeId!, status),
+  })
+  const accessProfileMutation = useMutation({
+    mutationFn: (profile: EmployeeAccessProfile) =>
+      updateEmployeeAccessProfile(employeeId!, profile),
   })
   const createAccessMutation = useMutation({
     mutationFn: (values: EmployeeAccessCreationFormValues) =>
@@ -382,6 +385,69 @@ function EmployeeEditPage() {
     }
   }
 
+  async function handleAccessProfileChange(profile: EmployeeAccessProfile) {
+    if (
+      !employeeId ||
+      !employee?.access ||
+      profile === employee.access.profile ||
+      accessProfileMutation.isPending
+    ) {
+      return
+    }
+
+    setAccessProfileError(null)
+
+    try {
+      const updatedEmployee = await accessProfileMutation.mutateAsync(profile)
+
+      await synchronizeEmployee(updatedEmployee)
+      showSuccess(
+        updatedEmployee.access?.profile === 'administrator'
+          ? 'Perfil da conta atualizado para Administrador.'
+          : 'Perfil da conta atualizado para Funcionário.',
+      )
+    } catch (accessProfileMutationError) {
+      if (
+        isEmployeeApiError(
+          accessProfileMutationError,
+          'LAST_ACTIVE_ADMIN_REQUIRED',
+        )
+      ) {
+        setAccessProfileError(
+          'A última conta ativa de Administrador não pode ser convertida para Funcionário.',
+        )
+        return
+      }
+
+      if (
+        isEmployeeApiError(
+          accessProfileMutationError,
+          'EMPLOYEE_ACCESS_NOT_FOUND',
+        )
+      ) {
+        setAccessProfileError(
+          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      if (
+        isEmployeeApiError(accessProfileMutationError, 'EMPLOYEE_NOT_FOUND')
+      ) {
+        setAccessProfileError(
+          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      setAccessProfileError(
+        'Não foi possível atualizar o perfil. Tente novamente.',
+      )
+    }
+  }
+
   function onUpdateAccess() {}
 
   if (!employeeId || isEmployeeApiError(error, 'EMPLOYEE_NOT_FOUND')) {
@@ -432,20 +498,9 @@ function EmployeeEditPage() {
   const accessStatus = currentEmployeeAccessStatus
     ? accessStatusDetails[currentEmployeeAccessStatus]
     : null
-  const currentEmployeeAccessProfile =
-    employeeAccessProfile ?? employee.access?.profile ?? null
-  const wouldRemoveProfileFromLastActiveAdmin = wouldRemoveLastActiveAdmin(
-    mockEmployees,
-    employee.id,
-    currentEmployeeAccessStatus,
-    'employee',
-  )
   const accessStatusAvailability = getEmployeeAccessStatusAvailability(
     employee.status,
     currentEmployeeAccessStatus,
-  )
-  const accessProfileAvailability = getEmployeeAccessProfileAvailability(
-    wouldRemoveProfileFromLastActiveAdmin,
   )
   const employeeAccessStatusDescriptionIds = [
     accessStatusError ? 'employee-access-status-error' : null,
@@ -455,15 +510,6 @@ function EmployeeEditPage() {
   ]
     .filter(Boolean)
     .join(' ')
-  const employeeAccessProfileDescriptionIds = [
-    accessUpdateErrors.profile ? 'employee-profile-error' : null,
-    accessProfileAvailability.description
-      ? 'employee-profile-description'
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' ')
-
   return (
     <AppLayout>
       <h1 className="text-foreground text-2xl font-bold">Editar funcionário</h1>
@@ -660,40 +706,36 @@ function EmployeeEditPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="employee-profile">Perfil</Label>
-                <input type="hidden" {...registerAccessUpdate('profile')} />
                 <Select
                   id="employee-profile"
-                  value={currentEmployeeAccessProfile ?? 'employee'}
-                  disabled={!accessProfileAvailability.canChangeAccessProfile}
-                  aria-invalid={Boolean(accessUpdateErrors.profile)}
+                  value={employee.access.profile}
+                  disabled={accessProfileMutation.isPending}
+                  aria-invalid={Boolean(accessProfileError)}
                   aria-required="true"
                   aria-describedby={
-                    employeeAccessProfileDescriptionIds || undefined
+                    accessProfileError
+                      ? 'employee-access-profile-error'
+                      : undefined
                   }
                   onChange={(event) => {
                     const profile = event.target.value as EmployeeAccessProfile
 
-                    setEmployeeAccessProfile(profile)
-                    setAccessUpdateValue('profile', profile, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    })
+                    void handleAccessProfileChange(profile)
                   }}
                 >
                   <option value="employee">Funcionário</option>
                   <option value="administrator">Administrador</option>
                 </Select>
-                {accessUpdateErrors.profile?.message && (
-                  <p id="employee-profile-error" className="text-error text-sm">
-                    {accessUpdateErrors.profile.message}
-                  </p>
+                {accessProfileMutation.isPending && (
+                  <p className="text-neutral text-sm">Atualizando perfil...</p>
                 )}
-                {accessProfileAvailability.description && (
+                {accessProfileError && (
                   <p
-                    id="employee-profile-description"
-                    className="text-neutral text-sm"
+                    id="employee-access-profile-error"
+                    role="alert"
+                    className="text-error text-sm"
                   >
-                    {accessProfileAvailability.description}
+                    {accessProfileError}
                   </p>
                 )}
               </div>
