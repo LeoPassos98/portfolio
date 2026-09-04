@@ -40,6 +40,10 @@ import {
   type EmployeeAccessProfileUpdateInput,
 } from './employee-access-profile-update.schema.js';
 import {
+  employeeAccessLoginEmailUpdateSchema,
+  type EmployeeAccessLoginEmailUpdateInput,
+} from './employee-access-login-email-update.schema.js';
+import {
   employeeAccessStatusUpdateSchema,
   type EmployeeAccessStatusUpdateInput,
 } from './employee-access-status-update.schema.js';
@@ -303,6 +307,61 @@ export class EmployeesController {
     input: EmployeeAccessProfileUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.updateAccessProfile(id, input);
+  }
+
+  @Patch(':id/account/login-email')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({
+    summary: 'Altera o e-mail de login da conta de acesso',
+    description:
+      'Remove espaços externos e normaliza o e-mail para minúsculas antes de validar e persistir. Uma mudança real revoga todas as sessões da conta.',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['loginEmail'],
+      properties: {
+        loginEmail: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@login.example.com',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: EmployeeDetailResponse,
+    description:
+      'E-mail de login alterado sem modificar cadastro, situação, perfil ou credenciais. Repetir o e-mail normalizado atual é idempotente e não revoga sessões.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Funcionário não encontrado (EMPLOYEE_NOT_FOUND) ou sem conta de acesso (EMPLOYEE_ACCESS_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'E-mail de login já utilizado por outra conta (LOGIN_EMAIL_ALREADY_EXISTS).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  updateAccessLoginEmail(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeAccessLoginEmailUpdateSchema))
+    input: EmployeeAccessLoginEmailUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.updateAccessLoginEmail(id, input);
   }
 
   @Put(':id')

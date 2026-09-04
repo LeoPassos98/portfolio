@@ -279,6 +279,15 @@ describe('EmployeesController', () => {
     };
   }
 
+  function updateEmployeeAccessLoginEmailBody(
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      loginEmail: 'novo.login@example.test',
+      ...overrides,
+    };
+  }
+
   function createEmployeeAccessBody(overrides: Record<string, unknown> = {}) {
     return {
       loginEmail: 'maria@login.example.test',
@@ -2987,6 +2996,403 @@ describe('EmployeesController', () => {
     await agent.get('/employees').expect(HttpStatus.OK);
   });
 
+  it('changes only a login email, revokes target sessions, and permits the new login', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const password = 'senha preservada na troca de e-mail';
+    const employee = await createEmployeeFixture({
+      conta: {
+        emailLogin: `anterior-${crypto.randomUUID()}@example.test`,
+        senhaHash: await passwordService.hash(password),
+        perfil: 'FUNCIONARIO',
+        deveAlterarSenha: true,
+      },
+    });
+    const employeeBefore = await database.funcionario.findUniqueOrThrow({
+      where: { id: employee.id },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const firstTargetSession = await createSessionForUser(employee.usuario!.id);
+    const secondTargetSession = await createSessionForUser(
+      employee.usuario!.id,
+    );
+    const otherEmployee = await createEmployeeFixture({ conta: {} });
+    const otherSession = await createSessionForUser(otherEmployee.usuario!.id);
+
+    const response = await agent
+      .patch(`/employees/${employee.id}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAccessLoginEmailBody({
+          loginEmail: '  Novo.Login@Example.Test  ',
+        }),
+      )
+      .expect(HttpStatus.OK);
+    const [employeeAfter, accountAfter, targetSessions, otherSessions] =
+      await Promise.all([
+        database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+        database.usuario.findUniqueOrThrow({
+          where: { id: employee.usuario!.id },
+        }),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = ANY($1)',
+          [[firstTargetSession.sessionId, secondTargetSession.sessionId]],
+        ),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = $1',
+          [otherSession.sessionId],
+        ),
+      ]);
+
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      email: employee.email,
+      conta: {
+        emailLogin: 'novo.login@example.test',
+        ativo: accountBefore.ativo,
+        perfil: accountBefore.perfil,
+      },
+    });
+    expect(employeeAfter).toEqual(employeeBefore);
+    expect(accountAfter).toEqual({
+      ...accountBefore,
+      emailLogin: 'novo.login@example.test',
+    });
+    expect(targetSessions.rowCount).toBe(0);
+    expect(otherSessions.rowCount).toBe(1);
+    await firstTargetSession.agent
+      .get('/auth/session')
+      .expect(HttpStatus.UNAUTHORIZED);
+    await secondTargetSession.agent
+      .patch(`/employees/${employee.id}/account/login-email`)
+      .set('X-CSRF-Token', secondTargetSession.csrfToken)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+    await otherSession.agent.get('/auth/session').expect(HttpStatus.OK);
+
+    const oldLoginAgent = request.agent(app);
+    const oldLoginCsrf = await oldLoginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(oldLoginCsrf.headers['set-cookie']?.[0]));
+    await oldLoginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', oldLoginCsrf.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password })
+      .expect(HttpStatus.UNAUTHORIZED);
+
+    const newLoginAgent = request.agent(app);
+    const newLoginCsrf = await newLoginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(newLoginCsrf.headers['set-cookie']?.[0]));
+    const newLogin = await newLoginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', newLoginCsrf.body.csrfToken as string)
+      .send({ email: 'NOVO.LOGIN@EXAMPLE.TEST', password })
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(newLogin.headers['set-cookie']?.[0]));
+    expect(newLogin.body).toMatchObject({
+      id: employee.usuario!.id,
+      perfil: 'FUNCIONARIO',
+      deveAlterarSenha: true,
+    });
+  });
+
+  it.each([true, false])(
+    'changes the login email of an inactive account without changing a %s first-access state',
+    async (deveAlterarSenha) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+      const employee = await createEmployeeFixture({
+        ativo: false,
+        conta: { ativo: false, deveAlterarSenha },
+      });
+      const employeeBefore = await database.funcionario.findUniqueOrThrow({
+        where: { id: employee.id },
+      });
+      const accountBefore = await database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      });
+      const staleSession = await createSessionForUser(employee.usuario!.id);
+
+      await agent
+        .patch(`/employees/${employee.id}/account/login-email`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(
+          updateEmployeeAccessLoginEmailBody({
+            loginEmail: `inativa-${crypto.randomUUID()}@example.test`,
+          }),
+        )
+        .expect(HttpStatus.OK);
+
+      await expect(
+        database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      ).resolves.toEqual(employeeBefore);
+      await expect(
+        database.usuario.findUniqueOrThrow({
+          where: { id: employee.usuario!.id },
+        }),
+      ).resolves.toMatchObject({
+        ...accountBefore,
+        emailLogin: expect.any(String),
+      });
+      await expect(
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = $1',
+          [staleSession.sessionId],
+        ),
+      ).resolves.toMatchObject({ rowCount: 0 });
+    },
+  );
+
+  it('allows an administrator to change their own login email and revokes the current session', async () => {
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    const session = await createSessionForUser(employee.usuario!.id);
+
+    const response = await session.agent
+      .patch(`/employees/${employee.id}/account/login-email`)
+      .set('X-CSRF-Token', session.csrfToken)
+      .send(
+        updateEmployeeAccessLoginEmailBody({
+          loginEmail: `proprio-${crypto.randomUUID()}@example.test`,
+        }),
+      )
+      .expect(HttpStatus.OK);
+
+    expect(response.body.conta.emailLogin).toMatch(/^proprio-/);
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        session.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await session.agent.get('/auth/session').expect(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('treats the current login email and its normalized equivalent as idempotent', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      conta: { emailLogin: 'idempotente@example.test' },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const session = await createSessionForUser(employee.usuario!.id);
+
+    const first = await agent
+      .patch(`/employees/${employee.id}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAccessLoginEmailBody({
+          loginEmail: accountBefore.emailLogin,
+        }),
+      )
+      .expect(HttpStatus.OK);
+    const second = await agent
+      .patch(`/employees/${employee.id}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAccessLoginEmailBody({
+          loginEmail: '  IDEMPOTENTE@EXAMPLE.TEST  ',
+        }),
+      )
+      .expect(HttpStatus.OK);
+
+    expect(second.body).toEqual(first.body);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      }),
+    ).resolves.toEqual(accountBefore);
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        session.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    await session.agent.get('/auth/session').expect(HttpStatus.OK);
+  });
+
+  it.each([
+    ['invalid email', crypto.randomUUID(), { loginEmail: 'invalid-email' }],
+    ['empty email', crypto.randomUUID(), { loginEmail: '' }],
+    ['blank email', crypto.randomUUID(), { loginEmail: '   ' }],
+    ['non-string email', crypto.randomUUID(), { loginEmail: 42 }],
+    ['unexpected field', crypto.randomUUID(), { ativo: false }],
+    ['invalid id', 'not-a-uuid', {}],
+  ])(
+    'rejects login email update with %s',
+    async (_description, id, overrides) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+      await agent
+        .patch(`/employees/${id}/account/login-email`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(updateEmployeeAccessLoginEmailBody(overrides))
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => {
+          expect(body).toMatchObject({
+            statusCode: HttpStatus.BAD_REQUEST,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          });
+        });
+    },
+  );
+
+  it('returns stable not-found and duplicate-email errors without creating an account', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employeeWithoutAccount = await createEmployeeFixture();
+    const firstEmployee = await createEmployeeFixture({ conta: {} });
+    const secondEmployee = await createEmployeeFixture({ conta: {} });
+
+    await agent
+      .patch(`/employees/${crypto.randomUUID()}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_NOT_FOUND',
+        message: 'Employee not found',
+      });
+    await agent
+      .patch(`/employees/${employeeWithoutAccount.id}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_ACCESS_NOT_FOUND',
+        message: 'Employee access account not found',
+      });
+    await agent
+      .patch(`/employees/${secondEmployee.id}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAccessLoginEmailBody({
+          loginEmail: firstEmployee.usuario!.emailLogin,
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'LOGIN_EMAIL_ALREADY_EXISTS',
+        message: 'Login email already exists',
+      });
+    await agent
+      .patch(`/employees/${secondEmployee.id}/account/login-email`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAccessLoginEmailBody({
+          loginEmail: `  ${firstEmployee.usuario!.emailLogin.toUpperCase()}  `,
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'LOGIN_EMAIL_ALREADY_EXISTS',
+        message: 'Login email already exists',
+      });
+    await expect(
+      database.usuario.findUnique({
+        where: { funcionarioId: employeeWithoutAccount.id },
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it('requires session, completed first access, administrator role, and valid CSRF to change a login email', async () => {
+    const target = await createEmployeeFixture({ conta: {} });
+    const unauthenticatedAgent = request.agent(app);
+    const unauthenticatedCsrf = await unauthenticatedAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(unauthenticatedCsrf.headers['set-cookie']?.[0]),
+    );
+
+    await unauthenticatedAgent
+      .patch(`/employees/${target.id}/account/login-email`)
+      .set('X-CSRF-Token', unauthenticatedCsrf.body.csrfToken as string)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.UNAUTHORIZED);
+    const pending = await createAuthenticatedAgentWithCsrf({
+      deveAlterarSenha: true,
+    });
+    await pending.agent
+      .patch(`/employees/${target.id}/account/login-email`)
+      .set('X-CSRF-Token', pending.csrfToken)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'AUTH_PASSWORD_CHANGE_REQUIRED' });
+      });
+    const employeeAgent = await createAuthenticatedAgentWithCsrf({
+      perfil: 'FUNCIONARIO',
+    });
+    await employeeAgent.agent
+      .patch(`/employees/${target.id}/account/login-email`)
+      .set('X-CSRF-Token', employeeAgent.csrfToken)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'AUTH_FORBIDDEN' });
+      });
+    const administrator = await createAuthenticatedAgent();
+    await administrator
+      .patch(`/employees/${target.id}/account/login-email`)
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'CSRF_INVALID_TOKEN' });
+      });
+    await administrator
+      .patch(`/employees/${target.id}/account/login-email`)
+      .set('X-CSRF-Token', 'invalid-token')
+      .send(updateEmployeeAccessLoginEmailBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'CSRF_INVALID_TOKEN' });
+      });
+  });
+
+  it('converts concurrent login email updates to one success and one conflict', async () => {
+    const firstEmployee = await createEmployeeFixture({ conta: {} });
+    const secondEmployee = await createEmployeeFixture({ conta: {} });
+    const firstAdministrator = await createAuthenticatedAgentWithCsrf();
+    const secondAdministrator = await createAuthenticatedAgentWithCsrf();
+    const loginEmail = `concorrente-atualizacao-${crypto.randomUUID()}@example.test`;
+
+    const responses = await Promise.all([
+      firstAdministrator.agent
+        .patch(`/employees/${firstEmployee.id}/account/login-email`)
+        .set('X-CSRF-Token', firstAdministrator.csrfToken)
+        .send(updateEmployeeAccessLoginEmailBody({ loginEmail })),
+      secondAdministrator.agent
+        .patch(`/employees/${secondEmployee.id}/account/login-email`)
+        .set('X-CSRF-Token', secondAdministrator.csrfToken)
+        .send(updateEmployeeAccessLoginEmailBody({ loginEmail })),
+    ]);
+
+    expect(responses.map((response) => response.status).sort()).toEqual([
+      HttpStatus.OK,
+      HttpStatus.CONFLICT,
+    ]);
+    expect(
+      responses.find((response) => response.status === HttpStatus.CONFLICT)
+        ?.body,
+    ).toMatchObject({ code: 'LOGIN_EMAIL_ALREADY_EXISTS' });
+    await expect(
+      database.usuario.count({ where: { emailLogin: loginEmail } }),
+    ).resolves.toBe(1);
+  });
+
   it('documents employee creation, account management, registration and status updates, reads, and nullable account DTOs in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
@@ -2999,6 +3405,8 @@ describe('EmployeesController', () => {
       response.body.paths['/employees/{id}/account/status'].patch;
     const accountProfileUpdateOperation =
       response.body.paths['/employees/{id}/account/profile'].patch;
+    const accountLoginEmailUpdateOperation =
+      response.body.paths['/employees/{id}/account/login-email'].patch;
     const detailOperation = response.body.paths['/employees/{id}'].get;
     const updateOperation = response.body.paths['/employees/{id}'].put;
     const statusUpdateOperation =
@@ -3020,6 +3428,9 @@ describe('EmployeesController', () => {
     ).toEqual(['patch']);
     expect(
       Object.keys(response.body.paths['/employees/{id}/account/profile']),
+    ).toEqual(['patch']);
+    expect(
+      Object.keys(response.body.paths['/employees/{id}/account/login-email']),
     ).toEqual(['patch']);
     expect(createOperation.parameters).toEqual(
       expect.arrayContaining([
@@ -3173,6 +3584,46 @@ describe('EmployeesController', () => {
     expect(
       accountProfileUpdateOperation.responses['409'].description,
     ).toContain('LAST_ACTIVE_ADMIN_REQUIRED');
+    expect(accountLoginEmailUpdateOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      accountLoginEmailUpdateOperation.requestBody.content['application/json']
+        .schema,
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['loginEmail'],
+      properties: {
+        loginEmail: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@login.example.com',
+        },
+      },
+    });
+    for (const status of ['200', '400', '401', '403', '404', '409']) {
+      expect(accountLoginEmailUpdateOperation.responses).toHaveProperty(status);
+    }
+    expect(accountLoginEmailUpdateOperation.description).toContain(
+      'minúsculas',
+    );
+    expect(
+      accountLoginEmailUpdateOperation.responses['404'].description,
+    ).toContain('EMPLOYEE_NOT_FOUND');
+    expect(
+      accountLoginEmailUpdateOperation.responses['404'].description,
+    ).toContain('EMPLOYEE_ACCESS_NOT_FOUND');
+    expect(
+      accountLoginEmailUpdateOperation.responses['409'].description,
+    ).toContain('LOGIN_EMAIL_ALREADY_EXISTS');
     expect(updateOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

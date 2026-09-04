@@ -1,13 +1,5 @@
 import { z } from 'zod';
-
-const loginEmailSchema = z
-  .string()
-  .trim()
-  .toLowerCase()
-  .min(1, 'Informe o e-mail de login')
-  .refine((value) => z.email().safeParse(value).success, {
-    message: 'Informe um e-mail de login válido',
-  });
+import { employeeLoginEmailSchema } from './employee-login-email.schema.js';
 
 const temporaryPasswordSchema = z
   .string()
@@ -16,7 +8,7 @@ const temporaryPasswordSchema = z
 
 export const employeeAccessCreateSchema = z
   .strictObject({
-    loginEmail: loginEmailSchema,
+    loginEmail: employeeLoginEmailSchema,
     profile: z.enum(['administrator', 'employee']),
     initialPassword: temporaryPasswordSchema,
     confirmPassword: z.string(),

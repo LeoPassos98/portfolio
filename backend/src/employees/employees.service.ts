@@ -14,6 +14,7 @@ import { DatabaseService } from '../database/database.service.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
 import type { EmployeeAccessProfileUpdateInput } from './employee-access-profile-update.schema.js';
+import type { EmployeeAccessLoginEmailUpdateInput } from './employee-access-login-email-update.schema.js';
 import type { EmployeeAccessStatusUpdateInput } from './employee-access-status-update.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
@@ -258,6 +259,46 @@ export class EmployeesService {
     }
 
     return toEmployeeDetail(transition.employee);
+  }
+
+  async updateAccessLoginEmail(
+    employeeId: string,
+    { loginEmail }: EmployeeAccessLoginEmailUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    const employee = await this.database.funcionario.findUnique({
+      where: { id: employeeId },
+      select: employeeStatusSelect,
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (!employee.usuario) {
+      throw new NotFoundException(EMPLOYEE_ACCESS_NOT_FOUND_ERROR);
+    }
+
+    if (employee.usuario.emailLogin === loginEmail) {
+      return toEmployeeDetail(employee);
+    }
+
+    try {
+      const account = await this.database.usuario.update({
+        where: { id: employee.usuario.id },
+        data: { emailLogin: loginEmail },
+        select: { funcionario: { select: employeeDetailSelect } },
+      });
+
+      await this.sessionStoreService.revokeUserSessions(employee.usuario.id);
+
+      return toEmployeeDetail(account.funcionario);
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException(LOGIN_EMAIL_ALREADY_EXISTS_ERROR);
+      }
+
+      throw error;
+    }
   }
 
   async findAll({
