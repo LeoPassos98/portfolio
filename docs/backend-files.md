@@ -18,8 +18,8 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                       |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                            |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend              |       16 |
-| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       16 |
-| Segurança de credenciais | Hash e verificação reutilizáveis de senhas com Argon2id                                                                       |        3 |
+| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       17 |
+| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                             |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                        |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                                   |        1 |
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                   |        1 |
@@ -310,7 +310,7 @@ Orquestra a consulta de CEP sem acessar persistência e converte as saídas do p
 
 ## Funcionários
 
-Expõe a criação, a edição cadastral, as situações do cadastro e da conta, as alterações de perfil e e-mail de login, a criação explícita de conta e as consultas administrativas reais de Funcionários no PostgreSQL.
+Expõe a criação, a edição cadastral, as situações do cadastro e da conta, as alterações de perfil, e-mail de login e senha, a criação explícita de conta e as consultas administrativas reais de Funcionários no PostgreSQL.
 
 `Funcionario.usuario?` é uma relação 1:0..1: o funcionário pode não ter conta, ou ter uma conta ativa ou inativa.
 
@@ -336,7 +336,7 @@ Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opc
 
 ### 5. `backend/src/employees/employees.service.ts`
 
-Cria, edita, altera as situações do cadastro e da conta, altera perfil e e-mail de login, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
+Cria, edita, altera as situações do cadastro e da conta, altera perfil e e-mail de login, redefine senha, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
 
 Na criação de conta, reutiliza `PasswordService`, normaliza o e-mail de login, converte o perfil público para o enum interno e define explicitamente a situação inicial conforme o Funcionário. Executa a criação em transação serializável, com retentativa para `P2034` e o SQLSTATE `40001` exposto pelo adapter PostgreSQL, preservando o invariante de que Funcionário inativo não possui conta ativa. Converte a unicidade de e-mail e de funcionário, inclusive em corrida, nos conflitos estáveis `LOGIN_EMAIL_ALREADY_EXISTS` e `EMPLOYEE_ACCESS_ALREADY_EXISTS`.
 
@@ -350,11 +350,13 @@ Na alteração de perfil, modifica somente `Usuario.perfil` em conta ativa ou in
 
 Na alteração de e-mail de login, modifica somente `Usuario.emailLogin` em conta e Funcionário ativos ou inativos. Reutiliza a normalização da criação de conta, preserva cadastro, situação, perfil e credenciais, é idempotente para o valor normalizado atual e revoga as sessões apenas após mudança persistida. A constraint `UNIQUE` do PostgreSQL resolve corridas e `P2002` é convertido em `LOGIN_EMAIL_ALREADY_EXISTS`.
 
+Na redefinição administrativa de senha, gera sempre um novo hash Argon2id pelo `PasswordService`, altera somente `Usuario.senhaHash` e `deveAlterarSenha`, e revoga todas as sessões após a persistência. Funciona para conta e Funcionário ativos ou inativos, preserva cadastro, situação, perfil, e-mail e vínculo, e não trata a repetição da mesma senha como no-op.
+
 Traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e id, projeta `usuario` para `conta` e retorna `EMPLOYEE_NOT_FOUND` quando necessário.
 
 ### 6. `backend/src/employees/employees.controller.ts`
 
-Define criação, edição cadastral, situação do Funcionário, criação, situação, perfil e e-mail de login da conta de acesso, listagem e detalhe de Funcionários.
+Define criação, edição cadastral, situação do Funcionário, criação, situação, perfil, e-mail de login e redefinição de senha da conta de acesso, listagem e detalhe de Funcionários.
 
 O controller exige `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` de Administrador. Mutações recebem CSRF global; entradas, DTOs e erros são descritos com Zod e OpenAPI.
 
@@ -402,6 +404,10 @@ Centraliza a regra de e-mail de login reutilizada pela criação e alteração d
 
 Declara com Zod estrito o body da alteração de e-mail de login, aceitando exclusivamente `loginEmail` com a regra compartilhada da conta.
 
+### 17. `backend/src/employees/employee-access-password-reset.schema.ts`
+
+Declara com Zod estrito o body da redefinição administrativa de senha, exigindo senha temporária e confirmação idênticas conforme a política compartilhada de 8 a 128 caracteres sem normalização.
+
 ---
 
 ## Segurança de credenciais
@@ -417,6 +423,10 @@ Registra e exporta `PasswordService` para que módulos futuros possam receber a 
 ### 2. `backend/src/auth/password/password.service.ts`
 
 Gera hashes Argon2id com salt automático e parâmetros seguros, e verifica a senha recebida pelo mecanismo seguro da própria biblioteca, sem armazenar ou registrar a senha original.
+
+### 3. `backend/src/auth/password/password.schema.ts`
+
+Centraliza a política autoritativa de senha reutilizada na criação da conta, no primeiro acesso e na redefinição administrativa: string exata de 8 a 128 caracteres, sem trim ou outra normalização.
 
 ---
 
@@ -584,6 +594,6 @@ Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da 
 
 ### 16. `backend/src/employees/employees.controller.spec.ts`
 
-Executa criação, edição cadastral, situação, criação explícita de conta e consultas administrativas de Funcionários contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
+Executa criação, edição cadastral, situação, criação explícita, administração de credenciais e consultas administrativas de Funcionários contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
 
-Cobre conta opcional, criação de acesso, hash Argon2id, normalização, validação, situação, OS ativa, último Administrador, sessões, concorrência, guards, CSRF, filtros, privacidade e OpenAPI.
+Cobre conta opcional, criação e redefinição de credenciais Argon2id, normalização, validação, situação, OS ativa, último Administrador, sessões, primeiro acesso, concorrência, guards, CSRF, filtros, privacidade e OpenAPI.

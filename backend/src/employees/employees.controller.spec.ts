@@ -288,6 +288,16 @@ describe('EmployeesController', () => {
     };
   }
 
+  function resetEmployeeAccessPasswordBody(
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      temporaryPassword: 'nova senha temporária',
+      confirmPassword: 'nova senha temporária',
+      ...overrides,
+    };
+  }
+
   function createEmployeeAccessBody(overrides: Record<string, unknown> = {}) {
     return {
       loginEmail: 'maria@login.example.test',
@@ -3393,6 +3403,467 @@ describe('EmployeesController', () => {
     ).resolves.toBe(1);
   });
 
+  it('resets an active account password, revokes sessions, and completes the existing first-access flow', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const oldPassword = 'senha antiga preservada';
+    const temporaryPassword = ' senha temporária nova ';
+    const personalPassword = 'senha pessoal escolhida';
+    const employee = await createEmployeeFixture({
+      conta: {
+        emailLogin: `reset-${crypto.randomUUID()}@example.test`,
+        senhaHash: await passwordService.hash(oldPassword),
+        perfil: 'FUNCIONARIO',
+        deveAlterarSenha: false,
+      },
+    });
+    const employeeBefore = await database.funcionario.findUniqueOrThrow({
+      where: { id: employee.id },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const firstTargetSession = await createSessionForUser(employee.usuario!.id);
+    const secondTargetSession = await createSessionForUser(
+      employee.usuario!.id,
+    );
+    const otherEmployee = await createEmployeeFixture({ conta: {} });
+    const otherSession = await createSessionForUser(otherEmployee.usuario!.id);
+
+    const response = await agent
+      .patch(`/employees/${employee.id}/account/password`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        resetEmployeeAccessPasswordBody({
+          temporaryPassword,
+          confirmPassword: temporaryPassword,
+        }),
+      )
+      .expect(HttpStatus.OK);
+    const [employeeAfter, accountAfter, targetSessions, otherSessions] =
+      await Promise.all([
+        database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+        database.usuario.findUniqueOrThrow({
+          where: { id: employee.usuario!.id },
+        }),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = ANY($1)',
+          [[firstTargetSession.sessionId, secondTargetSession.sessionId]],
+        ),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = $1',
+          [otherSession.sessionId],
+        ),
+      ]);
+
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      email: employee.email,
+      conta: {
+        emailLogin: accountBefore.emailLogin,
+        perfil: accountBefore.perfil,
+        ativo: accountBefore.ativo,
+      },
+    });
+    expect(JSON.stringify(response.body)).not.toContain(temporaryPassword);
+    expect(response.body).not.toHaveProperty('senhaHash');
+    expect(response.body.conta).not.toHaveProperty('senhaHash');
+    expect(employeeAfter).toEqual(employeeBefore);
+    expect(accountAfter.senhaHash).not.toBe(accountBefore.senhaHash);
+    expect(accountAfter.senhaHash).not.toContain(temporaryPassword);
+    expect(accountAfter).toMatchObject({
+      id: accountBefore.id,
+      emailLogin: accountBefore.emailLogin,
+      perfil: accountBefore.perfil,
+      ativo: accountBefore.ativo,
+      funcionarioId: accountBefore.funcionarioId,
+      deveAlterarSenha: true,
+    });
+    await expect(
+      passwordService.verify(accountAfter.senhaHash, temporaryPassword),
+    ).resolves.toBe(true);
+    await expect(
+      passwordService.verify(accountAfter.senhaHash, oldPassword),
+    ).resolves.toBe(false);
+    await expect(
+      passwordService.verify(accountAfter.senhaHash, temporaryPassword.trim()),
+    ).resolves.toBe(false);
+    expect(targetSessions.rowCount).toBe(0);
+    expect(otherSessions.rowCount).toBe(1);
+    await firstTargetSession.agent
+      .get('/auth/session')
+      .expect(HttpStatus.UNAUTHORIZED);
+    await secondTargetSession.agent
+      .patch(`/employees/${employee.id}/account/password`)
+      .set('X-CSRF-Token', secondTargetSession.csrfToken)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'CSRF_INVALID_TOKEN',
+        message: 'CSRF token is invalid',
+      });
+    await otherSession.agent.get('/auth/session').expect(HttpStatus.OK);
+
+    const oldLoginAgent = request.agent(app);
+    const oldLoginCsrf = await oldLoginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(oldLoginCsrf.headers['set-cookie']?.[0]));
+    await oldLoginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', oldLoginCsrf.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password: oldPassword })
+      .expect(HttpStatus.UNAUTHORIZED);
+
+    const temporaryLoginAgent = request.agent(app);
+    const temporaryLoginCsrf = await temporaryLoginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(temporaryLoginCsrf.headers['set-cookie']?.[0]),
+    );
+    const temporaryLogin = await temporaryLoginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', temporaryLoginCsrf.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password: temporaryPassword })
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(temporaryLogin.headers['set-cookie']?.[0]));
+    expect(temporaryLogin.body).toMatchObject({
+      id: employee.usuario!.id,
+      deveAlterarSenha: true,
+    });
+    await temporaryLoginAgent
+      .get('/employees')
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+    const firstAccessCsrf = await temporaryLoginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    const firstAccessResponse = await temporaryLoginAgent
+      .post('/auth/first-access/password')
+      .set('X-CSRF-Token', firstAccessCsrf.body.csrfToken as string)
+      .send({
+        password: personalPassword,
+        passwordConfirmation: personalPassword,
+      })
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(firstAccessResponse.headers['set-cookie']?.[0]),
+    );
+    expect(firstAccessResponse.body).toMatchObject({ deveAlterarSenha: false });
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      }),
+    ).resolves.toMatchObject({ deveAlterarSenha: false });
+
+    const obsoleteTemporaryAgent = request.agent(app);
+    const obsoleteTemporaryCsrf = await obsoleteTemporaryAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(obsoleteTemporaryCsrf.headers['set-cookie']?.[0]),
+    );
+    await obsoleteTemporaryAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', obsoleteTemporaryCsrf.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password: temporaryPassword })
+      .expect(HttpStatus.UNAUTHORIZED);
+    const personalLoginAgent = request.agent(app);
+    const personalLoginCsrf = await personalLoginAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(personalLoginCsrf.headers['set-cookie']?.[0]));
+    const personalLogin = await personalLoginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', personalLoginCsrf.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password: personalPassword })
+      .expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(personalLogin.headers['set-cookie']?.[0]));
+    expect(personalLogin.body).toMatchObject({ deveAlterarSenha: false });
+  });
+
+  it.each([8, 128])(
+    'accepts a temporary password with exactly %i characters',
+    async (length) => {
+      const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+      const employee = await createEmployeeFixture({ conta: {} });
+      const temporaryPassword = 'a'.repeat(length);
+
+      await agent
+        .patch(`/employees/${employee.id}/account/password`)
+        .set('X-CSRF-Token', csrfToken)
+        .send(
+          resetEmployeeAccessPasswordBody({
+            temporaryPassword,
+            confirmPassword: temporaryPassword,
+          }),
+        )
+        .expect(HttpStatus.OK);
+      await expect(
+        passwordService.verify(
+          (
+            await database.usuario.findUniqueOrThrow({
+              where: { id: employee.usuario!.id },
+            })
+          ).senhaHash,
+          temporaryPassword,
+        ),
+      ).resolves.toBe(true);
+    },
+  );
+
+  it.each([
+    [
+      'seven characters',
+      crypto.randomUUID(),
+      { temporaryPassword: 'a'.repeat(7), confirmPassword: 'a'.repeat(7) },
+    ],
+    [
+      '129 characters',
+      crypto.randomUUID(),
+      { temporaryPassword: 'a'.repeat(129), confirmPassword: 'a'.repeat(129) },
+    ],
+    [
+      'different confirmation',
+      crypto.randomUUID(),
+      { confirmPassword: 'senha temporária diferente' },
+    ],
+    ['unexpected field', crypto.randomUUID(), { ativo: false }],
+    ['invalid id', 'not-a-uuid', {}],
+  ])('rejects password reset with %s', async (_description, id, overrides) => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+
+    await agent
+      .patch(`/employees/${id}/account/password`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(resetEmployeeAccessPasswordBody(overrides))
+      .expect(HttpStatus.BAD_REQUEST)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          statusCode: HttpStatus.BAD_REQUEST,
+          code: 'VALIDATION_ERROR',
+          message: 'Validation failed',
+        });
+      });
+  });
+
+  it('returns stable not-found errors without creating an account when resetting a password', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employeeWithoutAccount = await createEmployeeFixture();
+
+    await agent
+      .patch(`/employees/${crypto.randomUUID()}/account/password`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_NOT_FOUND',
+        message: 'Employee not found',
+      });
+    await agent
+      .patch(`/employees/${employeeWithoutAccount.id}/account/password`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'EMPLOYEE_ACCESS_NOT_FOUND',
+        message: 'Employee access account not found',
+      });
+    await expect(
+      database.usuario.findUnique({
+        where: { funcionarioId: employeeWithoutAccount.id },
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it('requires session, completed first access, administrator role, and valid CSRF to reset a password', async () => {
+    const target = await createEmployeeFixture({ conta: {} });
+    const unauthenticatedAgent = request.agent(app);
+    const unauthenticatedCsrf = await unauthenticatedAgent
+      .get('/auth/csrf')
+      .expect(HttpStatus.OK);
+    sessionIds.push(
+      getSessionId(unauthenticatedCsrf.headers['set-cookie']?.[0]),
+    );
+
+    await unauthenticatedAgent
+      .patch(`/employees/${target.id}/account/password`)
+      .set('X-CSRF-Token', unauthenticatedCsrf.body.csrfToken as string)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.UNAUTHORIZED);
+    const pending = await createAuthenticatedAgentWithCsrf({
+      deveAlterarSenha: true,
+    });
+    await pending.agent
+      .patch(`/employees/${target.id}/account/password`)
+      .set('X-CSRF-Token', pending.csrfToken)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'AUTH_PASSWORD_CHANGE_REQUIRED' });
+      });
+    const employeeAgent = await createAuthenticatedAgentWithCsrf({
+      perfil: 'FUNCIONARIO',
+    });
+    await employeeAgent.agent
+      .patch(`/employees/${target.id}/account/password`)
+      .set('X-CSRF-Token', employeeAgent.csrfToken)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'AUTH_FORBIDDEN' });
+      });
+    const administrator = await createAuthenticatedAgent();
+    await administrator
+      .patch(`/employees/${target.id}/account/password`)
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'CSRF_INVALID_TOKEN' });
+      });
+    await administrator
+      .patch(`/employees/${target.id}/account/password`)
+      .set('X-CSRF-Token', 'invalid-token')
+      .send(resetEmployeeAccessPasswordBody())
+      .expect(HttpStatus.FORBIDDEN)
+      .expect(({ body }) => {
+        expect(body).toMatchObject({ code: 'CSRF_INVALID_TOKEN' });
+      });
+  });
+
+  it('resets an inactive account password without reactivating its account or employee', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const temporaryPassword = 'senha de conta inativa';
+    const employee = await createEmployeeFixture({
+      ativo: false,
+      conta: { ativo: false, deveAlterarSenha: false },
+    });
+    const employeeBefore = await database.funcionario.findUniqueOrThrow({
+      where: { id: employee.id },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const staleSession = await createSessionForUser(employee.usuario!.id);
+
+    await agent
+      .patch(`/employees/${employee.id}/account/password`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        resetEmployeeAccessPasswordBody({
+          temporaryPassword,
+          confirmPassword: temporaryPassword,
+        }),
+      )
+      .expect(HttpStatus.OK);
+    const accountAfter = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+
+    expect(accountAfter).toMatchObject({
+      ...accountBefore,
+      senhaHash: expect.any(String),
+      deveAlterarSenha: true,
+    });
+    expect(accountAfter.senhaHash).not.toBe(accountBefore.senhaHash);
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        staleSession.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+
+    const loginAgent = request.agent(app);
+    const loginCsrf = await loginAgent.get('/auth/csrf').expect(HttpStatus.OK);
+    sessionIds.push(getSessionId(loginCsrf.headers['set-cookie']?.[0]));
+    await loginAgent
+      .post('/auth/login')
+      .set('X-CSRF-Token', loginCsrf.body.csrfToken as string)
+      .send({ email: accountBefore.emailLogin, password: temporaryPassword })
+      .expect(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('allows an administrator to reset their own password and revokes the current session', async () => {
+    const temporaryPassword = 'senha temporária própria';
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR', deveAlterarSenha: false },
+    });
+    const session = await createSessionForUser(employee.usuario!.id);
+
+    const response = await session.agent
+      .patch(`/employees/${employee.id}/account/password`)
+      .set('X-CSRF-Token', session.csrfToken)
+      .send(
+        resetEmployeeAccessPasswordBody({
+          temporaryPassword,
+          confirmPassword: temporaryPassword,
+        }),
+      )
+      .expect(HttpStatus.OK);
+
+    expect(response.body.conta).toMatchObject({ perfil: 'ADMINISTRADOR' });
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { id: employee.usuario!.id },
+      }),
+    ).resolves.toMatchObject({ deveAlterarSenha: true });
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        session.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await session.agent.get('/auth/session').expect(HttpStatus.UNAUTHORIZED);
+  });
+
+  it('treats a repeated temporary password as a new security reset', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const temporaryPassword = 'senha temporária repetida';
+    const employee = await createEmployeeFixture({
+      conta: {
+        senhaHash: await passwordService.hash(temporaryPassword),
+        deveAlterarSenha: true,
+      },
+    });
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+    const session = await createSessionForUser(employee.usuario!.id);
+
+    await agent
+      .patch(`/employees/${employee.id}/account/password`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        resetEmployeeAccessPasswordBody({
+          temporaryPassword,
+          confirmPassword: temporaryPassword,
+        }),
+      )
+      .expect(HttpStatus.OK);
+    const accountAfter = await database.usuario.findUniqueOrThrow({
+      where: { id: employee.usuario!.id },
+    });
+
+    expect(accountAfter.senhaHash).not.toBe(accountBefore.senhaHash);
+    expect(accountAfter.deveAlterarSenha).toBe(true);
+    await expect(
+      passwordService.verify(accountAfter.senhaHash, temporaryPassword),
+    ).resolves.toBe(true);
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        session.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+  });
+
   it('documents employee creation, account management, registration and status updates, reads, and nullable account DTOs in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
@@ -3407,6 +3878,8 @@ describe('EmployeesController', () => {
       response.body.paths['/employees/{id}/account/profile'].patch;
     const accountLoginEmailUpdateOperation =
       response.body.paths['/employees/{id}/account/login-email'].patch;
+    const accountPasswordResetOperation =
+      response.body.paths['/employees/{id}/account/password'].patch;
     const detailOperation = response.body.paths['/employees/{id}'].get;
     const updateOperation = response.body.paths['/employees/{id}'].put;
     const statusUpdateOperation =
@@ -3431,6 +3904,9 @@ describe('EmployeesController', () => {
     ).toEqual(['patch']);
     expect(
       Object.keys(response.body.paths['/employees/{id}/account/login-email']),
+    ).toEqual(['patch']);
+    expect(
+      Object.keys(response.body.paths['/employees/{id}/account/password']),
     ).toEqual(['patch']);
     expect(createOperation.parameters).toEqual(
       expect.arrayContaining([
@@ -3624,6 +4100,48 @@ describe('EmployeesController', () => {
     expect(
       accountLoginEmailUpdateOperation.responses['409'].description,
     ).toContain('LOGIN_EMAIL_ALREADY_EXISTS');
+    expect(accountPasswordResetOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      accountPasswordResetOperation.requestBody.content['application/json']
+        .schema,
+    ).toEqual({
+      type: 'object',
+      additionalProperties: false,
+      required: ['temporaryPassword', 'confirmPassword'],
+      properties: {
+        temporaryPassword: {
+          type: 'string',
+          format: 'password',
+          minLength: 8,
+          maxLength: 128,
+        },
+        confirmPassword: {
+          type: 'string',
+          format: 'password',
+          minLength: 8,
+          maxLength: 128,
+        },
+      },
+    });
+    for (const status of ['200', '400', '401', '403', '404']) {
+      expect(accountPasswordResetOperation.responses).toHaveProperty(status);
+    }
+    expect(accountPasswordResetOperation.description).toContain('sem trim');
+    expect(
+      accountPasswordResetOperation.responses['404'].description,
+    ).toContain('EMPLOYEE_NOT_FOUND');
+    expect(
+      accountPasswordResetOperation.responses['404'].description,
+    ).toContain('EMPLOYEE_ACCESS_NOT_FOUND');
     expect(updateOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

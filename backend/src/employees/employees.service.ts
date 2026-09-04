@@ -15,6 +15,7 @@ import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
 import type { EmployeeAccessProfileUpdateInput } from './employee-access-profile-update.schema.js';
 import type { EmployeeAccessLoginEmailUpdateInput } from './employee-access-login-email-update.schema.js';
+import type { EmployeeAccessPasswordResetInput } from './employee-access-password-reset.schema.js';
 import type { EmployeeAccessStatusUpdateInput } from './employee-access-status-update.schema.js';
 import { EmployeeDetailResponse } from './employee-detail-response.dto.js';
 import type { EmployeeListQuery } from './employee-list-query.schema.js';
@@ -299,6 +300,35 @@ export class EmployeesService {
 
       throw error;
     }
+  }
+
+  async resetAccessPassword(
+    employeeId: string,
+    { temporaryPassword }: EmployeeAccessPasswordResetInput,
+  ): Promise<EmployeeDetailResponse> {
+    const employee = await this.database.funcionario.findUnique({
+      where: { id: employeeId },
+      select: employeeStatusSelect,
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (!employee.usuario) {
+      throw new NotFoundException(EMPLOYEE_ACCESS_NOT_FOUND_ERROR);
+    }
+
+    const senhaHash = await this.passwordService.hash(temporaryPassword);
+    const account = await this.database.usuario.update({
+      where: { id: employee.usuario.id },
+      data: { senhaHash, deveAlterarSenha: true },
+      select: { funcionario: { select: employeeDetailSelect } },
+    });
+
+    await this.sessionStoreService.revokeUserSessions(employee.usuario.id);
+
+    return toEmployeeDetail(account.funcionario);
   }
 
   async findAll({

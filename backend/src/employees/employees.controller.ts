@@ -44,6 +44,10 @@ import {
   type EmployeeAccessLoginEmailUpdateInput,
 } from './employee-access-login-email-update.schema.js';
 import {
+  employeeAccessPasswordResetSchema,
+  type EmployeeAccessPasswordResetInput,
+} from './employee-access-password-reset.schema.js';
+import {
   employeeAccessStatusUpdateSchema,
   type EmployeeAccessStatusUpdateInput,
 } from './employee-access-status-update.schema.js';
@@ -362,6 +366,64 @@ export class EmployeesController {
     input: EmployeeAccessLoginEmailUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.updateAccessLoginEmail(id, input);
+  }
+
+  @Patch(':id/account/password')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({
+    summary: 'Redefine administrativamente a senha da conta de acesso',
+    description:
+      'A senha temporária é um valor exato, sem trim ou outra normalização. Uma redefinição sempre gera novo hash, exige troca obrigatória no próximo login e revoga todas as sessões da conta.',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['temporaryPassword', 'confirmPassword'],
+      properties: {
+        temporaryPassword: {
+          type: 'string',
+          format: 'password',
+          minLength: 8,
+          maxLength: 128,
+        },
+        confirmPassword: {
+          type: 'string',
+          format: 'password',
+          minLength: 8,
+          maxLength: 128,
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: EmployeeDetailResponse,
+    description:
+      'Senha redefinida sem modificar cadastro, situação, perfil ou e-mail de login. A resposta não expõe credenciais.',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Identificador inválido, senha fora de 8 a 128 caracteres ou confirmação diferente.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Funcionário não encontrado (EMPLOYEE_NOT_FOUND) ou sem conta de acesso (EMPLOYEE_ACCESS_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  resetAccessPassword(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeAccessPasswordResetSchema))
+    input: EmployeeAccessPasswordResetInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.resetAccessPassword(id, input);
   }
 
   @Put(':id')
