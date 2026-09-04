@@ -436,11 +436,11 @@ Protege alterações não salvas, bloqueia envios duplicados, sincroniza o cache
 
 Carrega o Funcionário real da rota com TanStack Query, incluindo skeleton, erro com retry e estado específico para `EMPLOYEE_NOT_FOUND`.
 
-Atualiza nome, telefone e e-mail de contato por `PUT`, a situação do Funcionário por `PATCH` separado e os campos independentes da conta por `PATCH /employees/:id/account/status`, `PATCH /employees/:id/account/profile` e `PATCH /employees/:id/account/login-email`; cada mutation sincroniza o detalhe e invalida as listagens.
+Atualiza nome, telefone e e-mail de contato por `PUT`, a situação do Funcionário por `PATCH` separado e os campos independentes da conta por `PATCH /employees/:id/account/status`, `PATCH /employees/:id/account/profile`, `PATCH /employees/:id/account/login-email` e `PATCH /employees/:id/account/password`; as mutations que alteram dados visíveis sincronizam o detalhe e invalidam as listagens.
 
-O formulário editável de acesso contém somente o e-mail de login e reseta para a resposta normalizada da API após persistir; perfil e situação seguem seus controles independentes. A redefinição administrativa de senha permanece fora da integração.
+O formulário editável de acesso contém somente o e-mail de login e reseta para a resposta normalizada da API após persistir; perfil e situação seguem seus controles independentes. A redefinição administrativa de senha usa formulário, schema e mutation próprios, mantém a senha somente no estado local, preserva espaços e limpa os campos após sucesso, sem invalidar listagens que a resposta não altera.
 
-Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. O perfil exibido sempre vem do cache do detalhe, aguarda a resposta do backend e trata `LAST_ACTIVE_ADMIN_REQUIRED`; a redefinição administrativa de senha continua mockada.
+Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. O perfil exibido sempre vem do cache do detalhe, aguarda a resposta do backend e trata `LAST_ACTIVE_ADMIN_REQUIRED`.
 
 Mantém separados e-mail de contato e e-mail de login e protege alterações pendentes.
 
@@ -466,7 +466,7 @@ Define com Zod as validações e normalizações reutilizadas nos dados cadastra
 
 ### 8. `frontend/src/features/employees/schemas/employeeAccessSchema.ts`
 
-Define com Zod as validações reutilizadas de criação de conta e alteração do e-mail de login.
+Define com Zod as validações reutilizadas de criação de conta, alteração do e-mail de login e redefinição administrativa de senha. A política de senha preserva o valor exato, inclusive espaços, entre 8 e 128 caracteres.
 
 Inclui normalização do e-mail de login, perfil e confirmação da senha temporária exigidos na criação.
 

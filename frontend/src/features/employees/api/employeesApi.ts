@@ -9,6 +9,7 @@ import type {
 } from '../types/employee'
 import type { EmployeeFormValues } from '../schemas/employeeSchema'
 import type { EmployeeAccessCreationFormValues } from '../schemas/employeeAccessSchema'
+import type { EmployeeAccessPasswordResetFormValues } from '../schemas/employeeAccessSchema'
 
 type EmployeeListParams = {
   status?: EmployeeStatus | 'all'
@@ -80,6 +81,11 @@ type EmployeeAccessProfileUpdateRequest = {
 type EmployeeAccessLoginEmailUpdateRequest = {
   loginEmail: string
 }
+
+type EmployeeAccessPasswordResetRequest = Pick<
+  EmployeeAccessPasswordResetFormValues,
+  'temporaryPassword' | 'confirmPassword'
+>
 
 type EmployeeAccessCreateHttpBody = Pick<
   EmployeeAccessCreationFormValues,
@@ -251,11 +257,28 @@ async function updateEmployeeAccessLoginEmail(
   return toEmployee(data)
 }
 
+async function resetEmployeeAccessPassword(
+  id: string,
+  values: EmployeeAccessPasswordResetFormValues,
+): Promise<Employee> {
+  const body: EmployeeAccessPasswordResetRequest = {
+    temporaryPassword: values.temporaryPassword,
+    confirmPassword: values.confirmPassword,
+  }
+  const { data } = await apiClient.patch<EmployeeHttpResponse>(
+    `/employees/${id}/account/password`,
+    body,
+  )
+
+  return toEmployee(data)
+}
+
 export {
   createEmployee,
   createEmployeeAccess,
   getEmployee,
   listEmployees,
+  resetEmployeeAccessPassword,
   toEmployee,
   toEmployeeListItem,
   updateEmployee,
@@ -267,6 +290,7 @@ export {
 export type {
   EmployeeAccessCreateHttpBody,
   EmployeeAccessLoginEmailUpdateRequest,
+  EmployeeAccessPasswordResetRequest,
   EmployeeAccessProfileUpdateRequest,
   EmployeeAccessStatusUpdateRequest,
   EmployeeCreateHttpBody,

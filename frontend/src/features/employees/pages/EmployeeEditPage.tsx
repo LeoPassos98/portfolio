@@ -21,6 +21,7 @@ import { employeesQueryKeys } from '../api/employeeQueryKeys'
 import {
   createEmployeeAccess,
   getEmployee,
+  resetEmployeeAccessPassword,
   updateEmployee,
   updateEmployeeAccessLoginEmail,
   updateEmployeeAccessProfile,
@@ -42,9 +43,12 @@ import {
 } from '../schemas/employeeSchema'
 import {
   employeeAccessCreationSchema,
+  employeeAccessPasswordResetSchema,
   employeeAccessUpdateSchema,
   type EmployeeAccessCreationFormData,
   type EmployeeAccessCreationFormValues,
+  type EmployeeAccessPasswordResetFormData,
+  type EmployeeAccessPasswordResetFormValues,
   type EmployeeAccessUpdateFormData,
   type EmployeeAccessUpdateFormValues,
 } from '../schemas/employeeAccessSchema'
@@ -107,6 +111,9 @@ function EmployeeEditPage() {
     null,
   )
   const [accessLoginEmailError, setAccessLoginEmailError] = useState<
+    string | null
+  >(null)
+  const [accessPasswordResetError, setAccessPasswordResetError] = useState<
     string | null
   >(null)
   const [accessCreationMessage, setAccessCreationMessage] = useState<
@@ -180,8 +187,31 @@ function EmployeeEditPage() {
       loginEmail: '',
     },
   })
+  const {
+    clearErrors: clearAccessPasswordResetErrors,
+    register: registerAccessPasswordReset,
+    handleSubmit: handleSubmitAccessPasswordReset,
+    reset: resetAccessPasswordReset,
+    formState: {
+      errors: accessPasswordResetErrors,
+      isDirty: isAccessPasswordResetDirty,
+    },
+  } = useForm<
+    EmployeeAccessPasswordResetFormData,
+    unknown,
+    EmployeeAccessPasswordResetFormValues
+  >({
+    resolver: zodResolver(employeeAccessPasswordResetSchema),
+    defaultValues: {
+      temporaryPassword: '',
+      confirmPassword: '',
+    },
+  })
   const { confirmationDialog } = useUnsavedChangesGuard(
-    isEmployeeDirty || isAccessCreationDirty || isAccessUpdateDirty,
+    isEmployeeDirty ||
+      isAccessCreationDirty ||
+      isAccessUpdateDirty ||
+      isAccessPasswordResetDirty,
   )
 
   const updateMutation = useMutation({
@@ -207,6 +237,10 @@ function EmployeeEditPage() {
   const createAccessMutation = useMutation({
     mutationFn: (values: EmployeeAccessCreationFormValues) =>
       createEmployeeAccess(employeeId!, values),
+  })
+  const accessPasswordResetMutation = useMutation({
+    mutationFn: (values: EmployeeAccessPasswordResetFormValues) =>
+      resetEmployeeAccessPassword(employeeId!, values),
   })
 
   async function synchronizeEmployee(updatedEmployee: Employee) {
@@ -515,6 +549,65 @@ function EmployeeEditPage() {
     }
   }
 
+  async function onResetAccessPassword(
+    values: EmployeeAccessPasswordResetFormValues,
+  ) {
+    if (
+      !employeeId ||
+      !employee?.access ||
+      accessPasswordResetMutation.isPending
+    ) {
+      return
+    }
+
+    setAccessPasswordResetError(null)
+    clearAccessPasswordResetErrors()
+
+    try {
+      const updatedEmployee =
+        await accessPasswordResetMutation.mutateAsync(values)
+
+      queryClient.setQueryData(
+        employeesQueryKeys.detail(updatedEmployee.id),
+        updatedEmployee,
+      )
+      resetAccessPasswordReset()
+      showSuccess(
+        'A senha temporária foi redefinida. O usuário deverá alterá-la no próximo acesso.',
+      )
+    } catch (accessPasswordResetMutationError) {
+      if (
+        isEmployeeApiError(
+          accessPasswordResetMutationError,
+          'EMPLOYEE_ACCESS_NOT_FOUND',
+        )
+      ) {
+        setAccessPasswordResetError(
+          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      if (
+        isEmployeeApiError(
+          accessPasswordResetMutationError,
+          'EMPLOYEE_NOT_FOUND',
+        )
+      ) {
+        setAccessPasswordResetError(
+          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
+        )
+        await refetch()
+        return
+      }
+
+      setAccessPasswordResetError(
+        'Não foi possível redefinir a senha temporária. Tente novamente.',
+      )
+    }
+  }
+
   if (!employeeId || isEmployeeApiError(error, 'EMPLOYEE_NOT_FOUND')) {
     return (
       <AppLayout>
@@ -737,144 +830,241 @@ function EmployeeEditPage() {
         )}
 
         {employee.access ? (
-          <form
-            noValidate
-            className="mt-4"
-            onSubmit={handleSubmitAccessUpdate(onUpdateAccess)}
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="employee-login-email">E-mail de login</Label>
-                <Input
-                  id="employee-login-email"
-                  type="email"
-                  autoCapitalize="none"
-                  autoComplete="username"
-                  aria-invalid={Boolean(accessUpdateErrors.loginEmail)}
-                  aria-required="true"
-                  aria-describedby={
-                    accessUpdateErrors.loginEmail || accessLoginEmailError
-                      ? 'employee-login-email-error'
-                      : undefined
-                  }
-                  disabled={accessLoginEmailMutation.isPending}
-                  {...registerAccessUpdate('loginEmail')}
-                />
-                {accessUpdateErrors.loginEmail?.message && (
-                  <p
-                    id="employee-login-email-error"
-                    className="text-error text-sm"
-                  >
-                    {accessUpdateErrors.loginEmail.message}
-                  </p>
-                )}
-                {accessLoginEmailError && (
-                  <p
-                    id="employee-login-email-error"
-                    role="alert"
-                    className="text-error text-sm"
-                  >
-                    {accessLoginEmailError}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="employee-profile">Perfil</Label>
-                <Select
-                  id="employee-profile"
-                  value={employee.access.profile}
-                  disabled={accessProfileMutation.isPending}
-                  aria-invalid={Boolean(accessProfileError)}
-                  aria-required="true"
-                  aria-describedby={
-                    accessProfileError
-                      ? 'employee-access-profile-error'
-                      : undefined
-                  }
-                  onChange={(event) => {
-                    const profile = event.target.value as EmployeeAccessProfile
-
-                    void handleAccessProfileChange(profile)
-                  }}
-                >
-                  <option value="employee">Funcionário</option>
-                  <option value="administrator">Administrador</option>
-                </Select>
-                {accessProfileMutation.isPending && (
-                  <p className="text-neutral text-sm">Atualizando perfil...</p>
-                )}
-                {accessProfileError && (
-                  <p
-                    id="employee-access-profile-error"
-                    role="alert"
-                    className="text-error text-sm"
-                  >
-                    {accessProfileError}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="employee-access-status">
-                  Situação da conta
-                </Label>
-                <Select
-                  id="employee-access-status"
-                  value={currentEmployeeAccessStatus ?? 'inactive'}
-                  disabled={
-                    !accessStatusAvailability.canChangeAccessStatus ||
-                    accessStatusMutation.isPending
-                  }
-                  aria-invalid={Boolean(accessStatusError)}
-                  aria-required="true"
-                  aria-describedby={
-                    employeeAccessStatusDescriptionIds || undefined
-                  }
-                  onChange={(event) => {
-                    const status = event.target.value as EmployeeAccessStatus
-
-                    void handleAccessStatusChange(status)
-                  }}
-                >
-                  <option value="active">Ativa</option>
-                  <option value="inactive">Inativa</option>
-                </Select>
-                {accessStatusMutation.isPending && (
-                  <p className="text-neutral text-sm">
-                    Atualizando situação da conta...
-                  </p>
-                )}
-                {accessStatusError && (
-                  <p
-                    id="employee-access-status-error"
-                    role="alert"
-                    className="text-error text-sm"
-                  >
-                    {accessStatusError}
-                  </p>
-                )}
-                {accessStatusAvailability.description && (
-                  <p
-                    id="employee-access-status-description"
-                    className="text-neutral text-sm"
-                  >
-                    {accessStatusAvailability.description}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <Button
+          <>
+            <form
+              noValidate
               className="mt-4"
-              type="submit"
-              disabled={accessLoginEmailMutation.isPending}
+              onSubmit={handleSubmitAccessUpdate(onUpdateAccess)}
             >
-              {accessLoginEmailMutation.isPending
-                ? 'Salvando e-mail...'
-                : 'Salvar e-mail de login'}
-            </Button>
-          </form>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="employee-login-email">E-mail de login</Label>
+                  <Input
+                    id="employee-login-email"
+                    type="email"
+                    autoCapitalize="none"
+                    autoComplete="username"
+                    aria-invalid={Boolean(accessUpdateErrors.loginEmail)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessUpdateErrors.loginEmail || accessLoginEmailError
+                        ? 'employee-login-email-error'
+                        : undefined
+                    }
+                    disabled={accessLoginEmailMutation.isPending}
+                    {...registerAccessUpdate('loginEmail')}
+                  />
+                  {accessUpdateErrors.loginEmail?.message && (
+                    <p
+                      id="employee-login-email-error"
+                      className="text-error text-sm"
+                    >
+                      {accessUpdateErrors.loginEmail.message}
+                    </p>
+                  )}
+                  {accessLoginEmailError && (
+                    <p
+                      id="employee-login-email-error"
+                      role="alert"
+                      className="text-error text-sm"
+                    >
+                      {accessLoginEmailError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="employee-profile">Perfil</Label>
+                  <Select
+                    id="employee-profile"
+                    value={employee.access.profile}
+                    disabled={accessProfileMutation.isPending}
+                    aria-invalid={Boolean(accessProfileError)}
+                    aria-required="true"
+                    aria-describedby={
+                      accessProfileError
+                        ? 'employee-access-profile-error'
+                        : undefined
+                    }
+                    onChange={(event) => {
+                      const profile = event.target
+                        .value as EmployeeAccessProfile
+
+                      void handleAccessProfileChange(profile)
+                    }}
+                  >
+                    <option value="employee">Funcionário</option>
+                    <option value="administrator">Administrador</option>
+                  </Select>
+                  {accessProfileMutation.isPending && (
+                    <p className="text-neutral text-sm">
+                      Atualizando perfil...
+                    </p>
+                  )}
+                  {accessProfileError && (
+                    <p
+                      id="employee-access-profile-error"
+                      role="alert"
+                      className="text-error text-sm"
+                    >
+                      {accessProfileError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="employee-access-status">
+                    Situação da conta
+                  </Label>
+                  <Select
+                    id="employee-access-status"
+                    value={currentEmployeeAccessStatus ?? 'inactive'}
+                    disabled={
+                      !accessStatusAvailability.canChangeAccessStatus ||
+                      accessStatusMutation.isPending
+                    }
+                    aria-invalid={Boolean(accessStatusError)}
+                    aria-required="true"
+                    aria-describedby={
+                      employeeAccessStatusDescriptionIds || undefined
+                    }
+                    onChange={(event) => {
+                      const status = event.target.value as EmployeeAccessStatus
+
+                      void handleAccessStatusChange(status)
+                    }}
+                  >
+                    <option value="active">Ativa</option>
+                    <option value="inactive">Inativa</option>
+                  </Select>
+                  {accessStatusMutation.isPending && (
+                    <p className="text-neutral text-sm">
+                      Atualizando situação da conta...
+                    </p>
+                  )}
+                  {accessStatusError && (
+                    <p
+                      id="employee-access-status-error"
+                      role="alert"
+                      className="text-error text-sm"
+                    >
+                      {accessStatusError}
+                    </p>
+                  )}
+                  {accessStatusAvailability.description && (
+                    <p
+                      id="employee-access-status-description"
+                      className="text-neutral text-sm"
+                    >
+                      {accessStatusAvailability.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <Button
+                className="mt-4"
+                type="submit"
+                disabled={accessLoginEmailMutation.isPending}
+              >
+                {accessLoginEmailMutation.isPending
+                  ? 'Salvando e-mail...'
+                  : 'Salvar e-mail de login'}
+              </Button>
+            </form>
+
+            <form
+              noValidate
+              className="mt-8 border-t border-neutral-bg pt-6"
+              onSubmit={handleSubmitAccessPasswordReset(onResetAccessPassword)}
+            >
+              <h3 className="text-foreground font-bold">
+                Redefinição de senha
+              </h3>
+              <p className="text-neutral mt-1 text-sm">
+                Defina uma senha temporária. O usuário deverá alterá-la no
+                próximo acesso.
+              </p>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="employee-temporary-password">
+                    Nova senha temporária
+                  </Label>
+                  <Input
+                    id="employee-temporary-password"
+                    type="password"
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(
+                      accessPasswordResetErrors.temporaryPassword,
+                    )}
+                    aria-required="true"
+                    aria-describedby={
+                      accessPasswordResetErrors.temporaryPassword
+                        ? 'employee-temporary-password-error'
+                        : undefined
+                    }
+                    disabled={accessPasswordResetMutation.isPending}
+                    {...registerAccessPasswordReset('temporaryPassword')}
+                  />
+                  {accessPasswordResetErrors.temporaryPassword?.message && (
+                    <p
+                      id="employee-temporary-password-error"
+                      className="text-error text-sm"
+                    >
+                      {accessPasswordResetErrors.temporaryPassword.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="employee-temporary-password-confirmation">
+                    Confirmação da senha temporária
+                  </Label>
+                  <Input
+                    id="employee-temporary-password-confirmation"
+                    type="password"
+                    autoComplete="new-password"
+                    aria-invalid={Boolean(
+                      accessPasswordResetErrors.confirmPassword,
+                    )}
+                    aria-required="true"
+                    aria-describedby={
+                      accessPasswordResetErrors.confirmPassword
+                        ? 'employee-temporary-password-confirmation-error'
+                        : undefined
+                    }
+                    disabled={accessPasswordResetMutation.isPending}
+                    {...registerAccessPasswordReset('confirmPassword')}
+                  />
+                  {accessPasswordResetErrors.confirmPassword?.message && (
+                    <p
+                      id="employee-temporary-password-confirmation-error"
+                      className="text-error text-sm"
+                    >
+                      {accessPasswordResetErrors.confirmPassword.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {accessPasswordResetError && (
+                <p role="alert" className="text-error mt-4 text-sm">
+                  {accessPasswordResetError}
+                </p>
+              )}
+
+              <Button
+                className="mt-4"
+                type="submit"
+                disabled={accessPasswordResetMutation.isPending}
+              >
+                {accessPasswordResetMutation.isPending
+                  ? 'Redefinindo senha...'
+                  : 'Redefinir senha temporária'}
+              </Button>
+            </form>
+          </>
         ) : (
           <form
             noValidate

@@ -31,6 +31,16 @@ const employeeAccessCreationSchema = z
     path: ['confirmPassword'],
   })
 
+const employeeAccessPasswordResetSchema = z
+  .object({
+    temporaryPassword: temporaryPasswordSchema,
+    confirmPassword: z.string().min(1, 'Confirme a senha temporária'),
+  })
+  .refine((data) => data.temporaryPassword === data.confirmPassword, {
+    message: 'As senhas devem ser iguais',
+    path: ['confirmPassword'],
+  })
+
 type EmployeeAccessCreationFormData = z.input<
   typeof employeeAccessCreationSchema
 >
@@ -41,11 +51,23 @@ type EmployeeAccessUpdateFormData = z.input<typeof employeeAccessUpdateSchema>
 type EmployeeAccessUpdateFormValues = z.output<
   typeof employeeAccessUpdateSchema
 >
+type EmployeeAccessPasswordResetFormData = z.input<
+  typeof employeeAccessPasswordResetSchema
+>
+type EmployeeAccessPasswordResetFormValues = z.output<
+  typeof employeeAccessPasswordResetSchema
+>
 
-export { employeeAccessCreationSchema, employeeAccessUpdateSchema }
+export {
+  employeeAccessCreationSchema,
+  employeeAccessPasswordResetSchema,
+  employeeAccessUpdateSchema,
+}
 export type {
   EmployeeAccessCreationFormData,
   EmployeeAccessCreationFormValues,
+  EmployeeAccessPasswordResetFormData,
+  EmployeeAccessPasswordResetFormValues,
   EmployeeAccessUpdateFormData,
   EmployeeAccessUpdateFormValues,
 }
