@@ -428,9 +428,9 @@ A situação do cadastro e da conta permanecem distintas.
 
 ### 2. `frontend/src/features/employees/pages/EmployeeCreatePage.tsx`
 
-Implementa no `AppLayout` o cadastro responsivo de Funcionário com React Hook Form e Zod.
+Implementa no `AppLayout` o cadastro responsivo de Funcionário com React Hook Form, Zod e mutation TanStack Query para `POST /employees`.
 
-Protege alterações não salvas; a conta de acesso continua separada.
+Protege alterações não salvas, bloqueia envios duplicados, sincroniza o cache de detalhe/listagens, apresenta feedback de sucesso ou erro compreensível e navega após persistir. A conta de acesso continua separada.
 
 ### 3. `frontend/src/features/employees/pages/EmployeeEditPage.tsx`
 
@@ -482,9 +482,9 @@ Centraliza a verificação mockada que impede remover a última conta ativa de A
 
 ### 12. `frontend/src/features/employees/api/employeesApi.ts`
 
-Concentra as consultas tipadas de listagem e detalhe de Funcionários na instância Axios compartilhada.
+Concentra as consultas e a criação tipadas de Funcionários na instância Axios compartilhada.
 
-Separa os contratos HTTP do NestJS dos modelos React e mapeia a conta opcional; `loginEmail` só existe no detalhe, onde a API o fornece.
+Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e traduz o formulário de criação para o contrato HTTP; `loginEmail` só existe no detalhe, onde a API o fornece.
 
 ### 13. `frontend/src/features/employees/api/employeeQueryKeys.ts`
 

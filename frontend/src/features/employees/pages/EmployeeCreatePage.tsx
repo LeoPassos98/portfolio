@@ -1,12 +1,17 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
+import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
+import { employeesQueryKeys } from '../api/employeeQueryKeys'
+import { createEmployee } from '../api/employeesApi'
 import {
   employeeSchema,
   type EmployeeFormData,
@@ -14,9 +19,14 @@ import {
 } from '../schemas/employeeSchema'
 
 function EmployeeCreatePage() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { showSuccess } = useSuccessFeedback()
+  const [formError, setFormError] = useState<string | null>(null)
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isDirty },
   } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -27,12 +37,31 @@ function EmployeeCreatePage() {
       status: 'active',
     },
   })
-  const { confirmationDialog, requestNavigation } = useUnsavedChangesGuard(
-    isDirty,
-  )
+  const { confirmationDialog } = useUnsavedChangesGuard(isDirty)
+  const createMutation = useMutation({
+    mutationFn: (values: EmployeeFormValues) => createEmployee(values),
+  })
 
-  function onSubmit() {
-    requestNavigation('/employees')
+  async function onSubmit(values: EmployeeFormValues) {
+    if (createMutation.isPending) {
+      return
+    }
+
+    setFormError(null)
+
+    try {
+      const employee = await createMutation.mutateAsync(values)
+
+      queryClient.setQueryData(employeesQueryKeys.detail(employee.id), employee)
+      await queryClient.invalidateQueries({
+        queryKey: employeesQueryKeys.lists(),
+      })
+      reset()
+      showSuccess('Funcionário cadastrado com sucesso.')
+      navigate('/employees')
+    } catch {
+      setFormError('Não foi possível cadastrar o funcionário. Tente novamente.')
+    }
   }
 
   return (
@@ -44,6 +73,11 @@ function EmployeeCreatePage() {
         className="bg-surface mt-6 space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6"
         onSubmit={handleSubmit(onSubmit)}
       >
+        {formError && (
+          <p className="text-error" role="alert">
+            {formError}
+          </p>
+        )}
         <section aria-labelledby="new-employee-data-title">
           <h2
             id="new-employee-data-title"
@@ -89,7 +123,10 @@ function EmployeeCreatePage() {
                 <option value="inactive">Inativo</option>
               </Select>
               {errors.status?.message && (
-                <p id="new-employee-status-error" className="text-error text-sm">
+                <p
+                  id="new-employee-status-error"
+                  className="text-error text-sm"
+                >
                   {errors.status.message}
                 </p>
               )}
@@ -163,7 +200,11 @@ function EmployeeCreatePage() {
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit">Cadastrar funcionário</Button>
+          <Button type="submit" disabled={createMutation.isPending}>
+            {createMutation.isPending
+              ? 'Cadastrando funcionário...'
+              : 'Cadastrar funcionário'}
+          </Button>
           <Link
             to="/employees"
             className="text-primary inline-flex rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"

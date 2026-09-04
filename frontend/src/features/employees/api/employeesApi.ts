@@ -7,6 +7,7 @@ import type {
   EmployeeListItem,
   EmployeeStatus,
 } from '../types/employee'
+import type { EmployeeFormValues } from '../schemas/employeeSchema'
 
 type EmployeeListParams = {
   status?: EmployeeStatus | 'all'
@@ -45,6 +46,13 @@ type EmployeeHttpResponse = {
   ativo: boolean
   criadoEm: string
   conta: EmployeeDetailAccessHttpResponse | null
+}
+
+type EmployeeCreateHttpBody = {
+  nome: string
+  telefone: string
+  email: string
+  status: 'active' | 'inactive'
 }
 
 function toEmployeeStatus(ativo: boolean): EmployeeStatus {
@@ -114,8 +122,30 @@ async function getEmployee(id: string): Promise<Employee> {
   return toEmployee(data)
 }
 
-export { getEmployee, listEmployees, toEmployee, toEmployeeListItem }
+async function createEmployee(values: EmployeeFormValues): Promise<Employee> {
+  const body: EmployeeCreateHttpBody = {
+    nome: values.name,
+    telefone: values.phone,
+    email: values.contactEmail,
+    status: values.status,
+  }
+  const { data } = await apiClient.post<EmployeeHttpResponse>(
+    '/employees',
+    body,
+  )
+
+  return toEmployee(data)
+}
+
+export {
+  createEmployee,
+  getEmployee,
+  listEmployees,
+  toEmployee,
+  toEmployeeListItem,
+}
 export type {
+  EmployeeCreateHttpBody,
   EmployeeAccessHttpResponse,
   EmployeeDetailAccessHttpResponse,
   EmployeeHttpErrorCode,
