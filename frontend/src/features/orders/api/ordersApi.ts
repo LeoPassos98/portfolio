@@ -1,118 +1,139 @@
-import { apiClient } from '../../../shared/lib/http/apiClient'
-import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
+import { apiClient } from "../../../shared/lib/http/apiClient";
+import type { HttpErrorResponse } from "../../../shared/lib/http/apiClient";
 import type {
   OrderDetail,
   OrderHistoryItem,
   OrderListItem,
   OrderStatus,
   OrderVisibility,
-} from '../types/order'
+} from "../types/order";
 
-type OrderListStatus = 'all' | 'open' | OrderStatus
+type OrderListStatus = "all" | "open" | OrderStatus;
 
 type OrderListParams = {
-  status: OrderListStatus
-  search?: string
-}
+  status: OrderListStatus;
+  search?: string;
+};
 
 type OrderHttpErrorCode =
-  | 'ORDER_NOT_FOUND'
-  | 'ORDER_CLIENT_NOT_FOUND'
-  | 'ORDER_CLIENT_INACTIVE'
-  | 'ORDER_RESPONSIBLE_REQUIRED'
-  | 'ORDER_RESPONSIBLE_NOT_FOUND'
-  | 'ORDER_RESPONSIBLE_INACTIVE'
+  | "ORDER_NOT_FOUND"
+  | "ORDER_CLIENT_NOT_FOUND"
+  | "ORDER_CLIENT_INACTIVE"
+  | "ORDER_RESPONSIBLE_REQUIRED"
+  | "ORDER_RESPONSIBLE_NOT_FOUND"
+  | "ORDER_RESPONSIBLE_INACTIVE"
+  | "ORDER_VERSION_CONFLICT"
+  | "ORDER_UPDATE_FORBIDDEN"
+  | "ORDER_UPDATE_INVALID_FOR_STATE"
+  | "ORDER_RESPONSIBLE_CHANGE_FORBIDDEN";
 
 type OrderHttpErrorResponse = HttpErrorResponse & {
-  code: OrderHttpErrorCode
-}
+  code: OrderHttpErrorCode;
+};
 
 type OrderPersonHttpResponse = {
-  id: string
-  nome: string
-}
+  id: string;
+  nome: string;
+};
 
 type OrderStatusHttpResponse =
-  | 'AGUARDANDO'
-  | 'EM_ANDAMENTO'
-  | 'CONCLUIDO'
-  | 'CANCELADO'
+  "AGUARDANDO" | "EM_ANDAMENTO" | "CONCLUIDO" | "CANCELADO";
 
-type OrderVisibilityHttpResponse = 'PRIVADA' | 'PUBLICA'
+type OrderVisibilityHttpResponse = "PRIVADA" | "PUBLICA";
 
 type OrderListItemHttpResponse = {
-  id: string
-  numero: string
-  cliente: OrderPersonHttpResponse
-  responsavel: OrderPersonHttpResponse
-  status: OrderStatusHttpResponse
-  valor: string
-  visibilidade: OrderVisibilityHttpResponse
-  criadoEm: string
-  atualizadoEm: string
-  versao: number
-}
+  id: string;
+  numero: string;
+  cliente: OrderPersonHttpResponse;
+  responsavel: OrderPersonHttpResponse;
+  status: OrderStatusHttpResponse;
+  valor: string;
+  visibilidade: OrderVisibilityHttpResponse;
+  criadoEm: string;
+  atualizadoEm: string;
+  versao: number;
+};
 
 type OrderDetailHttpResponse = OrderListItemHttpResponse & {
-  descricao: string
-  observacoes: string | null
-  concluidoEm: string | null
-  canceladoEm: string | null
-}
+  descricao: string;
+  observacoes: string | null;
+  concluidoEm: string | null;
+  canceladoEm: string | null;
+};
 
 type OrderCreateValues = {
-  clientId: string
-  description: string
-  value: string
-  notes?: string
-  visibility: OrderVisibility
-  responsibleId?: string
-}
+  clientId: string;
+  description: string;
+  value: string;
+  notes?: string;
+  visibility: OrderVisibility;
+  responsibleId?: string;
+};
 
 type OrderCreateHttpRequest = {
-  clienteId: string
-  descricao: string
-  valor: string
-  observacoes?: string
-  visibilidade: OrderVisibilityHttpResponse
-  responsavelId?: string
-}
+  clienteId: string;
+  descricao: string;
+  valor: string;
+  observacoes?: string;
+  visibilidade: OrderVisibilityHttpResponse;
+  responsavelId?: string;
+};
+
+type OrderUpdateValues = {
+  version: number;
+  description: string;
+  value: string;
+  notes?: string;
+  status: OrderStatus;
+  visibility: OrderVisibility;
+  responsibleId?: string;
+};
+
+type OrderUpdateHttpRequest = {
+  versao: number;
+  descricao: string;
+  valor: string;
+  observacoes?: string;
+  status: OrderStatusHttpResponse;
+  visibilidade: OrderVisibilityHttpResponse;
+  responsavelId?: string;
+};
 
 type OrderHistoryItemHttpResponse = {
-  id: string
-  versao: number
-  descricao: string
-  valor: string
-  observacoes: string | null
-  status: OrderStatusHttpResponse
-  visibilidade: OrderVisibilityHttpResponse
-  concluidoEm: string | null
-  canceladoEm: string | null
-  snapshotEm: string
-  responsavel: OrderPersonHttpResponse
-  alteradoPor: OrderPersonHttpResponse
-}
+  id: string;
+  versao: number;
+  descricao: string;
+  valor: string;
+  observacoes: string | null;
+  status: OrderStatusHttpResponse;
+  visibilidade: OrderVisibilityHttpResponse;
+  concluidoEm: string | null;
+  canceladoEm: string | null;
+  snapshotEm: string;
+  responsavel: OrderPersonHttpResponse;
+  alteradoPor: OrderPersonHttpResponse;
+};
 
 function toOrderStatus(status: OrderStatusHttpResponse): OrderStatus {
   const statuses = {
-    AGUARDANDO: 'awaiting',
-    EM_ANDAMENTO: 'in-progress',
-    CONCLUIDO: 'completed',
-    CANCELADO: 'cancelled',
-  } as const satisfies Record<OrderStatusHttpResponse, OrderStatus>
+    AGUARDANDO: "awaiting",
+    EM_ANDAMENTO: "in-progress",
+    CONCLUIDO: "completed",
+    CANCELADO: "cancelled",
+  } as const satisfies Record<OrderStatusHttpResponse, OrderStatus>;
 
-  return statuses[status]
+  return statuses[status];
 }
 
 function toOrderVisibility(
   visibility: OrderVisibilityHttpResponse,
 ): OrderVisibility {
   const visibilities = {
-    PRIVADA: 'private',
-    PUBLICA: 'public',
-  } as const satisfies Record<OrderVisibilityHttpResponse, OrderVisibility>
+    PRIVADA: "private",
+    PUBLICA: "public",
+  } as const satisfies Record<OrderVisibilityHttpResponse, OrderVisibility>;
 
-  return visibilities[visibility]
+  return visibilities[visibility];
 }
 
 function toOrderCreateRequest(
@@ -123,9 +144,45 @@ function toOrderCreateRequest(
     descricao: values.description,
     valor: values.value,
     ...(values.notes ? { observacoes: values.notes } : {}),
-    visibilidade: values.visibility === 'private' ? 'PRIVADA' : 'PUBLICA',
+    visibilidade: toOrderVisibilityHttp(values.visibility),
     ...(values.responsibleId ? { responsavelId: values.responsibleId } : {}),
-  }
+  };
+}
+
+function toOrderStatusHttp(status: OrderStatus): OrderStatusHttpResponse {
+  const statuses = {
+    awaiting: "AGUARDANDO",
+    "in-progress": "EM_ANDAMENTO",
+    completed: "CONCLUIDO",
+    cancelled: "CANCELADO",
+  } as const satisfies Record<OrderStatus, OrderStatusHttpResponse>;
+
+  return statuses[status];
+}
+
+function toOrderVisibilityHttp(
+  visibility: OrderVisibility,
+): OrderVisibilityHttpResponse {
+  const visibilities = {
+    private: "PRIVADA",
+    public: "PUBLICA",
+  } as const satisfies Record<OrderVisibility, OrderVisibilityHttpResponse>;
+
+  return visibilities[visibility];
+}
+
+function toOrderUpdateRequest(
+  values: OrderUpdateValues,
+): OrderUpdateHttpRequest {
+  return {
+    versao: values.version,
+    descricao: values.description,
+    valor: values.value,
+    ...(values.notes ? { observacoes: values.notes } : {}),
+    status: toOrderStatusHttp(values.status),
+    visibilidade: toOrderVisibilityHttp(values.visibility),
+    ...(values.responsibleId ? { responsavelId: values.responsibleId } : {}),
+  };
 }
 
 function toOrderDetail(order: OrderDetailHttpResponse): OrderDetail {
@@ -136,7 +193,7 @@ function toOrderDetail(order: OrderDetailHttpResponse): OrderDetail {
     value: order.valor,
     completedAt: order.concluidoEm,
     cancelledAt: order.canceladoEm,
-  }
+  };
 }
 
 function toOrderHistoryItem(
@@ -157,7 +214,7 @@ function toOrderHistoryItem(
     responsibleName: snapshot.responsavel.nome,
     authorUserId: snapshot.alteradoPor.id,
     authorName: snapshot.alteradoPor.nome,
-  }
+  };
 }
 
 function toOrderListItem(order: OrderListItemHttpResponse): OrderListItem {
@@ -174,41 +231,55 @@ function toOrderListItem(order: OrderListItemHttpResponse): OrderListItem {
     createdAt: order.criadoEm,
     updatedAt: order.atualizadoEm,
     version: order.versao,
-  }
+  };
 }
 
 async function listOrders({
   status,
   search,
 }: OrderListParams): Promise<OrderListItem[]> {
-  const { data } = await apiClient.get<OrderListItemHttpResponse[]>('/orders', {
+  const { data } = await apiClient.get<OrderListItemHttpResponse[]>("/orders", {
     params: { status, search },
-  })
+  });
 
-  return data.map(toOrderListItem)
+  return data.map(toOrderListItem);
 }
 
 async function getOrder(id: string): Promise<OrderDetail> {
-  const { data } = await apiClient.get<OrderDetailHttpResponse>(`/orders/${id}`)
+  const { data } = await apiClient.get<OrderDetailHttpResponse>(
+    `/orders/${id}`,
+  );
 
-  return toOrderDetail(data)
+  return toOrderDetail(data);
 }
 
 async function createOrder(values: OrderCreateValues): Promise<OrderDetail> {
   const { data } = await apiClient.post<OrderDetailHttpResponse>(
-    '/orders',
+    "/orders",
     toOrderCreateRequest(values),
-  )
+  );
 
-  return toOrderDetail(data)
+  return toOrderDetail(data);
+}
+
+async function updateOrder(
+  id: string,
+  values: OrderUpdateValues,
+): Promise<OrderDetail> {
+  const { data } = await apiClient.put<OrderDetailHttpResponse>(
+    `/orders/${id}`,
+    toOrderUpdateRequest(values),
+  );
+
+  return toOrderDetail(data);
 }
 
 async function getOrderHistory(id: string): Promise<OrderHistoryItem[]> {
   const { data } = await apiClient.get<OrderHistoryItemHttpResponse[]>(
     `/orders/${id}/history`,
-  )
+  );
 
-  return data.map(toOrderHistoryItem)
+  return data.map(toOrderHistoryItem);
 }
 
 export {
@@ -218,11 +289,15 @@ export {
   listOrders,
   toOrderDetail,
   toOrderCreateRequest,
+  toOrderStatusHttp,
+  toOrderUpdateRequest,
+  toOrderVisibilityHttp,
   toOrderHistoryItem,
   toOrderListItem,
   toOrderStatus,
   toOrderVisibility,
-}
+  updateOrder,
+};
 export type {
   OrderDetailHttpResponse,
   OrderCreateHttpRequest,
@@ -235,5 +310,7 @@ export type {
   OrderListStatus,
   OrderPersonHttpResponse,
   OrderStatusHttpResponse,
+  OrderUpdateHttpRequest,
+  OrderUpdateValues,
   OrderVisibilityHttpResponse,
-}
+};

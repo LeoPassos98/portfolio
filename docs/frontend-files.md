@@ -21,7 +21,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Layouts                 | Estruturas compartilhadas de páginas                                              |        3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
 | Dashboard               | Visões administrativa e individual de métricas                                    |        5 |
-| Ordens de Serviço       | Listagem real, detalhes, criação, edição, histórico, validação, tipos e mocks     |       13 |
+| Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
 | Clientes                | Listagem, cadastro e edição reais, com mocks preservados para Ordens              |        8 |
 | Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
 
@@ -294,7 +294,7 @@ Relaciona cada funcionário mockado às suas ordens atuais e métricas por perí
 
 ## Ordens de Serviço
 
-Reúne listagem, detalhes, criação, edição, histórico, tipos e dados mockados do fluxo de ordens de serviço.
+Reúne listagem, detalhes, criação, edição, histórico, tipos e integrações HTTP do fluxo de ordens de serviço.
 
 Diretório principal: `frontend/src/features/orders/`
 
@@ -306,69 +306,55 @@ Envia status e busca normalizada a `GET /orders`; o backend aplica a autorizaç�
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define os tipos legados mockados `Order`, status e visibilidade, além dos modelos reais de leitura `OrderDetail` e `OrderHistoryItem`.
+Define os tipos legados ainda usados por fluxos mockados externos, status e visibilidade, além dos modelos reais de leitura `OrderDetail` e `OrderHistoryItem`.
 
-Os modelos reais preservam o decimal como texto e incluem as datas de conclusão e cancelamento, sem forçar a migração das telas de escrita ainda mockadas.
+Os modelos reais preservam o decimal como texto e incluem as datas de conclusão, cancelamento e versão necessária para OCC.
 
-### 3. `frontend/src/features/orders/mocks/orders.ts`
-
-Exporta ordens de protótipo completas como `Order[]`.
-
-Fornece vínculos, dados de serviço, visibilidade, observações e datas para rotas, regras de acesso e bloqueio da exclusão de Clientes vinculados.
-
-### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
+### 3. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
 Consulta detalhe e histórico reais com queries TanStack independentes, usando `GET /orders/:id` e `GET /orders/:id/history`.
 
-Preserva a visualização responsiva, loading, erro, retry, não revelação de OS inacessível e seleção de snapshot. A tela permanece somente leitura até as mutations de OS serem integradas.
+Preserva a visualização responsiva, loading, erro, retry, não revelação de OS inacessível e seleção de snapshot. Na versão atual, oferece edição conforme a UX de perfil/estado e reabertura real de Cancelada para Administrador, sincronizando detalhe, listas e histórico.
 
-### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
+### 4. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
-Obtém a ordem pela rota e aplica as regras de visibilidade e edição antes de compor o formulário compartilhado.
+Obtém o `OrderDetail` real por query, mostra loading, erro contextual e não revelação de OS sem acesso antes de compor o formulário compartilhado.
 
-Aceita o estado ativo conceitual da reabertura de Cancelada e mantém Cliente e número somente leitura, sem persistência. Continua usando mocks apenas para a edição pendente de integração.
+Executa a edição real com versão originalmente carregada, sincroniza caches, preserva os valores em falha e só recarrega o formulário por ação explícita após conflito OCC. Consulta Funcionários ativos somente para Administrador em OS aberta.
 
-### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
+### 5. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
 Consulta Clientes ativos e, somente para Administrador, Funcionários ativos; apresenta loading, erro com retry e estados vazios contextuais antes de compor o formulário.
 
 Executa a mutation real de criação, atualiza o cache do detalhe, invalida listas e navega para a nova OS. Funcionário usa o responsável da sessão sem consultar a API administrativa.
 
-### 7. `frontend/src/features/orders/types/orderHistory.ts`
-
-Define o snapshot histórico legado usado pelos mocks remanescentes de edição e formulário.
-
-### 8. `frontend/src/features/orders/mocks/orderHistory.ts`
-
-Exporta snapshots mockados e tipados para os fluxos mockados remanescentes; não é usado pela tela real de detalhes.
-
-### 9. `frontend/src/features/orders/components/OrderForm.tsx`
+### 6. `frontend/src/features/orders/components/OrderForm.tsx`
 
 Reúne a estrutura visual reutilizável e validada de criação e edição de OS.
 
 Inclui seletores pesquisáveis para Administrador e consome permissões e transições centralizadas.
 
-No modo de criação, recebe opções reais e trata mutation, pendência, erros de registros stale e dirty state; no modo de edição, preserva a composição mockada existente.
+Nos modos de criação e edição, recebe operações reais, mantém o decimal como texto, trata pendência, registros stale e dirty state. A edição mantém o submit confirmado de cancelamento, trata os erros estáveis do backend e preserva valores até a recarga consciente do conflito.
 
-### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
+### 7. `frontend/src/features/orders/schemas/orderSchema.ts`
 
-Define as validações compartilhadas da edição mockada e o schema de criação real, que mantém o decimal como texto compatível com `Decimal(12,2)`.
+Define schemas de criação e edição reais, com descrição, observações e decimal textual compatíveis com o contrato do backend sem converter valor em número.
 
-### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
+### 8. `frontend/src/features/orders/lib/orderVisibility.ts`
 
-Centraliza políticas mockadas de consulta, edição, transição de status e reabertura da OS.
+Centraliza a UX tipada de edição, transição de status e reabertura sobre `OrderDetail`; a autorização efetiva permanece no NestJS.
 
-Administrador vê todas e reabre Canceladas. Funcionário vê as próprias e as públicas de outros responsáveis, mas edita somente as próprias em aberto.
+Administrador edita OS aberta, corrige Concluída e reabre Cancelada; Funcionário edita somente a própria OS aberta.
 
-É reutilizada por detalhes, rota e formulário.
+É reutilizada por detalhes, edição e formulário.
 
-### 12. `frontend/src/features/orders/api/ordersApi.ts`
+### 9. `frontend/src/features/orders/api/ordersApi.ts`
 
-Concentra as consultas tipadas de `GET /orders`, `GET /orders/:id`, `GET /orders/:id/history` e a criação via `POST /orders` na instância Axios compartilhada.
+Concentra as consultas tipadas de `GET /orders`, `GET /orders/:id`, `GET /orders/:id/history`, criação via `POST /orders` e atualização via `PUT /orders/:id` na instância Axios compartilhada.
 
-Separa contratos HTTP explícitos dos modelos React de lista, detalhe e snapshot, reutiliza os mappers de enums e preserva `valor` como texto decimal exato no server state.
+Separa contratos HTTP explícitos dos modelos React de lista, detalhe e snapshot, centraliza os mappers de enums e preserva `valor` como texto decimal exato no server state.
 
-### 13. `frontend/src/features/orders/api/orderQueryKeys.ts`
+### 10. `frontend/src/features/orders/api/orderQueryKeys.ts`
 
 Centraliza as query keys de listagem, detalhe e histórico de OS.
 

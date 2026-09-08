@@ -1,46 +1,58 @@
-import { useQuery } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
-import { useState } from 'react'
-import { Link, useParams } from 'react-router'
-import { EmptyState } from '../../../components/feedback/EmptyState'
-import { AppLayout } from '../../../components/layout/AppLayout'
-import { Button } from '../../../components/ui/Button'
-import { StatusBadge } from '../../../components/ui/StatusBadge'
-import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
-import { ordersQueryKeys } from '../api/orderQueryKeys'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { isAxiosError } from "axios";
+import { useState } from "react";
+import { Link, useParams } from "react-router";
+import { EmptyState } from "../../../components/feedback/EmptyState";
+import { useSuccessFeedback } from "../../../components/feedback/useSuccessFeedback";
+import { AppLayout } from "../../../components/layout/AppLayout";
+import { Button } from "../../../components/ui/Button";
+import { StatusBadge } from "../../../components/ui/StatusBadge";
+import { Select } from "../../../components/ui/Select";
+import type { HttpErrorResponse } from "../../../shared/lib/http/apiClient";
+import { useAuthSession } from "../../auth/hooks/useAuthSession";
+import { ordersQueryKeys } from "../api/orderQueryKeys";
 import {
   getOrder,
   getOrderHistory,
+  updateOrder,
   type OrderHttpErrorResponse,
-} from '../api/ordersApi'
-import type { OrderStatus, OrderVisibility } from '../types/order'
+} from "../api/ordersApi";
+import {
+  canReopenOrder,
+  getAllowedOrderReopenStatuses,
+  getOrderEditPermissions,
+} from "../lib/orderVisibility";
+import type { OrderStatus, OrderVisibility } from "../types/order";
 
 const statusDetails = {
-  awaiting: { label: 'Aguardando', variant: 'warning' },
-  'in-progress': { label: 'Em andamento', variant: 'info' },
-  completed: { label: 'Concluída', variant: 'success' },
-  cancelled: { label: 'Cancelada', variant: 'neutral' },
-} as const satisfies Record<OrderStatus, { label: string; variant: string }>
+  awaiting: { label: "Aguardando", variant: "warning" },
+  "in-progress": { label: "Em andamento", variant: "info" },
+  completed: { label: "Concluída", variant: "success" },
+  cancelled: { label: "Cancelada", variant: "neutral" },
+} as const satisfies Record<OrderStatus, { label: string; variant: string }>;
 
 const visibilityDetails = {
-  public: { label: 'Pública', variant: 'info' },
-  private: { label: 'Privada', variant: 'neutral' },
-} as const satisfies Record<OrderVisibility, { label: string; variant: string }>
+  public: { label: "Pública", variant: "info" },
+  private: { label: "Privada", variant: "neutral" },
+} as const satisfies Record<
+  OrderVisibility,
+  { label: string; variant: string }
+>;
 
-const currencyFormatter = new Intl.NumberFormat('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
 
-const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
+const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
-function isOrderApiError(error: unknown, code: OrderHttpErrorResponse['code']) {
+function isOrderApiError(error: unknown, code: OrderHttpErrorResponse["code"]) {
   return (
     isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
-  )
+  );
 }
 
 function isOrderId(value: string | undefined): value is string {
@@ -49,7 +61,7 @@ function isOrderId(value: string | undefined): value is string {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       value,
     )
-  )
+  );
 }
 
 function OrderDetailsSkeleton() {
@@ -66,7 +78,7 @@ function OrderDetailsSkeleton() {
         <div className="bg-surface mt-8 h-32 rounded-ui border border-neutral-bg" />
       </div>
     </AppLayout>
-  )
+  );
 }
 
 function OrderHistorySkeleton() {
@@ -88,16 +100,24 @@ function OrderHistorySkeleton() {
         </li>
       ))}
     </ol>
-  )
+  );
 }
 
 function OrderDetailsPage() {
-  const { orderId } = useParams<{ orderId: string }>()
+  const session = useAuthSession();
+  const queryClient = useQueryClient();
+  const { showSuccess } = useSuccessFeedback();
+  const { orderId } = useParams<{ orderId: string }>();
   const [selectedSnapshot, setSelectedSnapshot] = useState<{
-    orderId: string
-    snapshotId: string
-  } | null>(null)
-  const hasValidOrderId = isOrderId(orderId)
+    orderId: string;
+    snapshotId: string;
+  } | null>(null);
+  const [isReopenPanelOpen, setIsReopenPanelOpen] = useState(false);
+  const [reopenStatus, setReopenStatus] = useState<OrderStatus>("awaiting");
+  const [reopenError, setReopenError] = useState<string | null>(null);
+  const [canReloadReopenData, setCanReloadReopenData] = useState(false);
+  const [isReloadingReopenData, setIsReloadingReopenData] = useState(false);
+  const hasValidOrderId = isOrderId(orderId);
   const {
     data: order,
     error: orderError,
@@ -105,20 +125,29 @@ function OrderDetailsPage() {
     isPending: isOrderPending,
     refetch: refetchOrder,
   } = useQuery({
-    queryKey: ordersQueryKeys.detail(orderId ?? ''),
+    queryKey: ordersQueryKeys.detail(orderId ?? ""),
     queryFn: () => getOrder(orderId!),
     enabled: hasValidOrderId,
-  })
+  });
+  const reopenMutation = useMutation({
+    mutationFn: ({
+      id,
+      values,
+    }: {
+      id: string;
+      values: Parameters<typeof updateOrder>[1];
+    }) => updateOrder(id, values),
+  });
   const {
     data: orderHistory = [],
     isError: isOrderHistoryError,
     isPending: isOrderHistoryPending,
     refetch: refetchOrderHistory,
   } = useQuery({
-    queryKey: ordersQueryKeys.history(orderId ?? ''),
+    queryKey: ordersQueryKeys.history(orderId ?? ""),
     queryFn: () => getOrderHistory(orderId!),
     enabled: hasValidOrderId && order !== undefined,
-  })
+  });
 
   const backLink = (
     <Link
@@ -127,9 +156,9 @@ function OrderDetailsPage() {
     >
       Voltar para Ordens
     </Link>
-  )
+  );
 
-  if (!hasValidOrderId || isOrderApiError(orderError, 'ORDER_NOT_FOUND')) {
+  if (!hasValidOrderId || isOrderApiError(orderError, "ORDER_NOT_FOUND")) {
     return (
       <AppLayout>
         {backLink}
@@ -140,10 +169,10 @@ function OrderDetailsPage() {
           />
         </div>
       </AppLayout>
-    )
+    );
   }
 
-  if (isOrderPending) return <OrderDetailsSkeleton />
+  if (isOrderPending) return <OrderDetailsSkeleton />;
 
   if (isOrderError || !order) {
     return (
@@ -161,7 +190,112 @@ function OrderDetailsPage() {
           </div>
         </div>
       </AppLayout>
-    )
+    );
+  }
+
+  const currentOrder = order;
+  const editPermissions = session
+    ? getOrderEditPermissions(currentOrder, session.currentUser)
+    : null;
+  const canEditCurrentOrder = editPermissions?.canEdit === true;
+  const allowedReopenStatuses = session
+    ? getAllowedOrderReopenStatuses(currentOrder, session.currentUser)
+    : [];
+  const canReopenCurrentOrder =
+    session !== null && canReopenOrder(currentOrder, session.currentUser);
+
+  async function reloadReopenData() {
+    if (isReloadingReopenData) {
+      return;
+    }
+
+    setIsReloadingReopenData(true);
+    try {
+      const refreshedOrder = await queryClient.fetchQuery({
+        queryKey: ordersQueryKeys.detail(currentOrder.id),
+        queryFn: () => getOrder(currentOrder.id),
+      });
+      queryClient.setQueryData(
+        ordersQueryKeys.detail(currentOrder.id),
+        refreshedOrder,
+      );
+      await queryClient.invalidateQueries({
+        queryKey: ordersQueryKeys.history(currentOrder.id),
+      });
+      setReopenError(null);
+      setCanReloadReopenData(false);
+      setIsReopenPanelOpen(false);
+    } catch {
+      setReopenError(
+        "Não foi possível recarregar os dados da ordem de serviço. Tente novamente.",
+      );
+    } finally {
+      setIsReloadingReopenData(false);
+    }
+  }
+
+  async function reopenOrder() {
+    if (
+      reopenMutation.isPending ||
+      !allowedReopenStatuses.includes(reopenStatus)
+    ) {
+      return;
+    }
+
+    setReopenError(null);
+    setCanReloadReopenData(false);
+
+    try {
+      const updatedOrder = await reopenMutation.mutateAsync({
+        id: currentOrder.id,
+        values: {
+          version: currentOrder.version,
+          description: currentOrder.description,
+          value: currentOrder.value,
+          ...(currentOrder.notes ? { notes: currentOrder.notes } : {}),
+          status: reopenStatus,
+          visibility: currentOrder.visibility,
+        },
+      });
+      queryClient.setQueryData(
+        ordersQueryKeys.detail(updatedOrder.id),
+        updatedOrder,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ordersQueryKeys.lists() }),
+        queryClient.invalidateQueries({
+          queryKey: ordersQueryKeys.history(updatedOrder.id),
+        }),
+      ]);
+      setIsReopenPanelOpen(false);
+      showSuccess("Ordem de serviço reaberta com sucesso.");
+    } catch (error) {
+      if (isOrderApiError(error, "ORDER_VERSION_CONFLICT")) {
+        setReopenError(
+          "Esta OS foi alterada por outra pessoa enquanto você a editava. Recarregue os dados antes de salvar novamente.",
+        );
+        setCanReloadReopenData(true);
+        return;
+      }
+
+      if (isOrderApiError(error, "ORDER_UPDATE_FORBIDDEN")) {
+        setReopenError("Você não possui mais permissão para alterar esta OS.");
+        setCanReloadReopenData(true);
+        return;
+      }
+
+      if (isOrderApiError(error, "ORDER_UPDATE_INVALID_FOR_STATE")) {
+        setReopenError(
+          "O estado atual desta OS não permite esta alteração. Recarregue os dados.",
+        );
+        setCanReloadReopenData(true);
+        return;
+      }
+
+      setReopenError(
+        "Não foi possível reabrir a ordem de serviço. Tente novamente.",
+      );
+    }
   }
 
   const selectedHistoryItem =
@@ -169,7 +303,7 @@ function OrderDetailsPage() {
       ? orderHistory.find(
           (snapshot) => snapshot.id === selectedSnapshot.snapshotId,
         )
-      : undefined
+      : undefined;
   const displayedOrder = selectedHistoryItem
     ? {
         ...order,
@@ -183,13 +317,13 @@ function OrderDetailsPage() {
         completedAt: selectedHistoryItem.completedAt,
         cancelledAt: selectedHistoryItem.cancelledAt,
       }
-    : order
-  const statusDetail = statusDetails[displayedOrder.status]
-  const visibilityDetail = visibilityDetails[displayedOrder.visibility]
-  const updateDate = selectedHistoryItem?.changedAt ?? order.updatedAt
+    : order;
+  const statusDetail = statusDetails[displayedOrder.status];
+  const visibilityDetail = visibilityDetails[displayedOrder.visibility];
+  const updateDate = selectedHistoryItem?.changedAt ?? order.updatedAt;
   const updateLabel = selectedHistoryItem
-    ? 'Versão preservada em'
-    : 'Última atualização'
+    ? "Versão preservada em"
+    : "Última atualização";
 
   return (
     <AppLayout>
@@ -210,7 +344,105 @@ function OrderDetailsPage() {
           </div>
           <p className="text-neutral mt-1">{order.clientName}</p>
         </div>
+        {!selectedHistoryItem &&
+        (canEditCurrentOrder || canReopenCurrentOrder) ? (
+          <div className="flex flex-wrap gap-3">
+            {canEditCurrentOrder ? (
+              <Link
+                to={`/orders/${order.id}/edit`}
+                className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              >
+                Editar
+              </Link>
+            ) : null}
+            {canReopenCurrentOrder ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setReopenError(null);
+                  setCanReloadReopenData(false);
+                  setIsReopenPanelOpen(true);
+                }}
+              >
+                Reabrir OS
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
       </header>
+
+      {!selectedHistoryItem && isReopenPanelOpen && canReopenCurrentOrder ? (
+        <section
+          aria-labelledby="reopen-order-title"
+          className="bg-surface mt-6 max-w-3xl rounded-ui border border-neutral-bg p-4 sm:p-6"
+        >
+          <h2
+            id="reopen-order-title"
+            className="text-foreground text-lg font-bold"
+          >
+            Reabrir OS
+          </h2>
+          <p className="text-neutral mt-2">
+            Escolha o status ativo que a ordem terá ao ser reaberta.
+          </p>
+          <div className="mt-4 max-w-xs space-y-2">
+            <label
+              htmlFor="reopen-order-status"
+              className="text-foreground text-sm font-medium"
+            >
+              Status
+            </label>
+            <Select
+              id="reopen-order-status"
+              value={reopenStatus}
+              disabled={reopenMutation.isPending}
+              onChange={(event) =>
+                setReopenStatus(event.target.value as OrderStatus)
+              }
+            >
+              {allowedReopenStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {statusDetails[status].label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button
+              type="button"
+              disabled={reopenMutation.isPending}
+              onClick={() => void reopenOrder()}
+            >
+              {reopenMutation.isPending ? "Reabrindo..." : "Reabrir OS"}
+            </Button>
+            <Button
+              type="button"
+              className="bg-neutral text-white hover:bg-neutral"
+              disabled={reopenMutation.isPending}
+              onClick={() => setIsReopenPanelOpen(false)}
+            >
+              Cancelar
+            </Button>
+          </div>
+          {reopenError ? (
+            <p className="text-error mt-4 text-sm" role="alert">
+              {reopenError}
+            </p>
+          ) : null}
+          {canReloadReopenData ? (
+            <Button
+              type="button"
+              className="mt-4"
+              disabled={isReloadingReopenData}
+              onClick={() => void reloadReopenData()}
+            >
+              {isReloadingReopenData
+                ? "Recarregando dados..."
+                : "Recarregar dados"}
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
 
       {selectedHistoryItem ? (
         <section
@@ -222,12 +454,12 @@ function OrderDetailsPage() {
               Versão {selectedHistoryItem.version} — somente leitura
             </h2>
             <p className="text-info mt-1 text-sm">
-              Preservada em{' '}
+              Preservada em{" "}
               <time dateTime={selectedHistoryItem.changedAt}>
                 {dateTimeFormatter.format(
                   new Date(selectedHistoryItem.changedAt),
                 )}
-              </time>{' '}
+              </time>{" "}
               por {selectedHistoryItem.authorName}.
             </p>
           </div>
@@ -312,7 +544,7 @@ function OrderDetailsPage() {
                 Observações
               </h3>
               <p className="text-neutral mt-2 whitespace-pre-wrap">
-                {displayedOrder.notes ?? 'Nenhuma observação informada.'}
+                {displayedOrder.notes ?? "Nenhuma observação informada."}
               </p>
             </div>
           </section>
@@ -374,8 +606,8 @@ function OrderDetailsPage() {
         orderHistory.length > 0 ? (
           <ol className="mt-4 space-y-4">
             {orderHistory.map((snapshot) => {
-              const snapshotStatusDetail = statusDetails[snapshot.status]
-              const isSelected = snapshot.id === selectedHistoryItem?.id
+              const snapshotStatusDetail = statusDetails[snapshot.status];
+              const isSelected = snapshot.id === selectedHistoryItem?.id;
               return (
                 <li key={snapshot.id}>
                   <button
@@ -389,8 +621,8 @@ function OrderDetailsPage() {
                     }
                     className={
                       isSelected
-                        ? 'bg-neutral-bg w-full rounded-ui border border-primary p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
-                        : 'bg-surface w-full rounded-ui border border-neutral-bg p-4 text-left hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
+                        ? "bg-neutral-bg w-full rounded-ui border border-primary p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                        : "bg-surface w-full rounded-ui border border-neutral-bg p-4 text-left hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     }
                   >
                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -429,13 +661,13 @@ function OrderDetailsPage() {
                     </dl>
                   </button>
                 </li>
-              )
+              );
             })}
           </ol>
         ) : null}
       </section>
     </AppLayout>
-  )
+  );
 }
 
-export { OrderDetailsPage }
+export { OrderDetailsPage };
