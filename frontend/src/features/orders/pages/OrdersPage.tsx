@@ -8,7 +8,7 @@ import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { ordersQueryKeys } from '../api/orderQueryKeys'
-import { listOrders } from '../api/ordersApi'
+import { listOrderResponsibles, listOrders } from '../api/ordersApi'
 import type { OrderStatus } from '../types/order'
 
 const orderStatuses: readonly OrderStatus[] = [
@@ -42,6 +42,43 @@ const orderDateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
 function isOrderListStatus(value: string | null): value is OrderListStatus {
   return value !== null && orderListStatuses.some((status) => status === value)
+}
+
+function parseCivilDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
+  if (!match) {
+    return null
+  }
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+
+  return date
+}
+
+function toLocalDayISOString(value: string, isAfterEnd = false) {
+  const date = parseCivilDate(value)
+
+  if (!date) {
+    return undefined
+  }
+
+  if (isAfterEnd) {
+    date.setDate(date.getDate() + 1)
+  }
+
+  return date.toISOString()
 }
 
 function OrdersListSkeleton() {
@@ -91,9 +128,19 @@ function OrdersPage() {
   const statusParam = searchParams.get('status')
   const status = isOrderListStatus(statusParam) ? statusParam : 'all'
   const search = searchParams.get('search') ?? ''
+  const responsibleId = searchParams.get('responsibleId') ?? ''
+  const dateFrom = searchParams.get('dateFrom') ?? ''
+  const dateTo = searchParams.get('dateTo') ?? ''
+  const createdFrom = toLocalDayISOString(dateFrom)
+  const createdBefore = toLocalDayISOString(dateTo, true)
+  const isInvalidDateRange =
+    dateFrom !== '' && dateTo !== '' && dateFrom > dateTo
   const listParams = {
     status,
     ...(search.trim() === '' ? {} : { search: search.trim() }),
+    ...(responsibleId === '' ? {} : { responsibleId }),
+    ...(createdFrom ? { createdFrom } : {}),
+    ...(createdBefore ? { createdBefore } : {}),
   } as const
   const {
     data: orders = [],
@@ -103,9 +150,27 @@ function OrdersPage() {
   } = useQuery({
     queryKey: ordersQueryKeys.list(listParams),
     queryFn: () => listOrders(listParams),
+    enabled: !isInvalidDateRange,
+  })
+  const {
+    data: responsibles = [],
+    isError: isResponsiblesError,
+    isPending: isResponsiblesPending,
+    refetch: refetchResponsibles,
+  } = useQuery({
+    queryKey: ordersQueryKeys.responsibles(),
+    queryFn: listOrderResponsibles,
   })
   const hasOrders = orders.length > 0
-  const hasActiveFilters = status !== 'all' || search.trim() !== ''
+  const hasActiveFilters =
+    status !== 'all' ||
+    search.trim() !== '' ||
+    responsibleId !== '' ||
+    dateFrom !== '' ||
+    dateTo !== ''
+  const hasUnavailableResponsible =
+    responsibleId !== '' &&
+    !responsibles.some((responsible) => responsible.id === responsibleId)
   const totalPages = Math.max(1, Math.ceil(orders.length / ordersPerPage))
   const requestedPage = Number(searchParams.get('page') ?? '1')
   const currentPage =
@@ -131,6 +196,19 @@ function OrdersPage() {
     setSearchParams({})
   }
 
+  function changeFilter(name: string, value: string) {
+    const nextSearchParams = new URLSearchParams(searchParams)
+
+    if (value === '') {
+      nextSearchParams.delete(name)
+    } else {
+      nextSearchParams.set(name, value)
+    }
+
+    nextSearchParams.delete('page')
+    setSearchParams(nextSearchParams)
+  }
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -145,58 +223,107 @@ function OrdersPage() {
         </Link>
       </div>
 
-      <div className="mt-6 max-w-xs space-y-2">
-        <Label htmlFor="order-status">Status</Label>
-        <Select
-          id="order-status"
-          value={status}
-          onChange={(event) => {
-            const nextSearchParams = new URLSearchParams(searchParams)
-
-            if (event.target.value === 'all') {
-              nextSearchParams.delete('status')
-            } else {
-              nextSearchParams.set('status', event.target.value)
-            }
-
-            nextSearchParams.delete('page')
-            setSearchParams(nextSearchParams)
-          }}
-        >
-          <option value="all">Todos</option>
-          <option value="open">Em aberto</option>
-          <option value="awaiting">Aguardando</option>
-          <option value="in-progress">Em andamento</option>
-          <option value="completed">Concluídas</option>
-          <option value="cancelled">Canceladas</option>
-        </Select>
-      </div>
-
-      <div className="mt-4 max-w-md space-y-2">
+      <div className="mt-6 max-w-xl space-y-2">
         <Label htmlFor="order-search">Buscar</Label>
         <Input
           id="order-search"
           type="search"
           value={search}
           placeholder="Buscar por número ou cliente"
-          onChange={(event) => {
-            const nextSearchParams = new URLSearchParams(searchParams)
-
-            if (event.target.value.trim() === '') {
-              nextSearchParams.delete('search')
-            } else {
-              nextSearchParams.set('search', event.target.value)
-            }
-
-            nextSearchParams.delete('page')
-            setSearchParams(nextSearchParams)
-          }}
+          onChange={(event) => changeFilter('search', event.target.value)}
         />
       </div>
 
-      {isPending && <OrdersListSkeleton />}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="space-y-2">
+          <Label htmlFor="order-status">Status</Label>
+          <Select
+            id="order-status"
+            value={status}
+            onChange={(event) =>
+              changeFilter(
+                'status',
+                event.target.value === 'all' ? '' : event.target.value,
+              )
+            }
+          >
+            <option value="all">Todos</option>
+            <option value="open">Em aberto</option>
+            <option value="awaiting">Aguardando</option>
+            <option value="in-progress">Em andamento</option>
+            <option value="completed">Concluídas</option>
+            <option value="cancelled">Canceladas</option>
+          </Select>
+        </div>
 
-      {isError && (
+        <div className="space-y-2">
+          <Label htmlFor="order-responsible">Responsável</Label>
+          <Select
+            id="order-responsible"
+            value={responsibleId}
+            disabled={isResponsiblesPending || isResponsiblesError}
+            onChange={(event) =>
+              changeFilter('responsibleId', event.target.value)
+            }
+          >
+            <option value="">Todos os responsáveis</option>
+            {hasUnavailableResponsible ? (
+              <option value={responsibleId}>Responsável indisponível</option>
+            ) : null}
+            {responsibles.map((responsible) => (
+              <option key={responsible.id} value={responsible.id}>
+                {responsible.name}
+              </option>
+            ))}
+          </Select>
+          {isResponsiblesPending ? (
+            <p className="text-neutral text-sm">Carregando responsáveis...</p>
+          ) : null}
+          {isResponsiblesError ? (
+            <div className="space-y-2">
+              <p className="text-error text-sm">
+                Não foi possível carregar os responsáveis.
+              </p>
+              <Button
+                type="button"
+                onClick={() => void refetchResponsibles()}
+              >
+                Tentar novamente
+              </Button>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="order-date-from">De</Label>
+          <Input
+            id="order-date-from"
+            type="date"
+            value={dateFrom}
+            onChange={(event) => changeFilter('dateFrom', event.target.value)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="order-date-to">Até</Label>
+          <Input
+            id="order-date-to"
+            type="date"
+            value={dateTo}
+            onChange={(event) => changeFilter('dateTo', event.target.value)}
+          />
+        </div>
+      </div>
+
+      {isInvalidDateRange ? (
+        <p className="text-error mt-4" role="alert">
+          A data inicial não pode ser posterior à data final.
+        </p>
+      ) : null}
+
+      {!isInvalidDateRange && isPending && <OrdersListSkeleton />}
+
+      {!isInvalidDateRange && isError && (
         <div className="mt-8 space-y-4">
           <EmptyState
             title="Não foi possível carregar as ordens de serviço"
@@ -210,7 +337,7 @@ function OrdersPage() {
         </div>
       )}
 
-      {!isPending && !isError && !hasOrders && (
+      {!isInvalidDateRange && !isPending && !isError && !hasOrders && (
         <div className="mt-8 space-y-4">
           <EmptyState
             title="Nenhuma ordem encontrada"
@@ -226,7 +353,7 @@ function OrdersPage() {
         </div>
       )}
 
-      {!isPending && !isError && hasOrders && (
+      {!isInvalidDateRange && !isPending && !isError && hasOrders && (
         <ul className="mt-8 space-y-4 md:hidden">
           {currentOrders.map((order) => {
             const statusDetail = statusDetails[order.status]
@@ -280,7 +407,7 @@ function OrdersPage() {
         </ul>
       )}
 
-      {!isPending && !isError && hasOrders && (
+      {!isInvalidDateRange && !isPending && !isError && hasOrders && (
         <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
           <table className="w-full text-left">
             <caption className="sr-only">Lista de ordens de serviço</caption>
@@ -347,7 +474,7 @@ function OrdersPage() {
         </div>
       )}
 
-      {!isPending && !isError && hasOrders && (
+      {!isInvalidDateRange && !isPending && !isError && hasOrders && (
         <nav
           aria-label="Paginação de ordens"
           className="mt-6 flex items-center justify-between gap-4"

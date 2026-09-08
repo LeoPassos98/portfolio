@@ -6,6 +6,7 @@ const ordersQueryKeys = {
   history: (id: string) => ['orders', 'history', id] as const,
   list: (params: OrderListParams) => ['orders', 'list', params] as const,
   lists: () => ['orders', 'list'] as const,
+  responsibles: () => ['orders', 'responsibles'] as const,
 }
 
 export { ordersQueryKeys }

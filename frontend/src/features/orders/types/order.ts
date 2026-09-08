@@ -2,6 +2,11 @@ type OrderStatus = 'awaiting' | 'in-progress' | 'completed' | 'cancelled'
 
 type OrderVisibility = 'public' | 'private'
 
+type OrderResponsible = {
+  id: string
+  name: string
+}
+
 type Order = {
   id: string
   number: string
@@ -74,6 +79,7 @@ export type {
   OrderDetail,
   OrderHistoryItem,
   OrderListItem,
+  OrderResponsible,
   OrderStatus,
   OrderVisibility,
 }

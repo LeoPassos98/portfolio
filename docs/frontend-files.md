@@ -300,13 +300,13 @@ Diretório principal: `frontend/src/features/orders/`
 
 ### 1. `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Lista OS em tabela desktop ou lista mobile com TanStack Query, preservando filtros, busca e paginação pela URL e oferecendo criação e acesso aos detalhes.
+Lista OS em tabela desktop ou lista mobile com TanStack Query, preservando filtros de status, busca, responsável e período pela URL, paginação visual local, criação e acesso aos detalhes.
 
-Envia status e busca normalizada a `GET /orders`; o backend aplica a autorização contextual e a filtragem, enquanto a paginação visual permanece local sobre o resultado recebido.
+Envia status, busca normalizada, responsável e intervalo de criação a `GET /orders`; datas civis da URL são convertidas no timezone local para o intervalo `[from, before)`. As opções seguras de responsáveis vêm de `GET /orders/responsibles`; o backend aplica a autorização contextual e a filtragem, enquanto a paginação visual permanece local sobre o resultado recebido.
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define os tipos legados ainda usados por fluxos mockados externos, status e visibilidade, além dos modelos reais de leitura `OrderDetail` e `OrderHistoryItem`.
+Define os tipos legados ainda usados por fluxos mockados externos, status, visibilidade, opções de responsável e os modelos reais de leitura `OrderDetail` e `OrderHistoryItem`.
 
 Os modelos reais preservam o decimal como texto e incluem as datas de conclusão, cancelamento e versão necessária para OCC.
 
@@ -350,13 +350,13 @@ Administrador edita OS aberta, corrige Concluída e reabre Cancelada; Funcionár
 
 ### 9. `frontend/src/features/orders/api/ordersApi.ts`
 
-Concentra as consultas tipadas de `GET /orders`, `GET /orders/:id`, `GET /orders/:id/history`, criação via `POST /orders` e atualização via `PUT /orders/:id` na instância Axios compartilhada.
+Concentra as consultas tipadas de `GET /orders`, `GET /orders/responsibles`, `GET /orders/:id`, `GET /orders/:id/history`, criação via `POST /orders` e atualização via `PUT /orders/:id` na instância Axios compartilhada.
 
 Separa contratos HTTP explícitos dos modelos React de lista, detalhe e snapshot, centraliza os mappers de enums e preserva `valor` como texto decimal exato no server state.
 
 ### 10. `frontend/src/features/orders/api/orderQueryKeys.ts`
 
-Centraliza as query keys de listagem, detalhe e histórico de OS.
+Centraliza as query keys de listagem, responsáveis, detalhe e histórico de OS.
 
 As chaves de detalhe e histórico são distintas porque representam recursos HTTP e estados de query independentes; a chave da listagem contém somente os parâmetros efetivamente enviados ao backend.
 

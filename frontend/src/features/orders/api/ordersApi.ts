@@ -4,6 +4,7 @@ import type {
   OrderDetail,
   OrderHistoryItem,
   OrderListItem,
+  OrderResponsible,
   OrderStatus,
   OrderVisibility,
 } from "../types/order";
@@ -13,6 +14,9 @@ type OrderListStatus = "all" | "open" | OrderStatus;
 type OrderListParams = {
   status: OrderListStatus;
   search?: string;
+  responsibleId?: string;
+  createdFrom?: string;
+  createdBefore?: string;
 };
 
 type OrderHttpErrorCode =
@@ -32,6 +36,11 @@ type OrderHttpErrorResponse = HttpErrorResponse & {
 };
 
 type OrderPersonHttpResponse = {
+  id: string;
+  nome: string;
+};
+
+type OrderResponsibleHttpResponse = {
   id: string;
   nome: string;
 };
@@ -235,14 +244,24 @@ function toOrderListItem(order: OrderListItemHttpResponse): OrderListItem {
 }
 
 async function listOrders({
-  status,
-  search,
+  ...params
 }: OrderListParams): Promise<OrderListItem[]> {
   const { data } = await apiClient.get<OrderListItemHttpResponse[]>("/orders", {
-    params: { status, search },
+    params,
   });
 
   return data.map(toOrderListItem);
+}
+
+async function listOrderResponsibles(): Promise<OrderResponsible[]> {
+  const { data } = await apiClient.get<OrderResponsibleHttpResponse[]>(
+    "/orders/responsibles",
+  );
+
+  return data.map((responsible) => ({
+    id: responsible.id,
+    name: responsible.nome,
+  }));
 }
 
 async function getOrder(id: string): Promise<OrderDetail> {
@@ -286,6 +305,7 @@ export {
   createOrder,
   getOrder,
   getOrderHistory,
+  listOrderResponsibles,
   listOrders,
   toOrderDetail,
   toOrderCreateRequest,
@@ -309,6 +329,7 @@ export type {
   OrderListParams,
   OrderListStatus,
   OrderPersonHttpResponse,
+  OrderResponsibleHttpResponse,
   OrderStatusHttpResponse,
   OrderUpdateHttpRequest,
   OrderUpdateValues,
