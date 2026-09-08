@@ -11,11 +11,6 @@ import { SessionGuard } from './guards/session.guard.js';
   imports: [DatabaseModule, PasswordModule],
   controllers: [AuthController],
   providers: [AuthService, FirstAccessCompletedGuard, RoleGuard, SessionGuard],
-  exports: [
-    AuthService,
-    FirstAccessCompletedGuard,
-    RoleGuard,
-    SessionGuard,
-  ],
+  exports: [AuthService, FirstAccessCompletedGuard, RoleGuard, SessionGuard],
 })
 export class AuthModule {}

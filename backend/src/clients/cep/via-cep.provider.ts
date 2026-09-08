@@ -37,7 +37,10 @@ function nullableProviderString(value: string): string | null {
 export class ViaCepProvider {
   async lookup(cep: string): Promise<CepLookupResponse | null> {
     const abortController = new AbortController();
-    const timeout = setTimeout(() => abortController.abort(), VIA_CEP_TIMEOUT_MS);
+    const timeout = setTimeout(
+      () => abortController.abort(),
+      VIA_CEP_TIMEOUT_MS,
+    );
 
     try {
       const response = await fetch(`${VIA_CEP_URL}/${cep}/json/`, {

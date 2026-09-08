@@ -70,6 +70,4 @@ export const clientRegistrationSchema = z.strictObject({
     .regex(/^[A-Z]{2}$/, 'Informe uma UF válida'),
 });
 
-export type ClientRegistrationInput = z.output<
-  typeof clientRegistrationSchema
->;
+export type ClientRegistrationInput = z.output<typeof clientRegistrationSchema>;

@@ -6,6 +6,4 @@ export const clientStatusUpdateSchema = z
   })
   .strict();
 
-export type ClientStatusUpdateInput = z.output<
-  typeof clientStatusUpdateSchema
->;
+export type ClientStatusUpdateInput = z.output<typeof clientStatusUpdateSchema>;

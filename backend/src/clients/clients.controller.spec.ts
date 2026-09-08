@@ -5,7 +5,15 @@ import type { Express } from 'express';
 import { Pool } from 'pg';
 import request from 'supertest';
 import type { SuperAgentTest } from 'supertest';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { AppModule } from '../app.module.js';
 import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
@@ -263,9 +271,9 @@ describe('ClientsController', () => {
     body: unknown,
     status = HttpStatus.OK,
   ): ReturnType<typeof vi.fn<typeof fetch>> {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify(body), { status }),
-    );
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status }));
     vi.stubGlobal('fetch', fetchMock);
 
     return fetchMock;
@@ -659,7 +667,9 @@ describe('ClientsController', () => {
 
   it('allows removing a document and adding one to a client without it', async () => {
     const { agent, csrfToken } = await createAuthenticatedAgent();
-    const withDocument = await createClientFixture({ documento: '52998224725' });
+    const withDocument = await createClientFixture({
+      documento: '52998224725',
+    });
     const withoutDocument = await createClientFixture({ documento: null });
     const removedResponse = await agent
       .put(`/clients/${withDocument.id}`)
@@ -731,23 +741,26 @@ describe('ClientsController', () => {
     ['criadoEm', new Date().toISOString()],
     ['ordens', []],
     ['campoInesperado', 'valor'],
-  ])('rejects update administrative or unexpected field %s', async (field, value) => {
-    const { agent, csrfToken } = await createAuthenticatedAgent();
-    const client = await createClientFixture();
+  ])(
+    'rejects update administrative or unexpected field %s',
+    async (field, value) => {
+      const { agent, csrfToken } = await createAuthenticatedAgent();
+      const client = await createClientFixture();
 
-    await agent
-      .put(`/clients/${client.id}`)
-      .set('X-CSRF-Token', csrfToken)
-      .send({ ...createClientBody(), [field]: value })
-      .expect(HttpStatus.BAD_REQUEST)
-      .expect(({ body }) => {
-        expect(body).toMatchObject({
-          statusCode: HttpStatus.BAD_REQUEST,
-          code: 'VALIDATION_ERROR',
-          message: 'Validation failed',
+      await agent
+        .put(`/clients/${client.id}`)
+        .set('X-CSRF-Token', csrfToken)
+        .send({ ...createClientBody(), [field]: value })
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => {
+          expect(body).toMatchObject({
+            statusCode: HttpStatus.BAD_REQUEST,
+            code: 'VALIDATION_ERROR',
+            message: 'Validation failed',
+          });
         });
-      });
-  });
+    },
+  );
 
   it('rejects an invalid client id when updating', async () => {
     const { agent, csrfToken } = await createAuthenticatedAgent();
@@ -1592,15 +1605,12 @@ describe('ClientsController', () => {
       regiao: 'Sudeste',
     });
 
-    await agent
-      .get('/clients/cep/01001000')
-      .expect(HttpStatus.OK)
-      .expect({
-        logradouro: 'Praça da Sé',
-        bairro: 'Sé',
-        cidade: 'São Paulo',
-        uf: 'SP',
-      });
+    await agent.get('/clients/cep/01001000').expect(HttpStatus.OK).expect({
+      logradouro: 'Praça da Sé',
+      bairro: 'Sé',
+      cidade: 'São Paulo',
+      uf: 'SP',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://viacep.com.br/ws/01001000/json/',
@@ -1618,15 +1628,12 @@ describe('ClientsController', () => {
       uf: 'DF',
     });
 
-    await agent
-      .get('/clients/cep/01001-000')
-      .expect(HttpStatus.OK)
-      .expect({
-        logradouro: null,
-        bairro: null,
-        cidade: 'Brasília',
-        uf: 'DF',
-      });
+    await agent.get('/clients/cep/01001-000').expect(HttpStatus.OK).expect({
+      logradouro: null,
+      bairro: null,
+      cidade: 'Brasília',
+      uf: 'DF',
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
       'https://viacep.com.br/ws/01001000/json/',
@@ -1638,11 +1645,14 @@ describe('ClientsController', () => {
     const { agent } = await createAuthenticatedAgent();
     mockViaCepResponse({ erro: true });
 
-    await agent.get('/clients/cep/99999999').expect(HttpStatus.NOT_FOUND).expect({
-      statusCode: HttpStatus.NOT_FOUND,
-      code: 'CEP_NOT_FOUND',
-      message: 'Postal code not found',
-    });
+    await agent
+      .get('/clients/cep/99999999')
+      .expect(HttpStatus.NOT_FOUND)
+      .expect({
+        statusCode: HttpStatus.NOT_FOUND,
+        code: 'CEP_NOT_FOUND',
+        message: 'Postal code not found',
+      });
   });
 
   it.each([
@@ -1662,29 +1672,40 @@ describe('ClientsController', () => {
       () =>
         vi
           .fn<typeof fetch>()
-          .mockResolvedValue(new Response('', { status: HttpStatus.BAD_GATEWAY })),
+          .mockResolvedValue(
+            new Response('', { status: HttpStatus.BAD_GATEWAY }),
+          ),
     ],
     [
       'invalid JSON',
-      () => vi.fn<typeof fetch>().mockResolvedValue(new Response('{', { status: 200 })),
+      () =>
+        vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(new Response('{', { status: 200 })),
     ],
     [
       'incompatible payload',
-      () => vi.fn<typeof fetch>().mockResolvedValue(new Response('{}', { status: 200 })),
+      () =>
+        vi
+          .fn<typeof fetch>()
+          .mockResolvedValue(new Response('{}', { status: 200 })),
     ],
-  ])('returns CEP_PROVIDER_UNAVAILABLE for a provider %s', async (_caseName, createFetchMock) => {
-    const { agent } = await createAuthenticatedAgent();
-    vi.stubGlobal('fetch', createFetchMock());
+  ])(
+    'returns CEP_PROVIDER_UNAVAILABLE for a provider %s',
+    async (_caseName, createFetchMock) => {
+      const { agent } = await createAuthenticatedAgent();
+      vi.stubGlobal('fetch', createFetchMock());
 
-    await agent
-      .get('/clients/cep/01001000')
-      .expect(HttpStatus.SERVICE_UNAVAILABLE)
-      .expect({
-        statusCode: HttpStatus.SERVICE_UNAVAILABLE,
-        code: 'CEP_PROVIDER_UNAVAILABLE',
-        message: 'Postal code provider is unavailable',
-      });
-  });
+      await agent
+        .get('/clients/cep/01001000')
+        .expect(HttpStatus.SERVICE_UNAVAILABLE)
+        .expect({
+          statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+          code: 'CEP_PROVIDER_UNAVAILABLE',
+          message: 'Postal code provider is unavailable',
+        });
+    },
+  );
 
   it.each(['0100100', '010010000'])(
     'rejects a CEP with an invalid normalized length',
@@ -1876,7 +1897,9 @@ describe('ClientsController', () => {
     expect(statusUpdateOperation.responses).toHaveProperty('401');
     expect(statusUpdateOperation.responses).toHaveProperty('403');
     expect(statusUpdateOperation.responses).toHaveProperty('404');
-    expect(statusUpdateOperation.responses['403'].description).toContain('CSRF');
+    expect(statusUpdateOperation.responses['403'].description).toContain(
+      'CSRF',
+    );
     expect(statusUpdateOperation.responses['403'].description).toContain(
       'primeiro acesso',
     );

@@ -153,6 +153,21 @@ Exercita criação, edição cadastral, situações do cadastro e da conta, perf
 
 Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev`, fixtures e sessões auxiliares removidas ao final.
 
+### Ordens de Serviço
+
+#### [`backend/src/orders/orders.controller.spec.ts`](../backend/src/orders/orders.controller.spec.ts)
+
+Exercita a leitura HTTP real de Ordens contra PostgreSQL, com sessões e fixtures removidas ao final.
+
+| Operação | Cenários concretos | Regra ou risco comprovado |
+| --- | --- | --- |
+| Escopo contextual | Administrador lista e detalha OS pública ou privada; Funcionário vê suas OS e as públicas de terceiros, sem receber privadas de terceiros. | A policy usa o `funcionarioId` do principal autenticado na própria consulta Prisma. |
+| Não revelação | Detalhe de OS privada de terceiro e UUID inexistente retornam o mesmo `404 ORDER_NOT_FOUND`. | A API não confirma a existência de uma OS inacessível. |
+| Filtros | `all`, `open`, cada status específico, busca case-insensitive por número ou Cliente, trim e combinação de busca/status. | Filtros não ampliam a autorização e permanecem no banco. |
+| Contrato e proteção | DTOs não incluem histórico; expõem relações mínimas, `versao` e `valor` como texto decimal exato de duas casas; valida entrada, sessão, primeiro acesso e conta inativa. | Leitura é segura e pronta para a futura concorrência otimista sem depender de serialização acidental de `Decimal`. |
+
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev` e fixtures/sessões removidas ao final.
+
 ## Validações manuais e de navegador
 
 Estas validações não correspondem a arquivos `.spec.ts`; registram evidências operacionais que complementam a cobertura automatizada.
@@ -172,6 +187,8 @@ Estas validações não correspondem a arquivos `.spec.ts`; registram evidência
 | Perfil da conta: smoke HTTP                     | Uma sessão temporária de Administrador promoveu uma conta Funcionário e despromoveu outra Administrador por `PATCH /employees/:id/account/profile`, confirmou detalhe e listagens após cada alteração e que a despromoção da última conta ativa de Administrador retorna `LAST_ACTIVE_ADMIN_REQUIRED`. Uma mudança real revogou a sessão da conta alterada, sem invalidar a sessão de um terceiro; repetição idempotente preservou a sessão conforme o contrato. Fixtures e sessões foram removidas ao final.         | Aprovado durante a integração do perfil da conta N5.4; a mutation usa a resposta do backend para atualizar o cache e o seletor, sem decisão local baseada em mocks.                                                                                       |
 | E-mail de login: smoke HTTP                     | Uma sessão temporária de Administrador alterou o e-mail por `PATCH /employees/:id/account/login-email`, confirmou trim + lowercase, detalhe e listagem coerentes e `LOGIN_EMAIL_ALREADY_EXISTS`. A mudança real invalidou todas as sessões do alvo e preservou a de outro usuário; reenviar o e-mail atual com diferenças apenas de caixa e espaços preservou as sessões. Fixtures e sessões foram removidas ao final.                                                                                                | Aprovado durante a integração do e-mail de login N5.4; a mutation envia somente `loginEmail`, atualiza o detalhe retornado, invalida listagens e reseta o formulário para o valor normalizado.                                                            |
 | Redefinição administrativa de senha: smoke HTTP | Uma sessão temporária de Administrador redefiniu por `PATCH /employees/:id/account/password` as contas ativa e inativa, com senhas de 8 e 128 caracteres e senha com espaços preservados. Confirmou rejeição de confirmação diferente, novo hash, `deveAlterarSenha`, revogação das sessões do alvo, preservação de terceiro, login com a senha temporária, primeiro acesso obrigatório e resposta segura; perfil, situações, e-mails e Funcionário permaneceram iguais. Fixtures e sessões foram removidas ao final. | Aprovado nesta integração N5.4; a tela mantém senha apenas no formulário local, atualiza o detalhe com a resposta segura, limpa o estado dirty após sucesso e não refaz listagens sem mudança visível.                                                    |
+
+| Leitura de OS: smoke HTTP | Fixtures temporárias de Administrador, Funcionários A/B, Cliente e OS privada/pública de A e privada de B validam por HTTP a lista, o detalhe, os filtros e o isolamento da privada de B para A. | Aprovado no primeiro marco N5.5; Admin vê todas, Funcionário A vê as próprias e públicas, e as fixtures e sessões são removidas. |
 
 #### Auditoria final N5.4
 
@@ -206,3 +223,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.4 — perfil da conta de acesso            | **293 testes** |
 | N5.4 — e-mail de login da conta de acesso   | **307 testes** |
 | N5.4 — redefinição administrativa de senha  | **320 testes** |
+| N5.5 — leitura de Ordens de Serviço          | **334 testes** |

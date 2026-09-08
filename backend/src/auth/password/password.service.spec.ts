@@ -27,7 +27,11 @@ describe('PasswordService', () => {
     ]);
 
     expect(firstHash).not.toBe(secondHash);
-    await expect(passwordService.verify(firstHash, password)).resolves.toBe(true);
-    await expect(passwordService.verify(secondHash, password)).resolves.toBe(true);
+    await expect(passwordService.verify(firstHash, password)).resolves.toBe(
+      true,
+    );
+    await expect(passwordService.verify(secondHash, password)).resolves.toBe(
+      true,
+    );
   });
 });

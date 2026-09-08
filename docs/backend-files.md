@@ -12,20 +12,21 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área                     | Responsabilidade                                                                                                              | Arquivos |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários e endpoint raiz atual                                    |        4 |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, ordens e endpoint raiz atual                             |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                      |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                                |        6 |
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                       |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                            |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend              |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       17 |
+| Ordens de Serviço        | Leitura contextual de listagem e detalhe, com filtros iniciais, DTOs e contratos de erro estáveis                             |        8 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                             |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                        |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                                   |        1 |
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                   |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                            |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                             |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e ViaCEP mockado |       16 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e ordens        |       17 |
 
 ## Sumário
 
@@ -36,6 +37,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Guards de acesso](#guards-de-acesso)
 - [Clientes](#clientes)
 - [Funcionários](#funcionários)
+- [Ordens de Serviço](#ordens-de-serviço)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Proteção de origem](#proteção-de-origem)
@@ -60,7 +62,7 @@ Também configura logger, CORS, sessão, filtro global de exceções, OpenAPI e 
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários e sessão.
+Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, ordens e sessão.
 
 Registra o `CsrfGuard` global e fornece o endpoint raiz atual.
 
@@ -513,6 +515,46 @@ Diretório principal: `backend/src/common/openapi/`
 ### 1. `backend/src/common/openapi/openapi.setup.ts`
 
 Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o schema global de erros e publica a Swagger UI em `/api/docs` com o JSON em `/api/docs/openapi.json`.
+
+---
+
+## Ordens de Serviço
+
+Implementa o primeiro marco da feature: consultas reais contextualizadas para Administrador e Funcionário. Criação, edição, histórico, snapshots, concorrência e integração React permanecem fora deste marco.
+
+Diretório principal: `backend/src/orders/`
+
+### 1. `backend/src/orders/orders.module.ts`
+
+Compõe controller e service de Ordens com os módulos de autenticação e banco.
+
+### 2. `backend/src/orders/orders.controller.ts`
+
+Expõe `GET /orders` e `GET /orders/:id`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida parâmetros com Zod e documenta os contratos no OpenAPI.
+
+### 3. `backend/src/orders/orders.service.ts`
+
+Monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status e busca, ordena por criação decrescente e converte `Decimal` para texto exato com duas casas.
+
+### 4. `backend/src/orders/order-list-query.schema.ts`
+
+Valida os filtros iniciais `status` e `search`, removendo espaços externos e tratando busca vazia como ausente.
+
+### 5. `backend/src/orders/order-id.schema.ts`
+
+Valida o UUID do detalhe.
+
+### 6. `backend/src/orders/order-list-item-response.dto.ts`
+
+Declara a projeção segura da listagem, incluindo Cliente, responsável, valor decimal serializado e `versao`.
+
+### 7. `backend/src/orders/order-detail-response.dto.ts`
+
+Declara o detalhe seguro sem histórico, credenciais ou outras relações administrativas.
+
+### 8. `backend/src/orders/orders.controller.spec.ts`
+
+Exercita por HTTP a autorização contextual, o não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
 
 ---
 

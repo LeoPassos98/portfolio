@@ -53,10 +53,7 @@ import {
   clientUpdateSchema,
   type ClientUpdateInput,
 } from './client-update.schema.js';
-import {
-  cepParamSchema,
-  type CepParamInput,
-} from './cep/cep.schema.js';
+import { cepParamSchema, type CepParamInput } from './cep/cep.schema.js';
 import { CepLookupResponse } from './cep/cep-lookup-response.dto.js';
 import { CepLookupService } from './cep/cep-lookup.service.js';
 import { ClientDetailResponse } from './client-detail-response.dto.js';
