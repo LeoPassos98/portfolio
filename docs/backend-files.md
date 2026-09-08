@@ -19,7 +19,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                      |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       17 |
-| Ordens de Serviço        | Leitura contextual, criação e atualização transacionais, snapshots, OCC, DTOs e erros estáveis                          |       11 |
+| Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros  |       12 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
@@ -526,7 +526,7 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Ordens de Serviço
 
-Implementa consultas reais contextualizadas, criação e atualização transacionais para Administrador e Funcionário, incluindo geração e leitura de snapshots. A edição no React permanece fora deste marco.
+Implementa consultas reais contextualizadas, filtros de lista e opções seguras de responsáveis, criação e atualização transacionais para Administrador e Funcionário, incluindo geração e leitura de snapshots. A integração dos filtros no React permanece fora deste marco.
 
 Diretório principal: `backend/src/orders/`
 
@@ -536,47 +536,51 @@ Compõe controller e service de Ordens com os módulos de autenticação e banco
 
 ### 2. `backend/src/orders/orders.controller.ts`
 
-Expõe `POST /orders`, `PUT /orders/:id`, `GET /orders`, `GET /orders/:id` e `GET /orders/:id/history`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida entradas com Zod e documenta os contratos, erros estáveis e o cabeçalho CSRF no OpenAPI.
+Expõe `POST /orders`, `PUT /orders/:id`, `GET /orders`, `GET /orders/responsibles`, `GET /orders/:id` e `GET /orders/:id/history`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida entradas com Zod e documenta os contratos, erros estáveis e o cabeçalho CSRF no OpenAPI.
 
 ### 3. `backend/src/orders/orders.service.ts`
 
 Cria OS em transação interativa `Serializable`, com retry limitado, locks parametrizados de Cliente e responsável e incremento do contador na mesma unidade de commit. Administrador seleciona um Funcionário ativo; Funcionário recebe a própria identidade autenticada, independentemente do body.
 
-Também monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status e busca, ordena por criação decrescente, converte `Decimal` para texto exato com duas casas e consulta snapshots pela autorização da versão atual.
+Também monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status, busca, responsável e intervalo `criadoEm`, ordena por criação decrescente, converte `Decimal` para texto exato com duas casas e consulta snapshots pela autorização da versão atual. Deriva os responsáveis distintos diretamente das OS visíveis, sem consultar o diretório administrativo.
 
 Atualiza a OS em transação `Serializable` sem lock pessimista sobre ela: confirma acesso e versão, aplica as regras por perfil e estado, revalida novo responsável ativo, detecta no-op e cria o snapshot pré-alteração antes do `updateMany` condicionado por `id + versao`. Mudanças reais incrementam a versão e atualizam as datas de conclusão ou cancelamento; conflitos concorrentes revertem snapshot e update e retornam `ORDER_VERSION_CONFLICT`.
 
 ### 4. `backend/src/orders/order-list-query.schema.ts`
 
-Valida os filtros iniciais `status` e `search`, removendo espaços externos e tratando busca vazia como ausente.
+Valida `status`, `search`, `responsibleId` e os datetimes RFC3339 `createdFrom` e `createdBefore`; remove espaços externos da busca, trata busca vazia como ausente e exige o intervalo não vazio `createdFrom < createdBefore`.
 
-### 5. `backend/src/orders/order-id.schema.ts`
+### 5. `backend/src/orders/order-responsible-response.dto.ts`
+
+Declara a resposta mínima das opções de responsável, contendo somente `id` e `nome`.
+
+### 6. `backend/src/orders/order-id.schema.ts`
 
 Valida o UUID do detalhe.
 
-### 6. `backend/src/orders/order-list-item-response.dto.ts`
+### 7. `backend/src/orders/order-list-item-response.dto.ts`
 
 Declara a projeção segura da listagem, incluindo Cliente, responsável, valor decimal serializado e `versao`.
 
-### 7. `backend/src/orders/order-detail-response.dto.ts`
+### 8. `backend/src/orders/order-detail-response.dto.ts`
 
 Declara o detalhe seguro sem histórico, credenciais ou outras relações administrativas.
 
-### 8. `backend/src/orders/orders.controller.spec.ts`
+### 9. `backend/src/orders/orders.controller.spec.ts`
 
 Exercita por HTTP criação, atualização, autorização contextual, não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
 
-Cobre regras por perfil e estado, normalização, transições e datas de negócio, snapshots sequenciais, autoria, no-op, rollback, OCC concorrente e stale request. Também testa numeração concorrente na criação e a corrida linearizável entre reassociação da OS e inativação do novo responsável.
+Cobre regras por perfil e estado, normalização, transições e datas de negócio, snapshots sequenciais, autoria, no-op, rollback, OCC concorrente e stale request. Também testa filtros por responsável e período, limites temporais inclusivo/exclusivo, opções deduplicadas sem dados administrativos, não revelação de responsáveis privados, numeração concorrente na criação e a corrida linearizável entre reassociação da OS e inativação do novo responsável.
 
-### 9. `backend/src/orders/order-history-item-response.dto.ts`
+### 10. `backend/src/orders/order-history-item-response.dto.ts`
 
 Declara a projeção segura de cada snapshot: versão preservada, responsável histórico e autor identificado pelo `Usuario.id` e nome do Funcionário associado, sem dados de login ou credenciais.
 
-### 10. `backend/src/orders/order-create.schema.ts`
+### 11. `backend/src/orders/order-create.schema.ts`
 
 Declara o body estrito de criação e os schemas reutilizáveis de valor e observações, normaliza os textos, limita a visibilidade e exige valor como string decimal canônica compatível com `Decimal(12,2)`.
 
-### 11. `backend/src/orders/order-update.schema.ts`
+### 12. `backend/src/orders/order-update.schema.ts`
 
 Declara o body estrito da atualização atômica, exige versão inteira positiva e todos os campos do estado editável, aceita responsável opcional e reutiliza somente os contratos de valor e observações compartilhados com a criação.
 

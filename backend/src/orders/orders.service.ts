@@ -18,6 +18,7 @@ import type { OrderCreateInput } from './order-create.schema.js';
 import { OrderHistoryItemResponse } from './order-history-item-response.dto.js';
 import { OrderListItemResponse } from './order-list-item-response.dto.js';
 import type { OrderListQuery } from './order-list-query.schema.js';
+import { OrderResponsibleResponse } from './order-responsible-response.dto.js';
 import type { OrderUpdateInput } from './order-update.schema.js';
 
 export const ORDER_NOT_FOUND_ERROR = {
@@ -191,7 +192,13 @@ export class OrdersService {
 
   async findAll(
     authenticatedUser: AuthenticatedUser,
-    { status, search }: OrderListQuery,
+    {
+      status,
+      search,
+      responsibleId,
+      createdFrom,
+      createdBefore,
+    }: OrderListQuery,
   ): Promise<OrderListItemResponse[]> {
     const conditions: Prisma.OrdemServicoWhereInput[] = [
       this.getVisibilityWhere(authenticatedUser),
@@ -211,6 +218,19 @@ export class OrdersService {
       });
     }
 
+    if (responsibleId) {
+      conditions.push({ responsavelId: responsibleId });
+    }
+
+    if (createdFrom || createdBefore) {
+      conditions.push({
+        criadoEm: {
+          ...(createdFrom ? { gte: new Date(createdFrom) } : {}),
+          ...(createdBefore ? { lt: new Date(createdBefore) } : {}),
+        },
+      });
+    }
+
     const where: Prisma.OrdemServicoWhereInput = { AND: conditions };
 
     const orders = await this.database.ordemServico.findMany({
@@ -220,6 +240,21 @@ export class OrdersService {
     });
 
     return orders.map((order) => this.toListResponse(order));
+  }
+
+  async findResponsibles(
+    authenticatedUser: AuthenticatedUser,
+  ): Promise<OrderResponsibleResponse[]> {
+    const responsibles = await this.database.ordemServico.findMany({
+      where: this.getVisibilityWhere(authenticatedUser),
+      distinct: ['responsavelId'],
+      orderBy: [{ responsavel: { nome: 'asc' } }, { responsavelId: 'asc' }],
+      select: {
+        responsavel: { select: { id: true, nome: true } },
+      },
+    });
+
+    return responsibles.map(({ responsavel }) => responsavel);
   }
 
   async findOne(

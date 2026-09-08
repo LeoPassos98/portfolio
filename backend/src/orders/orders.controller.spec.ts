@@ -130,12 +130,13 @@ describe('OrdersController', () => {
       deveAlterarSenha?: boolean;
       ativo?: boolean;
       funcionarioAtivo?: boolean;
+      nome?: string;
     } = {},
   ): Promise<UserFixture> {
     const suffix = crypto.randomUUID();
     const funcionario = await database.funcionario.create({
       data: {
-        nome: `Funcionário ${suffix}`,
+        nome: options.nome ?? `Funcionário ${suffix}`,
         telefone: '11999999999',
         email: `funcionario-${suffix}@example.test`,
         ativo: options.funcionarioAtivo ?? true,
@@ -245,6 +246,7 @@ describe('OrdersController', () => {
       versao?: number;
       concluidoEm?: Date | null;
       canceladoEm?: Date | null;
+      criadoEm?: Date;
     } = {},
   ): Promise<OrderFixture> {
     const suffix = crypto.randomUUID();
@@ -274,6 +276,7 @@ describe('OrdersController', () => {
         versao: options.versao ?? 1,
         concluidoEm: options.concluidoEm ?? null,
         canceladoEm: options.canceladoEm ?? null,
+        ...(options.criadoEm ? { criadoEm: options.criadoEm } : {}),
         clienteId: client.id,
         responsavelId,
       },
@@ -2026,6 +2029,227 @@ describe('OrdersController', () => {
     );
   });
 
+  it('filters an administrator list by responsible, status, and search', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const responsibleA = await createUserFixture();
+    const responsibleB = await createUserFixture();
+    const matching = await createOrderFixture(responsibleA.funcionarioId, {
+      numero: 'OS-RESPONSIBLE-MATCH',
+      clientName: 'Cliente Responsável',
+      status: StatusOrdemServico.EM_ANDAMENTO,
+    });
+    const sameResponsibleWrongStatus = await createOrderFixture(
+      responsibleA.funcionarioId,
+      {
+        numero: 'OS-RESPONSIBLE-COMPLETED',
+        status: StatusOrdemServico.CONCLUIDO,
+      },
+    );
+    const otherResponsible = await createOrderFixture(
+      responsibleB.funcionarioId,
+      {
+        numero: 'OS-RESPONSIBLE-OTHER',
+        clientName: 'Cliente Responsável',
+        status: StatusOrdemServico.EM_ANDAMENTO,
+      },
+    );
+
+    const onlyA = await administrator.agent
+      .get('/orders')
+      .query({ responsibleId: responsibleA.funcionarioId })
+      .expect(HttpStatus.OK);
+    expect(onlyA.body.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([matching.id, sameResponsibleWrongStatus.id]),
+    );
+    expect(onlyA.body.map((item: { id: string }) => item.id)).not.toContain(
+      otherResponsible.id,
+    );
+
+    const combined = await administrator.agent
+      .get('/orders')
+      .query({
+        responsibleId: responsibleA.funcionarioId,
+        status: 'in-progress',
+        search: 'responsável',
+      })
+      .expect(HttpStatus.OK);
+    expect(combined.body.map((item: { id: string }) => item.id)).toEqual([
+      matching.id,
+    ]);
+  });
+
+  it('keeps an employee responsible filter inside the contextual visibility policy', async () => {
+    const employeeA = await createAgent();
+    const employeeB = await createUserFixture();
+    const ownPrivate = await createOrderFixture(employeeA.user.funcionarioId, {
+      numero: 'OS-A-PRIVATE',
+      clientName: 'Escopo A',
+    });
+    const ownPublic = await createOrderFixture(employeeA.user.funcionarioId, {
+      numero: 'OS-A-PUBLIC',
+      clientName: 'Escopo A',
+      visibilidade: Visibilidade.PUBLICA,
+      status: StatusOrdemServico.EM_ANDAMENTO,
+    });
+    const publicB = await createOrderFixture(employeeB.funcionarioId, {
+      numero: 'OS-B-PUBLIC',
+      clientName: 'Escopo B',
+      visibilidade: Visibilidade.PUBLICA,
+      status: StatusOrdemServico.EM_ANDAMENTO,
+    });
+    const privateB = await createOrderFixture(employeeB.funcionarioId, {
+      numero: 'OS-B-PRIVATE',
+      clientName: 'Escopo B',
+      status: StatusOrdemServico.EM_ANDAMENTO,
+    });
+
+    const own = await employeeA.agent
+      .get('/orders')
+      .query({ responsibleId: employeeA.user.funcionarioId })
+      .expect(HttpStatus.OK);
+    expect(own.body.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([ownPrivate.id, ownPublic.id]),
+    );
+
+    const thirdParty = await employeeA.agent
+      .get('/orders')
+      .query({
+        responsibleId: employeeB.funcionarioId,
+        status: 'in-progress',
+        search: 'Escopo B',
+      })
+      .expect(HttpStatus.OK);
+    expect(thirdParty.body.map((item: { id: string }) => item.id)).toEqual([
+      publicB.id,
+    ]);
+    expect(
+      thirdParty.body.map((item: { id: string }) => item.id),
+    ).not.toContain(privateB.id);
+  });
+
+  it('lists deterministic responsible options from accessible orders without administrative data', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const responsibleB = await createUserFixture({ nome: 'Bruno Responsável' });
+    const responsibleA = await createUserFixture({ nome: 'Ana Responsável' });
+    await createOrderFixture(responsibleB.funcionarioId);
+    await createOrderFixture(responsibleB.funcionarioId, {
+      status: StatusOrdemServico.CONCLUIDO,
+    });
+    await createOrderFixture(responsibleA.funcionarioId, {
+      status: StatusOrdemServico.CANCELADO,
+    });
+    await database.funcionario.update({
+      where: { id: responsibleA.funcionarioId },
+      data: { ativo: false },
+    });
+
+    const response = await administrator.agent
+      .get('/orders/responsibles')
+      .expect(HttpStatus.OK);
+    const options = response.body.filter((item: { id: string }) =>
+      [responsibleA.funcionarioId, responsibleB.funcionarioId].includes(
+        item.id,
+      ),
+    );
+    expect(options).toEqual([
+      { id: responsibleA.funcionarioId, nome: 'Ana Responsável' },
+      { id: responsibleB.funcionarioId, nome: 'Bruno Responsável' },
+    ]);
+    expect(JSON.stringify(options)).not.toMatch(
+      /telefone|email|usuario|perfil|ativo/i,
+    );
+  });
+
+  it('does not expose responsible options from inaccessible private orders', async () => {
+    const employeeA = await createAgent();
+    const employeeB = await createUserFixture({ nome: 'Beatriz Pública' });
+    const employeeC = await createUserFixture({ nome: 'Carla Privada' });
+    await createOrderFixture(employeeA.user.funcionarioId);
+    await createOrderFixture(employeeB.funcionarioId, {
+      visibilidade: Visibilidade.PUBLICA,
+    });
+    await createOrderFixture(employeeC.funcionarioId);
+
+    const response = await employeeA.agent
+      .get('/orders/responsibles')
+      .expect(HttpStatus.OK);
+    expect(response.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: employeeA.user.funcionarioId }),
+        expect.objectContaining({ id: employeeB.funcionarioId }),
+      ]),
+    );
+    expect(response.body).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: employeeC.funcionarioId }),
+      ]),
+    );
+    for (const option of response.body) {
+      expect(Object.keys(option).sort()).toEqual(['id', 'nome']);
+    }
+  });
+
+  it('filters createdAt with inclusive createdFrom and exclusive createdBefore', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const responsible = await createUserFixture();
+    const before = await createOrderFixture(responsible.funcionarioId, {
+      numero: 'OS-TIME-BEFORE',
+      criadoEm: new Date('2026-09-08T02:59:59.000Z'),
+    });
+    const atFrom = await createOrderFixture(responsible.funcionarioId, {
+      numero: 'OS-TIME-FROM',
+      criadoEm: new Date('2026-09-08T03:00:00.000Z'),
+      status: StatusOrdemServico.EM_ANDAMENTO,
+      clientName: 'Intervalo Temporal',
+    });
+    const atBefore = await createOrderFixture(responsible.funcionarioId, {
+      numero: 'OS-TIME-BEFORE-LIMIT',
+      criadoEm: new Date('2026-09-09T03:00:00.000Z'),
+      status: StatusOrdemServico.EM_ANDAMENTO,
+      clientName: 'Intervalo Temporal',
+    });
+    const after = await createOrderFixture(responsible.funcionarioId, {
+      numero: 'OS-TIME-AFTER',
+      criadoEm: new Date('2026-09-09T03:00:01.000Z'),
+    });
+
+    const from = await administrator.agent
+      .get('/orders')
+      .query({ createdFrom: '2026-09-08T03:00:00.000Z' })
+      .expect(HttpStatus.OK);
+    expect(from.body.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([atFrom.id, atBefore.id, after.id]),
+    );
+    expect(from.body.map((item: { id: string }) => item.id)).not.toContain(
+      before.id,
+    );
+
+    const beforeLimit = await administrator.agent
+      .get('/orders')
+      .query({ createdBefore: '2026-09-09T03:00:00.000Z' })
+      .expect(HttpStatus.OK);
+    expect(beforeLimit.body.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([before.id, atFrom.id]),
+    );
+    expect(beforeLimit.body.map((item: { id: string }) => item.id)).not.toEqual(
+      expect.arrayContaining([atBefore.id, after.id]),
+    );
+
+    const combined = await administrator.agent
+      .get('/orders')
+      .query({
+        responsibleId: responsible.funcionarioId,
+        createdFrom: '2026-09-08T03:00:00.000Z',
+        createdBefore: '2026-09-09T03:00:00.000Z',
+        status: 'in-progress',
+        search: 'Intervalo',
+      })
+      .expect(HttpStatus.OK);
+    expect(combined.body.map((item: { id: string }) => item.id)).toEqual([
+      atFrom.id,
+    ]);
+  });
+
   it('smokes contextual list, detail, and filters with temporary PostgreSQL fixtures', async () => {
     const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
     const employeeA = await createAgent();
@@ -2109,6 +2333,21 @@ describe('OrdersController', () => {
       .get('/orders')
       .query({ status: 'unknown' })
       .expect(HttpStatus.BAD_REQUEST);
+    for (const query of [
+      { responsibleId: 'not-a-uuid' },
+      { createdFrom: '2026-09-08' },
+      { createdBefore: 'not-a-datetime' },
+      {
+        createdFrom: '2026-09-09T03:00:00.000Z',
+        createdBefore: '2026-09-08T03:00:00.000Z',
+      },
+      {
+        createdFrom: '2026-09-08T03:00:00.000Z',
+        createdBefore: '2026-09-08T03:00:00.000Z',
+      },
+    ]) {
+      await agent.get('/orders').query(query).expect(HttpStatus.BAD_REQUEST);
+    }
     await agent.get('/orders/not-a-uuid').expect(HttpStatus.BAD_REQUEST);
     await agent
       .get('/orders/not-a-uuid/history')

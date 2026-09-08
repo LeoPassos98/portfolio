@@ -12,7 +12,7 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
 | Arquivos catalogados         | 15 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **418 testes aprovados** na atualização atômica de Ordens de Serviço                                      |
+| Último resultado consolidado | **423 testes aprovados** nos filtros backend da lista de Ordens de Serviço                                |
 
 ## Executar agora
 
@@ -68,7 +68,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **418 testes** executada na atualização atômica de Ordens de Serviço. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **423 testes** executada nos filtros backend da lista de Ordens de Serviço. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -184,7 +184,8 @@ Exercita leitura, criação e atualização HTTP reais de Ordens contra PostgreS
 | Atomicidade e corridas   | Trigger exclusivo do teste rejeita o update após a inserção do snapshot e confirma rollback integral. Corrida entre reassociação a Funcionário B e inativação de B admite somente OS ativa com B ainda ativo ou inativação vencedora seguida de `ORDER_RESPONSIBLE_INACTIVE`.                                                                                           | `Serializable` com retries limitados protege snapshot/update e lineariza o invariante entre responsável ativo e RF-07A.                                          |
 | Escopo contextual        | Administrador lista, detalha e consulta histórico de OS pública ou privada; Funcionário vê suas OS e as públicas de terceiros, sem receber privadas de terceiros. No histórico, o escopo usa a OS atual, não a visibilidade de cada snapshot.                                                                                                                           | A policy usa o `funcionarioId` do principal autenticado na própria consulta Prisma.                                                                              |
 | Não revelação            | Detalhe e histórico de OS privada de terceiro e UUID inexistente retornam o mesmo `404 ORDER_NOT_FOUND`.                                                                                                                                                                                                                                                                | A API não confirma a existência de uma OS inacessível.                                                                                                           |
-| Filtros                  | `all`, `open`, cada status específico, busca case-insensitive por número ou Cliente, trim e combinação de busca/status.                                                                                                                                                                                                                                                 | Filtros não ampliam a autorização e permanecem no banco.                                                                                                         |
+| Filtros                  | `all`, `open`, cada status específico, busca case-insensitive por número ou Cliente, trim, responsável UUID e intervalo RFC3339 sobre `criadoEm`. Confirma `createdFrom <= criadoEm < createdBefore`, limites exatos, combinações com status/busca/responsável e a rejeição de UUID, datetime, intervalo invertido ou vazio inválidos. | Filtros não ampliam a autorização e permanecem no banco; o intervalo usa instantes, sem inferir timezone. |
+| Opções de responsável    | `GET /orders/responsibles` deduplica e ordena responsáveis de OS acessíveis; mantém responsável inativo de OS terminal e devolve somente `id` e `nome`. Funcionário recebe o próprio e responsáveis de OS públicas, nunca quem só possui OS privada inacessível. | As opções reutilizam a policy contextual e não se tornam um diretório administrativo indireto. |
 | Contrato e proteção      | Criação exige sessão, primeiro acesso concluído e CSRF; o OpenAPI publica body, cabeçalho e erros. Detalhe não inclui histórico; histórico devolve somente snapshot, responsável histórico e autor seguro. Leituras expõem `versao` e valor decimal textual; validam entrada, sessão, primeiro acesso e conta inativa. Histórico vazio de OS acessível retorna `[]`.    | Os contratos não dependem de serialização acidental de objetos Prisma e aplicam proteção proporcional a leitura e escrita.                                       |
 
 Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test` e fixtures/sessões removidas ao final.
@@ -251,3 +252,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.5E — isolamento do banco automatizado    | **339 testes** |
 | N5.5F — criação e numeração transacional    | **371 testes** |
 | N5.5H — edição atômica, snapshots e OCC     | **418 testes** |
+| N5.5J — filtros backend da lista de OS      | **423 testes** |

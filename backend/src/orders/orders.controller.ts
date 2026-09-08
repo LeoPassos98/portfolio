@@ -44,6 +44,7 @@ import {
   orderListQuerySchema,
   type OrderListQuery,
 } from './order-list-query.schema.js';
+import { OrderResponsibleResponse } from './order-responsible-response.dto.js';
 import {
   orderUpdateSchema,
   type OrderUpdateInput,
@@ -215,6 +216,24 @@ export class OrdersController {
     required: false,
     description: 'Busca por número da OS ou nome do Cliente.',
   })
+  @ApiQuery({
+    name: 'responsibleId',
+    required: false,
+    schema: { type: 'string', format: 'uuid' },
+    description: 'Restringe a lista ao responsável informado.',
+  })
+  @ApiQuery({
+    name: 'createdFrom',
+    required: false,
+    schema: { type: 'string', format: 'date-time' },
+    description: 'Início inclusivo do período: criadoEm >= createdFrom.',
+  })
+  @ApiQuery({
+    name: 'createdBefore',
+    required: false,
+    schema: { type: 'string', format: 'date-time' },
+    description: 'Fim exclusivo do período: criadoEm < createdBefore.',
+  })
   @ApiOkResponse({ type: OrderListItemResponse, isArray: true })
   @ApiBadRequestResponse(badRequestResponse)
   @ApiUnauthorizedResponse(unauthorizedResponse)
@@ -224,6 +243,19 @@ export class OrdersController {
     @Query(new ZodValidationPipe(orderListQuerySchema)) query: OrderListQuery,
   ): Promise<OrderListItemResponse[]> {
     return this.ordersService.findAll(request.authenticatedUser!, query);
+  }
+
+  @Get('responsibles')
+  @ApiOperation({
+    summary: 'Lista responsáveis das ordens de serviço acessíveis',
+  })
+  @ApiOkResponse({ type: OrderResponsibleResponse, isArray: true })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse(forbiddenResponse)
+  findResponsibles(
+    @Req() request: Request,
+  ): Promise<OrderResponsibleResponse[]> {
+    return this.ordersService.findResponsibles(request.authenticatedUser!);
   }
 
   @Get(':id/history')
