@@ -1,6 +1,8 @@
 import { apiClient } from '../../../shared/lib/http/apiClient'
 import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 import type {
+  OrderDetail,
+  OrderHistoryItem,
   OrderListItem,
   OrderStatus,
   OrderVisibility,
@@ -24,44 +26,98 @@ type OrderPersonHttpResponse = {
   nome: string
 }
 
+type OrderStatusHttpResponse =
+  'AGUARDANDO' | 'EM_ANDAMENTO' | 'CONCLUIDO' | 'CANCELADO'
+
+type OrderVisibilityHttpResponse = 'PRIVADA' | 'PUBLICA'
+
 type OrderListItemHttpResponse = {
   id: string
   numero: string
   cliente: OrderPersonHttpResponse
   responsavel: OrderPersonHttpResponse
-  status: 'AGUARDANDO' | 'EM_ANDAMENTO' | 'CONCLUIDO' | 'CANCELADO'
+  status: OrderStatusHttpResponse
   valor: string
-  visibilidade: 'PRIVADA' | 'PUBLICA'
+  visibilidade: OrderVisibilityHttpResponse
   criadoEm: string
   atualizadoEm: string
   versao: number
 }
 
-function toOrderStatus(
-  status: OrderListItemHttpResponse['status'],
-): OrderStatus {
+type OrderDetailHttpResponse = OrderListItemHttpResponse & {
+  descricao: string
+  observacoes: string | null
+  concluidoEm: string | null
+  canceladoEm: string | null
+}
+
+type OrderHistoryItemHttpResponse = {
+  id: string
+  versao: number
+  descricao: string
+  valor: string
+  observacoes: string | null
+  status: OrderStatusHttpResponse
+  visibilidade: OrderVisibilityHttpResponse
+  concluidoEm: string | null
+  canceladoEm: string | null
+  snapshotEm: string
+  responsavel: OrderPersonHttpResponse
+  alteradoPor: OrderPersonHttpResponse
+}
+
+function toOrderStatus(status: OrderStatusHttpResponse): OrderStatus {
   const statuses = {
     AGUARDANDO: 'awaiting',
     EM_ANDAMENTO: 'in-progress',
     CONCLUIDO: 'completed',
     CANCELADO: 'cancelled',
-  } as const satisfies Record<OrderListItemHttpResponse['status'], OrderStatus>
+  } as const satisfies Record<OrderStatusHttpResponse, OrderStatus>
 
   return statuses[status]
 }
 
 function toOrderVisibility(
-  visibility: OrderListItemHttpResponse['visibilidade'],
+  visibility: OrderVisibilityHttpResponse,
 ): OrderVisibility {
   const visibilities = {
     PRIVADA: 'private',
     PUBLICA: 'public',
-  } as const satisfies Record<
-    OrderListItemHttpResponse['visibilidade'],
-    OrderVisibility
-  >
+  } as const satisfies Record<OrderVisibilityHttpResponse, OrderVisibility>
 
   return visibilities[visibility]
+}
+
+function toOrderDetail(order: OrderDetailHttpResponse): OrderDetail {
+  return {
+    ...toOrderListItem(order),
+    description: order.descricao,
+    notes: order.observacoes,
+    value: order.valor,
+    completedAt: order.concluidoEm,
+    cancelledAt: order.canceladoEm,
+  }
+}
+
+function toOrderHistoryItem(
+  snapshot: OrderHistoryItemHttpResponse,
+): OrderHistoryItem {
+  return {
+    id: snapshot.id,
+    version: snapshot.versao,
+    description: snapshot.descricao,
+    value: snapshot.valor,
+    notes: snapshot.observacoes,
+    status: toOrderStatus(snapshot.status),
+    visibility: toOrderVisibility(snapshot.visibilidade),
+    completedAt: snapshot.concluidoEm,
+    cancelledAt: snapshot.canceladoEm,
+    changedAt: snapshot.snapshotEm,
+    responsibleEmployeeId: snapshot.responsavel.id,
+    responsibleName: snapshot.responsavel.nome,
+    authorUserId: snapshot.alteradoPor.id,
+    authorName: snapshot.alteradoPor.nome,
+  }
 }
 
 function toOrderListItem(order: OrderListItemHttpResponse): OrderListItem {
@@ -92,12 +148,39 @@ async function listOrders({
   return data.map(toOrderListItem)
 }
 
-export { listOrders, toOrderListItem, toOrderStatus, toOrderVisibility }
+async function getOrder(id: string): Promise<OrderDetail> {
+  const { data } = await apiClient.get<OrderDetailHttpResponse>(`/orders/${id}`)
+
+  return toOrderDetail(data)
+}
+
+async function getOrderHistory(id: string): Promise<OrderHistoryItem[]> {
+  const { data } = await apiClient.get<OrderHistoryItemHttpResponse[]>(
+    `/orders/${id}/history`,
+  )
+
+  return data.map(toOrderHistoryItem)
+}
+
+export {
+  getOrder,
+  getOrderHistory,
+  listOrders,
+  toOrderDetail,
+  toOrderHistoryItem,
+  toOrderListItem,
+  toOrderStatus,
+  toOrderVisibility,
+}
 export type {
+  OrderDetailHttpResponse,
+  OrderHistoryItemHttpResponse,
   OrderHttpErrorCode,
   OrderHttpErrorResponse,
   OrderListItemHttpResponse,
   OrderListParams,
   OrderListStatus,
   OrderPersonHttpResponse,
+  OrderStatusHttpResponse,
+  OrderVisibilityHttpResponse,
 }

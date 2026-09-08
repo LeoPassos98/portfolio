@@ -306,9 +306,9 @@ Envia status e busca normalizada a `GET /orders`; o backend aplica a autorizaç�
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
-Define `Order`, seus status e regras de visibilidade.
+Define os tipos legados mockados `Order`, status e visibilidade, além dos modelos reais de leitura `OrderDetail` e `OrderHistoryItem`.
 
-Inclui vínculos imutáveis ao Cliente e ao responsável, além dos dados usados em mocks, detalhes e futura edição.
+Os modelos reais preservam o decimal como texto e incluem as datas de conclusão e cancelamento, sem forçar a migração das telas de escrita ainda mockadas.
 
 ### 3. `frontend/src/features/orders/mocks/orders.ts`
 
@@ -318,9 +318,9 @@ Fornece vínculos, dados de serviço, visibilidade, observações e datas para r
 
 ### 4. `frontend/src/features/orders/pages/OrderDetailsPage.tsx`
 
-Obtém a ordem completa pela rota e aplica as políticas compartilhadas de visibilidade, edição e reabertura.
+Consulta detalhe e histórico reais com queries TanStack independentes, usando `GET /orders/:id` e `GET /orders/:id/history`.
 
-Apresenta os dados de forma responsiva e permite a reabertura conceitual de OS cancelada por Administrador sem alterar mocks.
+Preserva a visualização responsiva, loading, erro, retry, não revelação de OS inacessível e seleção de snapshot. A tela permanece somente leitura até as mutations de OS serem integradas.
 
 ### 5. `frontend/src/features/orders/pages/OrderEditPage.tsx`
 
@@ -334,11 +334,11 @@ Compõe o formulário compartilhado no modo de criação, preservando a estrutur
 
 ### 7. `frontend/src/features/orders/types/orderHistory.ts`
 
-Define o snapshot histórico com versão, dados de negócio preservados, data e hora, autor e responsável daquele momento.
+Define o snapshot histórico legado usado pelos mocks remanescentes de edição e formulário.
 
 ### 8. `frontend/src/features/orders/mocks/orderHistory.ts`
 
-Exporta snapshots mockados e tipados com versões e estados anteriores completos para consulta nos Detalhes da OS.
+Exporta snapshots mockados e tipados para os fluxos mockados remanescentes; não é usado pela tela real de detalhes.
 
 ### 9. `frontend/src/features/orders/components/OrderForm.tsx`
 
@@ -362,15 +362,15 @@ Administrador vê todas e reabre Canceladas. Funcionário vê as próprias e as 
 
 ### 12. `frontend/src/features/orders/api/ordersApi.ts`
 
-Concentra a consulta tipada de `GET /orders` na instância Axios compartilhada.
+Concentra as consultas tipadas de `GET /orders`, `GET /orders/:id` e `GET /orders/:id/history` na instância Axios compartilhada.
 
-Separa o contrato HTTP do NestJS do modelo `OrderListItem` do React, convertendo enums e preservando `valor` como texto decimal exato no server state.
+Separa contratos HTTP explícitos dos modelos React de lista, detalhe e snapshot, reutiliza os mappers de enums e preserva `valor` como texto decimal exato no server state.
 
 ### 13. `frontend/src/features/orders/api/orderQueryKeys.ts`
 
-Centraliza as query keys de listagem e detalhe futuro de OS.
+Centraliza as query keys de listagem, detalhe e histórico de OS.
 
-A chave da listagem contém somente os parâmetros efetivamente enviados ao backend, para separar corretamente os resultados filtrados no cache.
+As chaves de detalhe e histórico são distintas porque representam recursos HTTP e estados de query independentes; a chave da listagem contém somente os parâmetros efetivamente enviados ao backend.
 
 ---
 

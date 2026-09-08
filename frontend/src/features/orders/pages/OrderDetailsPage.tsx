@@ -1,20 +1,18 @@
+import { useQuery } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
-import { Label } from '../../../components/ui/Label'
-import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
-import { useAuthSession } from '../../auth/hooks/useAuthSession'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
+import { ordersQueryKeys } from '../api/orderQueryKeys'
 import {
-  canReopenOrder,
-  canViewOrder,
-  getAllowedOrderReopenStatuses,
-  getOrderEditPermissions,
-} from '../lib/orderVisibility'
-import { mockOrderHistory } from '../mocks/orderHistory'
-import { mockOrders } from '../mocks/orders'
+  getOrder,
+  getOrderHistory,
+  type OrderHttpErrorResponse,
+} from '../api/ordersApi'
 import type { OrderStatus, OrderVisibility } from '../types/order'
 
 const statusDetails = {
@@ -27,10 +25,7 @@ const statusDetails = {
 const visibilityDetails = {
   public: { label: 'Pública', variant: 'info' },
   private: { label: 'Privada', variant: 'neutral' },
-} as const satisfies Record<
-  OrderVisibility,
-  { label: string; variant: string }
->
+} as const satisfies Record<OrderVisibility, { label: string; variant: string }>
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -42,20 +37,89 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeStyle: 'short',
 })
 
-function OrderDetailsPage() {
-  const session = useAuthSession()
-  const navigate = useNavigate()
-  const { orderId } = useParams<{ orderId: string }>()
-  const [selectedSnapshotId, setSelectedSnapshotId] = useState<string | null>(
-    null,
+function isOrderApiError(error: unknown, code: OrderHttpErrorResponse['code']) {
+  return (
+    isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
   )
-  const [isReopenFormOpen, setIsReopenFormOpen] = useState(false)
-  const [reopenStatus, setReopenStatus] = useState<OrderStatus>('awaiting')
-  const order = mockOrders.find((item) => item.id === orderId)
-  const hasOrderAccess =
-    order !== undefined &&
-    session !== null &&
-    canViewOrder(order, session.currentUser)
+}
+
+function isOrderId(value: string | undefined): value is string {
+  return (
+    value !== undefined &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  )
+}
+
+function OrderDetailsSkeleton() {
+  return (
+    <AppLayout>
+      <div className="animate-pulse" aria-label="Carregando ordem de serviço">
+        <div className="h-5 w-40 rounded bg-neutral-bg" />
+        <div className="mt-6 h-8 w-48 rounded bg-neutral-bg" />
+        <div className="mt-3 h-5 w-36 rounded bg-neutral-bg" />
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="bg-surface h-80 rounded-ui border border-neutral-bg" />
+          <div className="bg-surface h-80 rounded-ui border border-neutral-bg lg:order-last" />
+        </div>
+        <div className="bg-surface mt-8 h-32 rounded-ui border border-neutral-bg" />
+      </div>
+    </AppLayout>
+  )
+}
+
+function OrderHistorySkeleton() {
+  return (
+    <ol
+      className="mt-4 space-y-4"
+      aria-label="Carregando histórico da ordem de serviço"
+    >
+      {[0, 1].map((item) => (
+        <li
+          key={item}
+          className="bg-surface animate-pulse rounded-ui border border-neutral-bg p-4"
+        >
+          <div className="h-5 w-28 rounded bg-neutral-bg" />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="h-4 w-40 rounded bg-neutral-bg" />
+            <div className="h-4 w-32 rounded bg-neutral-bg" />
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function OrderDetailsPage() {
+  const { orderId } = useParams<{ orderId: string }>()
+  const [selectedSnapshot, setSelectedSnapshot] = useState<{
+    orderId: string
+    snapshotId: string
+  } | null>(null)
+  const hasValidOrderId = isOrderId(orderId)
+  const {
+    data: order,
+    error: orderError,
+    isError: isOrderError,
+    isPending: isOrderPending,
+    refetch: refetchOrder,
+  } = useQuery({
+    queryKey: ordersQueryKeys.detail(orderId ?? ''),
+    queryFn: () => getOrder(orderId!),
+    enabled: hasValidOrderId,
+  })
+  const {
+    data: orderHistory = [],
+    isError: isOrderHistoryError,
+    isPending: isOrderHistoryPending,
+    refetch: refetchOrderHistory,
+  } = useQuery({
+    queryKey: ordersQueryKeys.history(orderId ?? ''),
+    queryFn: () => getOrderHistory(orderId!),
+    enabled: hasValidOrderId && order !== undefined,
+  })
+
   const backLink = (
     <Link
       to="/orders"
@@ -65,7 +129,7 @@ function OrderDetailsPage() {
     </Link>
   )
 
-  if (!hasOrderAccess) {
+  if (!hasValidOrderId || isOrderApiError(orderError, 'ORDER_NOT_FOUND')) {
     return (
       <AppLayout>
         {backLink}
@@ -79,37 +143,51 @@ function OrderDetailsPage() {
     )
   }
 
-  const editPermissions = getOrderEditPermissions(order, session.currentUser)
-  const canReopen = canReopenOrder(order, session.currentUser)
-  const allowedReopenStatuses = getAllowedOrderReopenStatuses(
-    order,
-    session.currentUser,
-  )
-  const orderHistory = mockOrderHistory
-    .filter((snapshot) => snapshot.orderId === order.id)
-    .sort(
-      (firstSnapshot, secondSnapshot) =>
-        new Date(secondSnapshot.changedAt).getTime() -
-        new Date(firstSnapshot.changedAt).getTime(),
+  if (isOrderPending) return <OrderDetailsSkeleton />
+
+  if (isOrderError || !order) {
+    return (
+      <AppLayout>
+        {backLink}
+        <div className="mt-6 space-y-4">
+          <EmptyState
+            title="Não foi possível carregar a ordem"
+            description="Verifique sua conexão e tente novamente."
+          />
+          <div className="flex justify-center">
+            <Button type="button" onClick={() => void refetchOrder()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      </AppLayout>
     )
-  const selectedSnapshot = selectedSnapshotId
-    ? orderHistory.find((snapshot) => snapshot.id === selectedSnapshotId)
-    : undefined
-  const displayedOrder = selectedSnapshot
+  }
+
+  const selectedHistoryItem =
+    selectedSnapshot?.orderId === orderId
+      ? orderHistory.find(
+          (snapshot) => snapshot.id === selectedSnapshot.snapshotId,
+        )
+      : undefined
+  const displayedOrder = selectedHistoryItem
     ? {
         ...order,
-        description: selectedSnapshot.description,
-        value: selectedSnapshot.value,
-        notes: selectedSnapshot.notes,
-        responsibleName: selectedSnapshot.responsibleName,
-        status: selectedSnapshot.status,
-        visibility: selectedSnapshot.visibility,
+        description: selectedHistoryItem.description,
+        value: selectedHistoryItem.value,
+        notes: selectedHistoryItem.notes,
+        responsibleEmployeeId: selectedHistoryItem.responsibleEmployeeId,
+        responsibleName: selectedHistoryItem.responsibleName,
+        status: selectedHistoryItem.status,
+        visibility: selectedHistoryItem.visibility,
+        completedAt: selectedHistoryItem.completedAt,
+        cancelledAt: selectedHistoryItem.cancelledAt,
       }
     : order
   const statusDetail = statusDetails[displayedOrder.status]
   const visibilityDetail = visibilityDetails[displayedOrder.visibility]
-  const updateDate = selectedSnapshot?.changedAt ?? order.updatedAt
-  const updateLabel = selectedSnapshot
+  const updateDate = selectedHistoryItem?.changedAt ?? order.updatedAt
+  const updateLabel = selectedHistoryItem
     ? 'Versão preservada em'
     : 'Última atualização'
 
@@ -132,103 +210,28 @@ function OrderDetailsPage() {
           </div>
           <p className="text-neutral mt-1">{order.clientName}</p>
         </div>
-        {selectedSnapshot ? null : (
-          <div className="flex flex-wrap gap-3">
-            {editPermissions.canEdit ? (
-              <Link
-                to={`/orders/${order.id}/edit`}
-                className="bg-primary rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              >
-                Editar
-              </Link>
-            ) : null}
-            {canReopen && !isReopenFormOpen ? (
-              <Button
-                type="button"
-                onClick={() => setIsReopenFormOpen(true)}
-              >
-                Reabrir OS
-              </Button>
-            ) : null}
-          </div>
-        )}
       </header>
 
-      {isReopenFormOpen && !selectedSnapshot ? (
-        <section
-          aria-labelledby="reopen-order-title"
-          className="bg-neutral-bg mt-6 rounded-ui border border-neutral-bg p-4 sm:p-6"
-        >
-          <h2
-            id="reopen-order-title"
-            className="text-foreground text-lg font-bold"
-          >
-            Reabrir OS
-          </h2>
-          <p className="text-neutral mt-1 text-sm">
-            Escolha o status ativo que a ordem terá ao ser reaberta.
-          </p>
-
-          <div className="mt-4 max-w-xs space-y-2">
-            <Label htmlFor="reopen-order-status">Status após reabertura</Label>
-            <Select
-              id="reopen-order-status"
-              value={reopenStatus}
-              onChange={(event) => {
-                setReopenStatus(event.target.value as OrderStatus)
-              }}
-            >
-              {allowedReopenStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {statusDetails[status].label}
-                </option>
-              ))}
-            </Select>
-          </div>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Button
-              type="button"
-              onClick={() => {
-                navigate(`/orders/${order.id}/edit`, {
-                  state: { reopenedStatus: reopenStatus },
-                })
-              }}
-            >
-              Reabrir OS
-            </Button>
-            <button
-              type="button"
-              onClick={() => setIsReopenFormOpen(false)}
-              className="text-primary rounded-ui px-4 py-2 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-            >
-              Cancelar
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {selectedSnapshot ? (
+      {selectedHistoryItem ? (
         <section
           aria-labelledby="historical-version-title"
           className="bg-info-bg mt-6 flex flex-col gap-4 rounded-ui border border-info p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div>
-            <h2
-              id="historical-version-title"
-              className="text-info font-bold"
-            >
-              Versão {selectedSnapshot.version} — somente leitura
+            <h2 id="historical-version-title" className="text-info font-bold">
+              Versão {selectedHistoryItem.version} — somente leitura
             </h2>
             <p className="text-info mt-1 text-sm">
               Preservada em{' '}
-              <time dateTime={selectedSnapshot.changedAt}>
-                {dateTimeFormatter.format(new Date(selectedSnapshot.changedAt))}
+              <time dateTime={selectedHistoryItem.changedAt}>
+                {dateTimeFormatter.format(
+                  new Date(selectedHistoryItem.changedAt),
+                )}
               </time>{' '}
-              por {selectedSnapshot.authorName}.
+              por {selectedHistoryItem.authorName}.
             </p>
           </div>
-          <Button type="button" onClick={() => setSelectedSnapshotId(null)}>
+          <Button type="button" onClick={() => setSelectedSnapshot(null)}>
             Voltar para versão atual
           </Button>
         </section>
@@ -245,12 +248,11 @@ function OrderDetailsPage() {
           >
             Resumo operacional
           </h2>
-
           <dl className="mt-5 space-y-5">
             <div>
               <dt className="text-neutral text-sm">Valor</dt>
               <dd className="text-foreground mt-1 text-xl font-bold">
-                {currencyFormatter.format(displayedOrder.value)}
+                {currencyFormatter.format(Number(displayedOrder.value))}
               </dd>
             </div>
             <div>
@@ -305,7 +307,6 @@ function OrderDetailsPage() {
             <p className="text-foreground mt-4 whitespace-pre-wrap">
               {displayedOrder.description}
             </p>
-
             <div className="mt-6">
               <h3 className="text-foreground text-sm font-medium">
                 Observações
@@ -315,7 +316,6 @@ function OrderDetailsPage() {
               </p>
             </div>
           </section>
-
           <section
             aria-labelledby="order-client-title"
             className="mt-8 border-t border-neutral-bg pt-6"
@@ -345,26 +345,48 @@ function OrderDetailsPage() {
         >
           Histórico
         </h2>
-
-        {orderHistory.length === 0 ? (
+        {isOrderHistoryPending ? <OrderHistorySkeleton /> : null}
+        {isOrderHistoryError ? (
+          <div className="mt-4 space-y-4">
+            <EmptyState
+              title="Não foi possível carregar o histórico"
+              description="Verifique sua conexão e tente novamente."
+            />
+            <div className="flex justify-center">
+              <Button type="button" onClick={() => void refetchOrderHistory()}>
+                Tentar novamente
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {!isOrderHistoryPending &&
+        !isOrderHistoryError &&
+        orderHistory.length === 0 ? (
           <div className="mt-4">
             <EmptyState
               title="Nenhum histórico disponível"
               description="Esta ordem ainda não possui snapshots registrados."
             />
           </div>
-        ) : (
+        ) : null}
+        {!isOrderHistoryPending &&
+        !isOrderHistoryError &&
+        orderHistory.length > 0 ? (
           <ol className="mt-4 space-y-4">
             {orderHistory.map((snapshot) => {
               const snapshotStatusDetail = statusDetails[snapshot.status]
-              const isSelected = snapshot.id === selectedSnapshot?.id
-
+              const isSelected = snapshot.id === selectedHistoryItem?.id
               return (
                 <li key={snapshot.id}>
                   <button
                     type="button"
                     aria-pressed={isSelected}
-                    onClick={() => setSelectedSnapshotId(snapshot.id)}
+                    onClick={() =>
+                      setSelectedSnapshot({
+                        orderId: order.id,
+                        snapshotId: snapshot.id,
+                      })
+                    }
                     className={
                       isSelected
                         ? 'bg-neutral-bg w-full rounded-ui border border-primary p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2'
@@ -379,7 +401,6 @@ function OrderDetailsPage() {
                         {snapshotStatusDetail.label}
                       </StatusBadge>
                     </div>
-
                     <dl className="mt-4 grid gap-4 sm:grid-cols-2">
                       <div>
                         <dt className="text-neutral text-sm">Preservada em</dt>
@@ -392,9 +413,7 @@ function OrderDetailsPage() {
                         </dd>
                       </div>
                       <div>
-                        <dt className="text-neutral text-sm">
-                          Alterado por
-                        </dt>
+                        <dt className="text-neutral text-sm">Alterado por</dt>
                         <dd className="text-foreground mt-1 font-medium">
                           {snapshot.authorName}
                         </dd>
@@ -413,7 +432,7 @@ function OrderDetailsPage() {
               )
             })}
           </ol>
-        )}
+        ) : null}
       </section>
     </AppLayout>
   )

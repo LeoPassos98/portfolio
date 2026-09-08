@@ -157,7 +157,7 @@ Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseServ
 
 #### [`backend/src/orders/orders.controller.spec.ts`](../backend/src/orders/orders.controller.spec.ts)
 
-Exercita a leitura HTTP real de Ordens contra PostgreSQL, com sessões e fixtures removidas ao final.
+Exercita a leitura HTTP real de Ordens contra PostgreSQL, com sessões e fixtures removidas ao final. A tela `OrderDetailsPage` consome esses mesmos contratos em queries TanStack independentes; a leitura visual usa skeleton, retry e o estado genérico de não encontrado, sem mocks runtime.
 
 | Operação            | Cenários concretos                                                                                                                                                                                                                                                                                | Regra ou risco comprovado                                                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -190,6 +190,7 @@ Estas validações não correspondem a arquivos `.spec.ts`; registram evidência
 | Redefinição administrativa de senha: smoke HTTP | Uma sessão temporária de Administrador redefiniu por `PATCH /employees/:id/account/password` as contas ativa e inativa, com senhas de 8 e 128 caracteres e senha com espaços preservados. Confirmou rejeição de confirmação diferente, novo hash, `deveAlterarSenha`, revogação das sessões do alvo, preservação de terceiro, login com a senha temporária, primeiro acesso obrigatório e resposta segura; perfil, situações, e-mails e Funcionário permaneceram iguais. Fixtures e sessões foram removidas ao final. | Aprovado nesta integração N5.4; a tela mantém senha apenas no formulário local, atualiza o detalhe com a resposta segura, limpa o estado dirty após sucesso e não refaz listagens sem mudança visível.                                                    |
 
 | Leitura de OS: smoke HTTP | Fixtures temporárias de Administrador, Funcionários A/B, Cliente e OS privada/pública de A e privada de B validam por HTTP a lista, o detalhe, os filtros e o isolamento da privada de B para A. | Aprovado no primeiro marco N5.5; Admin vê todas, Funcionário A vê as próprias e públicas, e as fixtures e sessões são removidas. |
+| Detalhe e histórico de OS no React | `OrderDetailsPage` consulta `GET /orders/:id` e, apenas após seu sucesso, `GET /orders/:id/history`. Confirma por implementação os caches distintos, valor decimal textual, `ORDER_NOT_FOUND` sem revelar acesso, loading/erro/retry independentes, histórico vazio, seleção de versão e ausência de `mockOrders`/`mockOrderHistory`. | Validado por lint e build do frontend na integração N5.5D. As actions de escrita permanecem ocultas enquanto as mutations de OS não existem. |
 
 #### Auditoria final N5.4
 
