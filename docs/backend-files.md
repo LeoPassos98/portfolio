@@ -14,12 +14,12 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------: |
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, ordens e endpoint raiz atual                      |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        6 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        7 |
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                 |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                      |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       17 |
-| Ordens de Serviço        | Leitura contextual de listagem, detalhe e histórico, com DTOs e contratos de erro estáveis                              |        9 |
+| Ordens de Serviço        | Leitura contextual, criação transacional, histórico, DTOs e contratos de erro estáveis                                  |       10 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
@@ -110,7 +110,7 @@ Recebe `DATABASE_URL` para o banco da aplicação e `SHADOW_DATABASE_URL` para a
 
 ### 2. `backend/prisma/schema.prisma`
 
-Define os modelos físicos PostgreSQL do domínio e a tabela de infraestrutura `session`, seus enums e relações, além do generator `prisma-client` com saída local.
+Define os modelos físicos PostgreSQL do domínio, o contador singleton da numeração de OS e a tabela de infraestrutura `session`, seus enums e relações, além do generator `prisma-client` com saída local.
 
 ### 3. `backend/src/database/database.module.ts`
 
@@ -129,6 +129,12 @@ Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índice
 ### 6. `backend/prisma/migrations/20260901002105_add_session_store/migration.sql`
 
 Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com `sid` como chave primária, `sess` JSON, `expire` timestamp e índice de expiração.
+
+### 7. `backend/prisma/migrations/20260908190000_add_order_counter/migration.sql`
+
+Cria o contador singleton da numeração de OS, com constraints para o identificador único e valor não negativo.
+
+Inicializa `ultimo_numero` pelo maior número de uma OS existente no formato `OS-<número>`, preservando dados anteriores à migration.
 
 ---
 
@@ -520,7 +526,7 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Ordens de Serviço
 
-Implementa consultas reais contextualizadas para Administrador e Funcionário, incluindo a leitura de snapshots já existentes. Criação, edição, geração de snapshots, concorrência e integração React do histórico permanecem fora deste marco.
+Implementa consultas reais contextualizadas e criação transacional para Administrador e Funcionário, incluindo a leitura de snapshots já existentes. Edição, geração automática de snapshots e integração React da criação permanecem fora deste marco.
 
 Diretório principal: `backend/src/orders/`
 
@@ -530,11 +536,13 @@ Compõe controller e service de Ordens com os módulos de autenticação e banco
 
 ### 2. `backend/src/orders/orders.controller.ts`
 
-Expõe `GET /orders`, `GET /orders/:id` e `GET /orders/:id/history`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida parâmetros com Zod e documenta os contratos no OpenAPI.
+Expõe `POST /orders`, `GET /orders`, `GET /orders/:id` e `GET /orders/:id/history`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida entradas com Zod e documenta os contratos e o cabeçalho CSRF no OpenAPI.
 
 ### 3. `backend/src/orders/orders.service.ts`
 
-Monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status e busca, ordena por criação decrescente e converte `Decimal` para texto exato com duas casas. Para o histórico, primeiro limita a OS pela mesma policy baseada na versão atual e então busca apenas seus snapshots por versão decrescente.
+Cria OS em transação interativa `Serializable`, com retry limitado, locks parametrizados de Cliente e responsável e incremento do contador na mesma unidade de commit. Administrador seleciona um Funcionário ativo; Funcionário recebe a própria identidade autenticada, independentemente do body.
+
+Também monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status e busca, ordena por criação decrescente, converte `Decimal` para texto exato com duas casas e consulta snapshots pela autorização da versão atual.
 
 ### 4. `backend/src/orders/order-list-query.schema.ts`
 
@@ -554,11 +562,17 @@ Declara o detalhe seguro sem histórico, credenciais ou outras relações admini
 
 ### 8. `backend/src/orders/orders.controller.spec.ts`
 
-Exercita por HTTP a autorização contextual, o não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
+Exercita por HTTP criação, autorização contextual, não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
+
+Cobre regras por perfil, normalização, decimal textual, erros estáveis, estado inicial, ausência de snapshot, numeração concorrente e corridas coordenadas de inativação sob locks reais.
 
 ### 9. `backend/src/orders/order-history-item-response.dto.ts`
 
 Declara a projeção segura de cada snapshot: versão preservada, responsável histórico e autor identificado pelo `Usuario.id` e nome do Funcionário associado, sem dados de login ou credenciais.
+
+### 10. `backend/src/orders/order-create.schema.ts`
+
+Declara o body estrito de criação, normaliza descrição e observações, limita a visibilidade e exige valor como string decimal canônica compatível com `Decimal(12,2)`.
 
 ---
 

@@ -1,7 +1,20 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiBody,
+  ApiConflictResponse,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiHeader,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -19,6 +32,10 @@ import { Roles } from '../auth/roles.decorator.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import { OrderDetailResponse } from './order-detail-response.dto.js';
+import {
+  orderCreateSchema,
+  type OrderCreateInput,
+} from './order-create.schema.js';
 import { OrderHistoryItemResponse } from './order-history-item-response.dto.js';
 import { orderIdSchema, type OrderIdInput } from './order-id.schema.js';
 import { OrderListItemResponse } from './order-list-item-response.dto.js';
@@ -43,12 +60,78 @@ const forbiddenResponse = {
   schema: getHttpErrorResponseSchemaReference(),
 };
 
+const csrfHeader = {
+  name: 'X-CSRF-Token',
+  required: true,
+  description: 'Token CSRF retornado por GET /auth/csrf para a sessão atual.',
+} as const;
+
 @Controller('orders')
 @ApiTags('Ordens de Serviço')
 @UseGuards(SessionGuard, FirstAccessCompletedGuard, RoleGuard)
 @Roles(Perfil.ADMINISTRADOR, Perfil.FUNCIONARIO)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
+
+  @Post()
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Cria uma ordem de serviço' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['clienteId', 'descricao', 'valor'],
+      properties: {
+        clienteId: { type: 'string', format: 'uuid' },
+        responsavelId: {
+          type: 'string',
+          format: 'uuid',
+          description:
+            'Obrigatório para Administrador e ignorado para Funcionário.',
+        },
+        descricao: { type: 'string', minLength: 3, maxLength: 2000 },
+        valor: {
+          type: 'string',
+          pattern: '^(?:0|[1-9]\\d{0,9})(?:\\.\\d{1,2})?$',
+          example: '1250.99',
+        },
+        observacoes: { type: 'string', maxLength: 4000 },
+        visibilidade: {
+          type: 'string',
+          enum: ['PRIVADA', 'PUBLICA'],
+          default: 'PRIVADA',
+        },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: OrderDetailResponse })
+  @ApiBadRequestResponse({
+    description:
+      'Body inválido (VALIDATION_ERROR) ou responsável não informado por Administrador (ORDER_RESPONSIBLE_REQUIRED).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, ou troca obrigatória de senha pendente.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Cliente inexistente (ORDER_CLIENT_NOT_FOUND) ou responsável inexistente (ORDER_RESPONSIBLE_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'Cliente inativo (ORDER_CLIENT_INACTIVE) ou responsável inativo (ORDER_RESPONSIBLE_INACTIVE).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  create(
+    @Req() request: Request,
+    @Body(new ZodValidationPipe(orderCreateSchema)) input: OrderCreateInput,
+  ): Promise<OrderDetailResponse> {
+    return this.ordersService.create(request.authenticatedUser!, input);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Lista ordens de serviço acessíveis' })

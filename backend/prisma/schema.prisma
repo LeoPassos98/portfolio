@@ -102,6 +102,13 @@ model OrdemServico {
   @@map("ordem_servico")
 }
 
+model ContadorOrdemServico {
+  id           Int @id @default(1)
+  ultimoNumero Int @default(0) @map("ultimo_numero")
+
+  @@map("contador_ordem_servico")
+}
+
 model HistoricoOrdemServico {
   id                   String             @id @default(uuid()) @db.Uuid
   versao               Int
