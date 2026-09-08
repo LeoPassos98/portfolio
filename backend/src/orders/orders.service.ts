@@ -8,6 +8,7 @@ import {
 import type { AuthenticatedUser } from '../auth/authenticated-user.interface.js';
 import { DatabaseService } from '../database/database.service.js';
 import { OrderDetailResponse } from './order-detail-response.dto.js';
+import { OrderHistoryItemResponse } from './order-history-item-response.dto.js';
 import { OrderListItemResponse } from './order-list-item-response.dto.js';
 import type { OrderListQuery } from './order-list-query.schema.js';
 
@@ -36,6 +37,23 @@ const orderDetailSelect = {
   concluidoEm: true,
   canceladoEm: true,
 } satisfies Prisma.OrdemServicoSelect;
+
+const orderHistorySelect = {
+  id: true,
+  versao: true,
+  descricao: true,
+  valor: true,
+  observacoes: true,
+  status: true,
+  visibilidade: true,
+  concluidoEm: true,
+  canceladoEm: true,
+  snapshotEm: true,
+  responsavel: { select: { id: true, nome: true } },
+  alteradoPorUsuario: {
+    select: { id: true, funcionario: { select: { nome: true } } },
+  },
+} satisfies Prisma.HistoricoOrdemServicoSelect;
 
 const statusesByFilter: Partial<
   Record<OrderListQuery['status'], StatusOrdemServico[]>
@@ -107,6 +125,47 @@ export class OrdersService {
       concluidoEm: order.concluidoEm,
       canceladoEm: order.canceladoEm,
     };
+  }
+
+  async findHistory(
+    authenticatedUser: AuthenticatedUser,
+    id: string,
+  ): Promise<OrderHistoryItemResponse[]> {
+    const order = await this.database.ordemServico.findFirst({
+      where: {
+        id,
+        ...this.getVisibilityWhere(authenticatedUser),
+      },
+      select: { id: true },
+    });
+
+    if (!order) {
+      throw new NotFoundException(ORDER_NOT_FOUND_ERROR);
+    }
+
+    const history = await this.database.historicoOrdemServico.findMany({
+      where: { ordemServicoId: order.id },
+      orderBy: [{ versao: 'desc' }, { id: 'desc' }],
+      select: orderHistorySelect,
+    });
+
+    return history.map((snapshot) => ({
+      id: snapshot.id,
+      versao: snapshot.versao,
+      descricao: snapshot.descricao,
+      valor: snapshot.valor.toFixed(2),
+      observacoes: snapshot.observacoes,
+      status: snapshot.status,
+      visibilidade: snapshot.visibilidade,
+      concluidoEm: snapshot.concluidoEm,
+      canceladoEm: snapshot.canceladoEm,
+      snapshotEm: snapshot.snapshotEm,
+      responsavel: snapshot.responsavel,
+      alteradoPor: {
+        id: snapshot.alteradoPorUsuario.id,
+        nome: snapshot.alteradoPorUsuario.funcionario.nome,
+      },
+    }));
   }
 
   private getVisibilityWhere(

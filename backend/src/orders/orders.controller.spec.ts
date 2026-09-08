@@ -43,6 +43,7 @@ describe('OrdersController', () => {
   let verificationPool: Pool;
   const clientIds: string[] = [];
   const funcionarioIds: string[] = [];
+  const historyIds: string[] = [];
   const orderIds: string[] = [];
   const sessionIds: string[] = [];
   const userIds: string[] = [];
@@ -69,6 +70,10 @@ describe('OrdersController', () => {
         'DELETE FROM "session" WHERE "sid" = ANY($1)',
         [sessionIds],
       );
+    if (historyIds.length)
+      await database.historicoOrdemServico.deleteMany({
+        where: { id: { in: historyIds } },
+      });
     if (orderIds.length)
       await database.ordemServico.deleteMany({
         where: { id: { in: orderIds } },
@@ -83,6 +88,7 @@ describe('OrdersController', () => {
       });
     clientIds.length = 0;
     funcionarioIds.length = 0;
+    historyIds.length = 0;
     orderIds.length = 0;
     sessionIds.length = 0;
     userIds.length = 0;
@@ -178,6 +184,43 @@ describe('OrdersController', () => {
     return { id: order.id, numero: order.numero };
   }
 
+  async function createHistoryFixture(
+    orderId: string,
+    responsavelId: string,
+    alteradoPorUsuarioId: string,
+    options: {
+      versao: number;
+      descricao?: string;
+      valor?: string;
+      observacoes?: string | null;
+      status?: StatusOrdemServico;
+      visibilidade?: Visibilidade;
+      concluidoEm?: Date | null;
+      canceladoEm?: Date | null;
+      snapshotEm?: Date;
+    },
+  ) {
+    const history = await database.historicoOrdemServico.create({
+      data: {
+        versao: options.versao,
+        descricao:
+          options.descricao ?? `Descrição da versão ${options.versao}.`,
+        valor: options.valor ?? '123.40',
+        observacoes: options.observacoes ?? null,
+        status: options.status ?? StatusOrdemServico.AGUARDANDO,
+        visibilidade: options.visibilidade ?? Visibilidade.PRIVADA,
+        concluidoEm: options.concluidoEm ?? null,
+        canceladoEm: options.canceladoEm ?? null,
+        snapshotEm: options.snapshotEm,
+        ordemServicoId: orderId,
+        responsavelId,
+        alteradoPorUsuarioId,
+      },
+    });
+    historyIds.push(history.id);
+    return history;
+  }
+
   it('allows an administrator to list private and public orders and read either detail', async () => {
     const { agent, user } = await createAgent({ perfil: 'ADMINISTRADOR' });
     const privateOrder = await createOrderFixture(user.funcionarioId, {
@@ -254,6 +297,184 @@ describe('OrdersController', () => {
       code: 'ORDER_NOT_FOUND',
       message: 'Service order not found',
     });
+  });
+
+  it('allows an administrator to read history from private and public orders', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const privateOrder = await createOrderFixture(
+      administrator.user.funcionarioId,
+    );
+    const publicOrder = await createOrderFixture(
+      administrator.user.funcionarioId,
+      { visibilidade: Visibilidade.PUBLICA },
+    );
+    await createHistoryFixture(
+      privateOrder.id,
+      administrator.user.funcionarioId,
+      administrator.user.userId,
+      { versao: 1 },
+    );
+    await createHistoryFixture(
+      publicOrder.id,
+      administrator.user.funcionarioId,
+      administrator.user.userId,
+      { versao: 1 },
+    );
+
+    await administrator.agent
+      .get(`/orders/${privateOrder.id}/history`)
+      .expect(HttpStatus.OK)
+      .expect(({ body }) => expect(body).toHaveLength(1));
+    await administrator.agent
+      .get(`/orders/${publicOrder.id}/history`)
+      .expect(HttpStatus.OK)
+      .expect(({ body }) => expect(body).toHaveLength(1));
+  });
+
+  it('allows an employee to read the history of an own private order', async () => {
+    const employee = await createAgent();
+    const order = await createOrderFixture(employee.user.funcionarioId);
+    await createHistoryFixture(
+      order.id,
+      employee.user.funcionarioId,
+      employee.user.userId,
+      { versao: 1 },
+    );
+
+    await employee.agent
+      .get(`/orders/${order.id}/history`)
+      .expect(HttpStatus.OK)
+      .expect(({ body }) => expect(body).toHaveLength(1));
+  });
+
+  it('uses current visibility, not snapshot visibility, to authorize history', async () => {
+    const employee = await createAgent();
+    const other = await createUserFixture();
+    const currentPrivate = await createOrderFixture(other.funcionarioId, {
+      visibilidade: Visibilidade.PRIVADA,
+    });
+    const currentPublic = await createOrderFixture(other.funcionarioId, {
+      visibilidade: Visibilidade.PUBLICA,
+    });
+    await createHistoryFixture(
+      currentPrivate.id,
+      other.funcionarioId,
+      other.userId,
+      { versao: 1, visibilidade: Visibilidade.PUBLICA },
+    );
+    await createHistoryFixture(
+      currentPublic.id,
+      other.funcionarioId,
+      other.userId,
+      { versao: 1, visibilidade: Visibilidade.PRIVADA },
+    );
+
+    const inaccessible = await employee.agent
+      .get(`/orders/${currentPrivate.id}/history`)
+      .expect(HttpStatus.NOT_FOUND);
+    const absent = await employee.agent
+      .get('/orders/00000000-0000-0000-0000-000000000000/history')
+      .expect(HttpStatus.NOT_FOUND);
+    expect(inaccessible.body).toEqual(absent.body);
+    expect(inaccessible.body).toEqual({
+      statusCode: HttpStatus.NOT_FOUND,
+      code: 'ORDER_NOT_FOUND',
+      message: 'Service order not found',
+    });
+
+    const accessible = await employee.agent
+      .get(`/orders/${currentPublic.id}/history`)
+      .expect(HttpStatus.OK);
+    expect(accessible.body).toHaveLength(1);
+    expect(accessible.body[0]).toMatchObject({
+      visibilidade: Visibilidade.PRIVADA,
+    });
+  });
+
+  it('returns deterministic, safe historical snapshots with their own responsible and author', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const previousResponsible = await createUserFixture();
+    const order = await createOrderFixture(administrator.user.funcionarioId);
+    const firstSnapshot = await createHistoryFixture(
+      order.id,
+      previousResponsible.funcionarioId,
+      previousResponsible.userId,
+      {
+        versao: 1,
+        descricao: 'Primeira descrição.',
+        valor: '10',
+        observacoes: null,
+        status: StatusOrdemServico.CONCLUIDO,
+        visibilidade: Visibilidade.PRIVADA,
+        concluidoEm: new Date('2026-09-01T10:00:00.000Z'),
+        canceladoEm: null,
+        snapshotEm: new Date('2026-09-01T11:00:00.000Z'),
+      },
+    );
+    const secondSnapshot = await createHistoryFixture(
+      order.id,
+      administrator.user.funcionarioId,
+      administrator.user.userId,
+      {
+        versao: 2,
+        descricao: 'Segunda descrição.',
+        valor: '1000.5',
+        observacoes: 'Observação histórica.',
+        status: StatusOrdemServico.CANCELADO,
+        visibilidade: Visibilidade.PUBLICA,
+        concluidoEm: null,
+        canceladoEm: new Date('2026-09-02T10:00:00.000Z'),
+        snapshotEm: new Date('2026-09-02T11:00:00.000Z'),
+      },
+    );
+
+    const response = await administrator.agent
+      .get(`/orders/${order.id}/history`)
+      .expect(HttpStatus.OK);
+    expect(
+      response.body.map((snapshot: { id: string }) => snapshot.id),
+    ).toEqual([secondSnapshot.id, firstSnapshot.id]);
+    expect(response.body[0]).toEqual({
+      id: secondSnapshot.id,
+      versao: 2,
+      descricao: 'Segunda descrição.',
+      valor: '1000.50',
+      observacoes: 'Observação histórica.',
+      status: StatusOrdemServico.CANCELADO,
+      visibilidade: Visibilidade.PUBLICA,
+      concluidoEm: null,
+      canceladoEm: '2026-09-02T10:00:00.000Z',
+      snapshotEm: '2026-09-02T11:00:00.000Z',
+      responsavel: {
+        id: administrator.user.funcionarioId,
+        nome: expect.stringContaining('Funcionário'),
+      },
+      alteradoPor: {
+        id: administrator.user.userId,
+        nome: expect.stringContaining('Funcionário'),
+      },
+    });
+    expect(response.body[1]).toMatchObject({
+      id: firstSnapshot.id,
+      valor: '10.00',
+      observacoes: null,
+      concluidoEm: '2026-09-01T10:00:00.000Z',
+      canceladoEm: null,
+      responsavel: { id: previousResponsible.funcionarioId },
+      alteradoPor: { id: previousResponsible.userId },
+    });
+    expect(JSON.stringify(response.body)).not.toContain('senhaHash');
+    expect(JSON.stringify(response.body)).not.toContain('emailLogin');
+  });
+
+  it('returns an empty history for an accessible order without snapshots', async () => {
+    const employee = await createAgent();
+    const order = await createOrderFixture(employee.user.funcionarioId);
+
+    await employee.agent
+      .get(`/orders/${order.id}/history`)
+      .expect(HttpStatus.OK)
+      .expect(({ body }) => expect(body).toEqual([]));
   });
 
   it.each([
@@ -336,6 +557,24 @@ describe('OrdersController', () => {
       numero: 'OS-SMOKE-B-PRIVATE',
       status: StatusOrdemServico.CONCLUIDO,
     });
+    await createHistoryFixture(
+      privateA.id,
+      employeeA.user.funcionarioId,
+      employeeA.user.userId,
+      { versao: 1, valor: '15.5' },
+    );
+    await createHistoryFixture(
+      publicA.id,
+      employeeA.user.funcionarioId,
+      employeeA.user.userId,
+      { versao: 1 },
+    );
+    await createHistoryFixture(
+      privateB.id,
+      employeeB.funcionarioId,
+      employeeB.userId,
+      { versao: 1, visibilidade: Visibilidade.PUBLICA },
+    );
     const adminList = await administrator.agent
       .get('/orders')
       .expect(HttpStatus.OK);
@@ -355,6 +594,20 @@ describe('OrdersController', () => {
     await employeeA.agent
       .get(`/orders/${privateB.id}`)
       .expect(HttpStatus.NOT_FOUND);
+    const adminHistory = await administrator.agent
+      .get(`/orders/${privateB.id}/history`)
+      .expect(HttpStatus.OK);
+    expect(adminHistory.body[0].valor).toBe('123.40');
+    const ownHistory = await employeeA.agent
+      .get(`/orders/${privateA.id}/history`)
+      .expect(HttpStatus.OK);
+    expect(ownHistory.body[0].valor).toBe('15.50');
+    await employeeA.agent
+      .get(`/orders/${publicA.id}/history`)
+      .expect(HttpStatus.OK);
+    await employeeA.agent
+      .get(`/orders/${privateB.id}/history`)
+      .expect(HttpStatus.NOT_FOUND);
     const open = await employeeA.agent
       .get('/orders')
       .query({ status: 'open', search: 'OS-SMOKE-A' })
@@ -364,23 +617,38 @@ describe('OrdersController', () => {
     );
   });
 
-  it('rejects invalid query and id', async () => {
+  it('rejects invalid query and ids for order and history reads', async () => {
     const { agent } = await createAgent();
     await agent
       .get('/orders')
       .query({ status: 'unknown' })
       .expect(HttpStatus.BAD_REQUEST);
     await agent.get('/orders/not-a-uuid').expect(HttpStatus.BAD_REQUEST);
+    await agent
+      .get('/orders/not-a-uuid/history')
+      .expect(HttpStatus.BAD_REQUEST);
   });
 
   it('requires a valid session, completed first access, and an active account', async () => {
     await request.agent(app).get('/orders').expect(HttpStatus.UNAUTHORIZED);
+    await request
+      .agent(app)
+      .get('/orders/00000000-0000-0000-0000-000000000000/history')
+      .expect(HttpStatus.UNAUTHORIZED);
     const pending = await createAgent({ deveAlterarSenha: true });
     await pending.agent.get('/orders').expect(HttpStatus.FORBIDDEN).expect({
       statusCode: 403,
       code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
       message: 'Password change is required before accessing the application',
     });
+    await pending.agent
+      .get('/orders/00000000-0000-0000-0000-000000000000/history')
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: 403,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
     const inactive = await createAgent({ ativo: false });
     await inactive.agent.get('/orders').expect(HttpStatus.UNAUTHORIZED);
   });

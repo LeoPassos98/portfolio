@@ -19,6 +19,7 @@ import { Roles } from '../auth/roles.decorator.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import { OrderDetailResponse } from './order-detail-response.dto.js';
+import { OrderHistoryItemResponse } from './order-history-item-response.dto.js';
 import { orderIdSchema, type OrderIdInput } from './order-id.schema.js';
 import { OrderListItemResponse } from './order-list-item-response.dto.js';
 import {
@@ -71,6 +72,26 @@ export class OrdersController {
     @Query(new ZodValidationPipe(orderListQuerySchema)) query: OrderListQuery,
   ): Promise<OrderListItemResponse[]> {
     return this.ordersService.findAll(request.authenticatedUser!, query);
+  }
+
+  @Get(':id/history')
+  @ApiOperation({
+    summary: 'Consulta o histórico de uma ordem de serviço acessível',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: OrderHistoryItemResponse, isArray: true })
+  @ApiBadRequestResponse(badRequestResponse)
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse(forbiddenResponse)
+  @ApiNotFoundResponse({
+    description: 'Ordem de serviço não encontrada ou não acessível.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  findHistory(
+    @Req() request: Request,
+    @Param(new ZodValidationPipe(orderIdSchema)) { id }: OrderIdInput,
+  ): Promise<OrderHistoryItemResponse[]> {
+    return this.ordersService.findHistory(request.authenticatedUser!, id);
   }
 
   @Get(':id')

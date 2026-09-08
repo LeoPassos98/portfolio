@@ -10,23 +10,23 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 ## Visão rápida
 
-| Área                     | Responsabilidade                                                                                                              | Arquivos |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, ordens e endpoint raiz atual                             |        4 |
-| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                      |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                                |        6 |
-| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                       |       12 |
-| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                            |        4 |
-| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend              |       16 |
-| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais       |       17 |
-| Ordens de Serviço        | Leitura contextual de listagem e detalhe, com filtros iniciais, DTOs e contratos de erro estáveis                             |        8 |
-| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                             |        4 |
-| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                        |        4 |
-| Proteção de origem       | CORS restritivo para o frontend configurado                                                                                   |        1 |
-| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                   |        1 |
-| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                            |        3 |
-| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                             |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e ordens        |       17 |
+| Área                     | Responsabilidade                                                                                                        | Arquivos |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------: |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, ordens e endpoint raiz atual                      |        4 |
+| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        6 |
+| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                 |       12 |
+| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                      |        4 |
+| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
+| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       17 |
+| Ordens de Serviço        | Leitura contextual de listagem, detalhe e histórico, com DTOs e contratos de erro estáveis                              |        9 |
+| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
+| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
+| Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
+| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
+| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
+| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e ordens   |       17 |
 
 ## Sumário
 
@@ -520,7 +520,7 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Ordens de Serviço
 
-Implementa o primeiro marco da feature: consultas reais contextualizadas para Administrador e Funcionário. Criação, edição, histórico, snapshots, concorrência e integração React permanecem fora deste marco.
+Implementa consultas reais contextualizadas para Administrador e Funcionário, incluindo a leitura de snapshots já existentes. Criação, edição, geração de snapshots, concorrência e integração React do histórico permanecem fora deste marco.
 
 Diretório principal: `backend/src/orders/`
 
@@ -530,11 +530,11 @@ Compõe controller e service de Ordens com os módulos de autenticação e banco
 
 ### 2. `backend/src/orders/orders.controller.ts`
 
-Expõe `GET /orders` e `GET /orders/:id`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida parâmetros com Zod e documenta os contratos no OpenAPI.
+Expõe `GET /orders`, `GET /orders/:id` e `GET /orders/:id/history`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida parâmetros com Zod e documenta os contratos no OpenAPI.
 
 ### 3. `backend/src/orders/orders.service.ts`
 
-Monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status e busca, ordena por criação decrescente e converte `Decimal` para texto exato com duas casas.
+Monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status e busca, ordena por criação decrescente e converte `Decimal` para texto exato com duas casas. Para o histórico, primeiro limita a OS pela mesma policy baseada na versão atual e então busca apenas seus snapshots por versão decrescente.
 
 ### 4. `backend/src/orders/order-list-query.schema.ts`
 
@@ -555,6 +555,10 @@ Declara o detalhe seguro sem histórico, credenciais ou outras relações admini
 ### 8. `backend/src/orders/orders.controller.spec.ts`
 
 Exercita por HTTP a autorização contextual, o não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
+
+### 9. `backend/src/orders/order-history-item-response.dto.ts`
+
+Declara a projeção segura de cada snapshot: versão preservada, responsável histórico e autor identificado pelo `Usuario.id` e nome do Funcionário associado, sem dados de login ou credenciais.
 
 ---
 
