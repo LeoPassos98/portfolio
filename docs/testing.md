@@ -9,10 +9,10 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Estado                       | Registro atual                                                                                            |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                |
-| Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_dev`                                   |
+| Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
 | Arquivos catalogados         | 15 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **320 testes aprovados** na redefinição administrativa de senha da conta de acesso no backend             |
+| Último resultado consolidado | **339 testes aprovados** na leitura e histórico de Ordens de Serviço                                      |
 
 ## Executar agora
 
@@ -26,6 +26,16 @@ npm test
 npm run lint
 npm run build
 ```
+
+`npm test` executa antes `npm run test:db:prepare`: o comando valida `TEST_DATABASE_URL` e aplica as migrations versionadas exclusivamente em `portfolio_test`. Para configurar a URL local, copie `backend/.env.test.example` para `backend/.env.test`. A suíte falha fechada antes de acessar PostgreSQL se a URL não resolver para `portfolio_test`.
+
+### Arquitetura dos bancos PostgreSQL
+
+| Banco              | Uso permitido                                                              |
+| ------------------ | -------------------------------------------------------------------------- |
+| `portfolio_dev`    | Desenvolvimento local, navegação e smoke manual explicitamente solicitado. |
+| `portfolio_test`   | Vitest, Supertest, HTTP, integração PostgreSQL e limpeza de fixtures.      |
+| `portfolio_shadow` | Prisma Migrate; nunca aplicação, Vitest ou fixtures.                       |
 
 Frontend:
 
@@ -43,6 +53,7 @@ git diff --check
 
 ## Sumário
 
+- [Arquitetura dos bancos PostgreSQL](#arquitetura-dos-bancos-postgresql)
 - [Catálogo de testes automatizados](#catálogo-de-testes-automatizados)
   - [Aplicação, configuração e HTTP](#aplicação-configuração-e-http)
   - [Credenciais, sessão e guards](#credenciais-sessão-e-guards)
@@ -56,9 +67,9 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **320 testes** executada na redefinição administrativa de senha da conta de acesso no backend. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **339 testes** executada na leitura e histórico de Ordens de Serviço. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
-Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL `portfolio_dev`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
+Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
 As tabelas seguintes são o índice de consulta rápida. Os três arquivos com muitos fluxos possuem um detalhamento por operação logo abaixo da tabela de sua família.
 
@@ -72,19 +83,19 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/common/validation/zod-validation.pipe.spec.ts`](../backend/src/common/validation/zod-validation.pipe.spec.ts) | Aceita entrada parseada, preserva transformações Zod e devolve `BadRequestException` com as issues.                                              | DTOs normalizam dados e expõem erros de schema consistentes na camada HTTP.             | Vitest, Zod e `ZodValidationPipe` isolado.                         |
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas; sempre responde `statusCode`, `code` e `message`. | O contrato público de erro permanece estável sem vazar detalhes internos.               | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
-Observação do smoke e2e: `app.e2e-spec.ts` é selecionado por `npm run test:e2e`, não pelos 203 testes de `npm test`, pois `vitest.config.ts` inclui apenas `*.spec.ts`. Não há resultado consolidado separado para esse comando.
+Observação do smoke e2e: `app.e2e-spec.ts` é selecionado tanto por `npm test` quanto por `npm run test:e2e`; o primeiro o inclui no total consolidado de 339 testes, e o segundo permite executá-lo isoladamente.
 
 ### Credenciais, sessão e guards
 
-| Arquivo                                                                                                                           | Finalidade e cenários relevantes                                                                                                                         | Regra ou risco comprovado                                                                   | Infraestrutura importante                                                           |
-| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [`backend/src/auth/password/password.service.spec.ts`](../backend/src/auth/password/password.service.spec.ts)                     | Hash Argon2id não expõe a senha; senha correta é aceita, incorreta é rejeitada; hashes da mesma senha diferem e continuam verificáveis.                  | Credenciais persistidas não dependem de hash determinístico nem expõem senha em texto puro. | Vitest e `PasswordService` com Argon2id real.                                       |
-| [`backend/src/auth/session/session.middleware.spec.ts`](../backend/src/auth/session/session.middleware.spec.ts)                   | `Secure` somente em produção; `HttpOnly`, `SameSite=Lax`, caminho `/`, `maxAge` configurado, sem domínio ou rolling renewal.                             | Cookie e expiração são coerentes com sessão autenticada server-side.                        | Vitest e `createSessionOptions` isolada.                                            |
-| [`backend/src/auth/session/session-store.service.spec.ts`](../backend/src/auth/session/session-store.service.spec.ts)             | Persiste e restaura sessão assinada; não renova sessão expirada; revoga apenas o usuário alvo, sessões e CSRF; trata revogação vazia e shutdown.         | Sessões sobrevivem ao HTTP, expiram, isolam usuários e podem ser revogadas no PostgreSQL.   | Vitest, Express, Supertest, `connect-pg-simple`, `pg` e PostgreSQL `portfolio_dev`. |
-| [`backend/src/auth/guards/csrf.guard.spec.ts`](../backend/src/auth/guards/csrf.guard.spec.ts)                                     | `GET`, `HEAD` e `OPTIONS` dispensam token; mutações rejeitam token ausente ou divergente e aceitam token da sessão.                                      | Mutações são protegidas sem bloquear métodos seguros.                                       | Vitest, `CsrfGuard` e contexto HTTP simulado.                                       |
-| [`backend/src/auth/guards/session.guard.spec.ts`](../backend/src/auth/guards/session.guard.spec.ts)                               | Ausência de `usuarioId` não consulta serviço; usuário ativo gera principal seguro; usuário inexistente ou inativo destrói sessão.                        | A identidade da sessão é revalidada e não expõe senha ou hash no request.                   | Vitest, mock de `AuthService` e contexto HTTP simulado.                             |
-| [`backend/src/auth/guards/first-access-completed.guard.spec.ts`](../backend/src/auth/guards/first-access-completed.guard.spec.ts) | `deveAlterarSenha` gera `AUTH_PASSWORD_CHANGE_REQUIRED`; usuário regular é liberado.                                                                     | A regra de primeiro acesso é aplicada no backend, independente da interface.                | Vitest e contexto HTTP simulado.                                                    |
-| [`backend/src/auth/guards/role.guard.spec.ts`](../backend/src/auth/guards/role.guard.spec.ts)                                     | Perfis compatíveis e múltiplos perfis são aceitos; handler sem metadata é livre; incompatibilidade retorna `AUTH_FORBIDDEN`; não acessa sessão ou banco. | Autorização declarativa por `@Roles` permanece isolada do guard de sessão.                  | Vitest, `Reflector`, decorator `Roles` e contexto HTTP simulado.                    |
+| Arquivo                                                                                                                           | Finalidade e cenários relevantes                                                                                                                         | Regra ou risco comprovado                                                                   | Infraestrutura importante                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| [`backend/src/auth/password/password.service.spec.ts`](../backend/src/auth/password/password.service.spec.ts)                     | Hash Argon2id não expõe a senha; senha correta é aceita, incorreta é rejeitada; hashes da mesma senha diferem e continuam verificáveis.                  | Credenciais persistidas não dependem de hash determinístico nem expõem senha em texto puro. | Vitest e `PasswordService` com Argon2id real.                                        |
+| [`backend/src/auth/session/session.middleware.spec.ts`](../backend/src/auth/session/session.middleware.spec.ts)                   | `Secure` somente em produção; `HttpOnly`, `SameSite=Lax`, caminho `/`, `maxAge` configurado, sem domínio ou rolling renewal.                             | Cookie e expiração são coerentes com sessão autenticada server-side.                        | Vitest e `createSessionOptions` isolada.                                             |
+| [`backend/src/auth/session/session-store.service.spec.ts`](../backend/src/auth/session/session-store.service.spec.ts)             | Persiste e restaura sessão assinada; não renova sessão expirada; revoga apenas o usuário alvo, sessões e CSRF; trata revogação vazia e shutdown.         | Sessões sobrevivem ao HTTP, expiram, isolam usuários e podem ser revogadas no PostgreSQL.   | Vitest, Express, Supertest, `connect-pg-simple`, `pg` e PostgreSQL `portfolio_test`. |
+| [`backend/src/auth/guards/csrf.guard.spec.ts`](../backend/src/auth/guards/csrf.guard.spec.ts)                                     | `GET`, `HEAD` e `OPTIONS` dispensam token; mutações rejeitam token ausente ou divergente e aceitam token da sessão.                                      | Mutações são protegidas sem bloquear métodos seguros.                                       | Vitest, `CsrfGuard` e contexto HTTP simulado.                                        |
+| [`backend/src/auth/guards/session.guard.spec.ts`](../backend/src/auth/guards/session.guard.spec.ts)                               | Ausência de `usuarioId` não consulta serviço; usuário ativo gera principal seguro; usuário inexistente ou inativo destrói sessão.                        | A identidade da sessão é revalidada e não expõe senha ou hash no request.                   | Vitest, mock de `AuthService` e contexto HTTP simulado.                              |
+| [`backend/src/auth/guards/first-access-completed.guard.spec.ts`](../backend/src/auth/guards/first-access-completed.guard.spec.ts) | `deveAlterarSenha` gera `AUTH_PASSWORD_CHANGE_REQUIRED`; usuário regular é liberado.                                                                     | A regra de primeiro acesso é aplicada no backend, independente da interface.                | Vitest e contexto HTTP simulado.                                                     |
+| [`backend/src/auth/guards/role.guard.spec.ts`](../backend/src/auth/guards/role.guard.spec.ts)                                     | Perfis compatíveis e múltiplos perfis são aceitos; handler sem metadata é livre; incompatibilidade retorna `AUTH_FORBIDDEN`; não acessa sessão ou banco. | Autorização declarativa por `@Roles` permanece isolada do guard de sessão.                  | Vitest, `Reflector`, decorator `Roles` e contexto HTTP simulado.                     |
 
 ### Autenticação HTTP
 
@@ -102,7 +113,7 @@ Exercita CSRF, login, sessão, primeiro acesso e logout pelas rotas reais de aut
 
 Por que importa: autenticação reúne credenciais, sessão e controles de segurança que não podem ser demonstrados somente por mocks ou pela tela de login. O arquivo comprova comportamento HTTP, persistência real de sessão, rotação de identificadores e tokens, autorização de primeiro acesso, CORS e ausência de dados sensíveis nas respostas.
 
-Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, `pg`, PostgreSQL `portfolio_dev` e fixtures removidas ao final.
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, `pg`, PostgreSQL `portfolio_test` e fixtures removidas ao final.
 
 ### Clientes e CEP
 
@@ -125,7 +136,7 @@ Exercita o ciclo HTTP de Clientes, incluindo CEP, contra a aplicação e o banco
 | CEP       | Aceita CEP mascarado ou não; devolve endereço completo ou parcial sem persistir provider; trata inexistência, tamanho inválido e falhas de rede, abort, HTTP, JSON ou payload.                                        | A integração é resiliente e não vaza o contrato externo para a persistência.         |
 | OpenAPI   | Documenta criação, edição, status, exclusão, leitura e CEP.                                                                                                                                                           | O contrato HTTP publicado corresponde às operações testadas.                         |
 
-Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev`, mock global de `fetch` e fixtures removidas ao final.
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test`, mock global de `fetch` e fixtures removidas ao final.
 
 Observação: a constraint física continua sendo a autoridade final para impedir exclusão concorrente de cliente com OS. O provider é mockado aqui; o smoke real está nas [validações manuais e de navegador](#validações-manuais-e-de-navegador).
 
@@ -151,7 +162,7 @@ Exercita criação, edição cadastral, situações do cadastro e da conta, perf
 | Lista e detalhe       | Lista ativos por padrão; filtra inativos ou todos; busca nome ou e-mail sem distinguir caixa e telefone formatado; ordena por nome e ID; trata detalhe inexistente e mostra conta opcional ativa ou inativa.                                                                                                                                                                                                                                                                                                                                            | Consultas administrativas são previsíveis e preservam a relação de conta opcional.                                                                   |
 | Privacidade e OpenAPI | Não expõe hash, senha, confirmação, troca obrigatória, sessão, CSRF, OS ou histórico; documenta criação, criação de conta, edição cadastral, situações, perfil, e-mail de login, redefinição de senha, conflitos e `conta` anulável.                                                                                                                                                                                                                                                                                                                    | DTOs e contrato HTTP não vazam relações sensíveis e delimitam as operações da conta.                                                                 |
 
-Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev`, fixtures e sessões auxiliares removidas ao final.
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test`, fixtures e sessões auxiliares removidas ao final.
 
 ### Ordens de Serviço
 
@@ -166,7 +177,7 @@ Exercita a leitura HTTP real de Ordens contra PostgreSQL, com sessões e fixture
 | Filtros             | `all`, `open`, cada status específico, busca case-insensitive por número ou Cliente, trim e combinação de busca/status.                                                                                                                                                                           | Filtros não ampliam a autorização e permanecem no banco.                                                                                       |
 | Contrato e proteção | Detalhe não inclui histórico; a rota de histórico devolve somente snapshot, responsável histórico e autor seguro. Ambos expõem `versao` e `valor` como texto decimal exato de duas casas; validam entrada, sessão, primeiro acesso e conta inativa. Histórico vazio de OS acessível retorna `[]`. | Leitura é segura e pronta para a futura concorrência otimista sem depender de serialização acidental de `Decimal` ou de objetos Prisma brutos. |
 
-Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_dev` e fixtures/sessões removidas ao final.
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test` e fixtures/sessões removidas ao final.
 
 ## Validações manuais e de navegador
 
@@ -200,7 +211,7 @@ Evidências consolidadas: lint/build do frontend e backend, `prisma validate`, *
 
 Não bloqueadores mantidos como dívidas de baixa prioridade: alterar o e-mail de login invalida listagens embora `loginEmail` não esteja no contrato da listagem, causando apenas refetch redundante; `frontend/src/features/employees/lib/employeeStatus.ts` mantém helper obsoleto sem consumidores e fora do runtime N5.4; e o frontend ainda não possui Prettier próprio, portanto o formato semicolonless existente deve ser preservado.
 
-Dívida técnica conhecida preservada: `portfolio_dev` para desenvolvimento, `portfolio_shadow` para Prisma Migrate, suíte automatizada ainda usando `DATABASE_URL` e ausência de `portfolio_test`, que permanece melhoria futura de isolamento.
+O isolamento da suíte foi concluído em N5.5E: `portfolio_dev` permanece exclusivo de desenvolvimento/manual, `portfolio_test` é a única base automatizada e `portfolio_shadow` continua exclusivo do Prisma Migrate.
 
 ## Resultados consolidados
 
@@ -227,3 +238,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.4 — redefinição administrativa de senha  | **320 testes** |
 | N5.5 — leitura de Ordens de Serviço         | **334 testes** |
 | N5.5C — consulta de histórico de OS         | **339 testes** |
+| N5.5E — isolamento do banco automatizado    | **339 testes** |

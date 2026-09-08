@@ -10,5 +10,6 @@ export default defineConfig({
     root: './',
     include: ['**/*.spec.ts'],
     fileParallelism: false,
+    setupFiles: ['./test/setup.ts'],
   },
 });

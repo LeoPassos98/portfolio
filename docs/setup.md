@@ -50,23 +50,23 @@ Copie os exemplos versionados e substitua os valores de exemplo por dados locais
 
 ```bash
 cp backend/.env.example backend/.env
+cp backend/.env.test.example backend/.env.test
 cp frontend/.env.example frontend/.env
 ```
 
-`backend/.env` contém as credenciais de banco e o segredo de sessão; não deve ser versionado. `frontend/.env` define `VITE_API_URL`, a URL pública da API consumida pelo navegador.
+`backend/.env` contém as credenciais de banco e o segredo de sessão; `backend/.env.test` contém somente `TEST_DATABASE_URL`; nenhum dos dois deve ser versionado. `frontend/.env` define `VITE_API_URL`, a URL pública da API consumida pelo navegador.
 
 ### 3. Preparar o PostgreSQL
 
-Crie duas bases distintas, usando os nomes definidos em `DATABASE_URL` e `SHADOW_DATABASE_URL`. Com os valores de exemplo, elas são `portfolio` e `portfolio_shadow`:
+Crie três bases distintas com as mesmas credenciais locais: `portfolio_dev` para desenvolvimento, `portfolio_test` para testes automatizados e `portfolio_shadow` para o Prisma Migrate.
 
 ```bash
-createdb -U portfolio_user portfolio
+createdb -U portfolio_user portfolio_dev
+createdb -U portfolio_user portfolio_test
 createdb -U portfolio_user portfolio_shadow
 ```
 
-A shadow database é descartável e usada pelo Prisma Migrate para comparar migrations. Nunca use uma base com dados reais como `SHADOW_DATABASE_URL`.
-
-O último resultado consolidado da suíte integrada usou `portfolio_dev`. Se esse for o nome definido no seu ambiente, crie essa base em vez de `portfolio`.
+A shadow database é descartável e usada pelo Prisma Migrate para comparar migrations. Nunca use `portfolio_shadow` pela aplicação ou pelos testes. A suíte também nunca usa `portfolio_dev`.
 
 ### 4. Gerar o cliente e aplicar migrations
 
@@ -77,6 +77,7 @@ cd backend
 npm run prisma:validate
 npm run prisma:generate
 npx prisma migrate deploy
+npm run test:db:prepare
 ```
 
 ### 5. Iniciar as aplicações
@@ -99,13 +100,16 @@ O backend expõe a Swagger UI em `http://localhost:3000/api/docs`. Para escolher
 
 ### Variáveis de ambiente
 
-| Arquivo         | Variáveis                                                 | Finalidade                                                           |
-| --------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
-| `backend/.env`  | `NODE_ENV`, `PORT`, `DATABASE_URL`, `SHADOW_DATABASE_URL` | Ambiente, porta e conexões PostgreSQL.                               |
-| `backend/.env`  | `SESSION_SECRET`, `SESSION_MAX_AGE_MS`, `FRONTEND_ORIGIN` | Assinatura e duração da sessão, além da origem autorizada pelo CORS. |
-| `frontend/.env` | `VITE_API_URL`                                            | URL do NestJS usada pelo Axios.                                      |
+| Arquivo             | Variáveis                                                 | Finalidade                                                           |
+| ------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `backend/.env`      | `NODE_ENV`, `PORT`, `DATABASE_URL`, `SHADOW_DATABASE_URL` | Ambiente, conexão da aplicação e shadow database do Prisma Migrate.  |
+| `backend/.env`      | `SESSION_SECRET`, `SESSION_MAX_AGE_MS`, `FRONTEND_ORIGIN` | Assinatura e duração da sessão, além da origem autorizada pelo CORS. |
+| `backend/.env.test` | `TEST_DATABASE_URL`                                       | URL exclusiva de `portfolio_test` para Vitest e migrations de teste. |
+| `frontend/.env`     | `VITE_API_URL`                                            | URL do NestJS usada pelo Axios.                                      |
 
 O backend valida seu ambiente com Zod no startup.
+
+Antes de carregar qualquer spec, o bootstrap do Vitest lê `.env` e `.env.test`, exige que `TEST_DATABASE_URL` aponte exatamente para `portfolio_test` e só então define `NODE_ENV=test` e `DATABASE_URL` para o processo. URLs que resolvam para `portfolio_dev`, `portfolio_shadow`, `postgres` ou outro nome falham antes de fixtures ou limpezas. `npm run test:db:prepare` repete essa validação e aplica apenas as migrations versionadas com `prisma migrate deploy`.
 
 `SESSION_MAX_AGE_MS` deve ser um inteiro positivo; o padrão é 28.800.000 ms (8 horas). `SESSION_SECRET` deve ser longo, secreto e exclusivo do ambiente.
 

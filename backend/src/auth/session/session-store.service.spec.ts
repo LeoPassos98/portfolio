@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { ConfigService } from '@nestjs/config';
 import express from 'express';
 import type { Request } from 'express';

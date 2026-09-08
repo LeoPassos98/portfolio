@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { HttpStatus, type INestApplication } from '@nestjs/common';
 import { Test, type TestingModule } from '@nestjs/testing';
 import type { Express, Request, Response } from 'express';

@@ -17,11 +17,12 @@
     "lint": "oxlint src/ test/",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:cov": "vitest run --coverage",
-    "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:db:prepare": "node ./test/scripts/prepare-database.mjs",
+    "test": "npm run test:db:prepare && vitest run",
+    "test:watch": "npm run test:db:prepare && vitest",
+    "test:cov": "npm run test:db:prepare && vitest run --coverage",
+    "test:debug": "npm run test:db:prepare && vitest --inspect-brk --no-file-parallelism",
+    "test:e2e": "npm run test:db:prepare && vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
