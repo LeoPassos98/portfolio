@@ -2,6 +2,8 @@ import { Link, Navigate, useLocation, useParams } from 'react-router'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
+import { mockClients } from '../../clients/mocks/clients'
+import { mockEmployees } from '../../employees/mocks/employees'
 import { OrderForm } from '../components/OrderForm'
 import {
   canViewOrder,
@@ -14,6 +16,21 @@ import type { OrderStatus } from '../types/order'
 type ReopenOrderLocationState = {
   reopenedStatus?: OrderStatus
 }
+
+const activeClients = mockClients.filter((client) => client.status === 'active')
+const activeEmployees = mockEmployees.filter(
+  (employee) => employee.status === 'active',
+)
+const editClientOptions = activeClients.map((client) => ({
+  label: client.name,
+  searchTerms: client.document ? [client.document] : [],
+  value: client.id,
+}))
+const editEmployeeOptions = activeEmployees.map((employee) => ({
+  label: employee.name,
+  searchTerms: [employee.contactEmail, employee.phone],
+  value: employee.id,
+}))
 
 function OrderEditPage() {
   const session = useAuthSession()
@@ -69,7 +86,16 @@ function OrderEditPage() {
       <h1 className="text-foreground text-2xl font-bold">
         Editar {editableOrder.number}
       </h1>
-      <OrderForm order={editableOrder} editPermissions={editPermissions} />
+      <OrderForm
+        order={editableOrder}
+        editPermissions={editPermissions}
+        editing={{
+          clientIds: activeClients.map((client) => client.id),
+          clientOptions: editClientOptions,
+          employeeOptions: editEmployeeOptions,
+          responsibleIds: activeEmployees.map((employee) => employee.id),
+        }}
+      />
     </AppLayout>
   )
 }

@@ -326,11 +326,13 @@ Preserva a visualização responsiva, loading, erro, retry, não revelação de 
 
 Obtém a ordem pela rota e aplica as regras de visibilidade e edição antes de compor o formulário compartilhado.
 
-Aceita o estado ativo conceitual da reabertura de Cancelada e mantém Cliente e número somente leitura, sem persistência.
+Aceita o estado ativo conceitual da reabertura de Cancelada e mantém Cliente e número somente leitura, sem persistência. Continua usando mocks apenas para a edição pendente de integração.
 
 ### 6. `frontend/src/features/orders/pages/OrderCreatePage.tsx`
 
-Compõe o formulário compartilhado no modo de criação, preservando a estrutura mockada de Cliente, Dados do serviço e Configuração sem submissão.
+Consulta Clientes ativos e, somente para Administrador, Funcionários ativos; apresenta loading, erro com retry e estados vazios contextuais antes de compor o formulário.
+
+Executa a mutation real de criação, atualiza o cache do detalhe, invalida listas e navega para a nova OS. Funcionário usa o responsável da sessão sem consultar a API administrativa.
 
 ### 7. `frontend/src/features/orders/types/orderHistory.ts`
 
@@ -346,11 +348,11 @@ Reúne a estrutura visual reutilizável e validada de criação e edição de OS
 
 Inclui seletores pesquisáveis para Administrador e consome permissões e transições centralizadas.
 
-Mantém campos somente leitura, mostra status válidos, confirma cancelamento e protege alterações pendentes.
+No modo de criação, recebe opções reais e trata mutation, pendência, erros de registros stale e dirty state; no modo de edição, preserva a composição mockada existente.
 
 ### 10. `frontend/src/features/orders/schemas/orderSchema.ts`
 
-Define as validações compartilhadas e as restrições configuráveis de criação ou edição de OS, usadas pelo `OrderForm` com React Hook Form.
+Define as validações compartilhadas da edição mockada e o schema de criação real, que mantém o decimal como texto compatível com `Decimal(12,2)`.
 
 ### 11. `frontend/src/features/orders/lib/orderVisibility.ts`
 
@@ -362,7 +364,7 @@ Administrador vê todas e reabre Canceladas. Funcionário vê as próprias e as 
 
 ### 12. `frontend/src/features/orders/api/ordersApi.ts`
 
-Concentra as consultas tipadas de `GET /orders`, `GET /orders/:id` e `GET /orders/:id/history` na instância Axios compartilhada.
+Concentra as consultas tipadas de `GET /orders`, `GET /orders/:id`, `GET /orders/:id/history` e a criação via `POST /orders` na instância Axios compartilhada.
 
 Separa contratos HTTP explícitos dos modelos React de lista, detalhe e snapshot, reutiliza os mappers de enums e preserva `valor` como texto decimal exato no server state.
 

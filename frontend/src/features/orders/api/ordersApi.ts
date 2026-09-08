@@ -15,7 +15,13 @@ type OrderListParams = {
   search?: string
 }
 
-type OrderHttpErrorCode = 'ORDER_NOT_FOUND'
+type OrderHttpErrorCode =
+  | 'ORDER_NOT_FOUND'
+  | 'ORDER_CLIENT_NOT_FOUND'
+  | 'ORDER_CLIENT_INACTIVE'
+  | 'ORDER_RESPONSIBLE_REQUIRED'
+  | 'ORDER_RESPONSIBLE_NOT_FOUND'
+  | 'ORDER_RESPONSIBLE_INACTIVE'
 
 type OrderHttpErrorResponse = HttpErrorResponse & {
   code: OrderHttpErrorCode
@@ -27,7 +33,10 @@ type OrderPersonHttpResponse = {
 }
 
 type OrderStatusHttpResponse =
-  'AGUARDANDO' | 'EM_ANDAMENTO' | 'CONCLUIDO' | 'CANCELADO'
+  | 'AGUARDANDO'
+  | 'EM_ANDAMENTO'
+  | 'CONCLUIDO'
+  | 'CANCELADO'
 
 type OrderVisibilityHttpResponse = 'PRIVADA' | 'PUBLICA'
 
@@ -49,6 +58,24 @@ type OrderDetailHttpResponse = OrderListItemHttpResponse & {
   observacoes: string | null
   concluidoEm: string | null
   canceladoEm: string | null
+}
+
+type OrderCreateValues = {
+  clientId: string
+  description: string
+  value: string
+  notes?: string
+  visibility: OrderVisibility
+  responsibleId?: string
+}
+
+type OrderCreateHttpRequest = {
+  clienteId: string
+  descricao: string
+  valor: string
+  observacoes?: string
+  visibilidade: OrderVisibilityHttpResponse
+  responsavelId?: string
 }
 
 type OrderHistoryItemHttpResponse = {
@@ -86,6 +113,19 @@ function toOrderVisibility(
   } as const satisfies Record<OrderVisibilityHttpResponse, OrderVisibility>
 
   return visibilities[visibility]
+}
+
+function toOrderCreateRequest(
+  values: OrderCreateValues,
+): OrderCreateHttpRequest {
+  return {
+    clienteId: values.clientId,
+    descricao: values.description,
+    valor: values.value,
+    ...(values.notes ? { observacoes: values.notes } : {}),
+    visibilidade: values.visibility === 'private' ? 'PRIVADA' : 'PUBLICA',
+    ...(values.responsibleId ? { responsavelId: values.responsibleId } : {}),
+  }
 }
 
 function toOrderDetail(order: OrderDetailHttpResponse): OrderDetail {
@@ -154,6 +194,15 @@ async function getOrder(id: string): Promise<OrderDetail> {
   return toOrderDetail(data)
 }
 
+async function createOrder(values: OrderCreateValues): Promise<OrderDetail> {
+  const { data } = await apiClient.post<OrderDetailHttpResponse>(
+    '/orders',
+    toOrderCreateRequest(values),
+  )
+
+  return toOrderDetail(data)
+}
+
 async function getOrderHistory(id: string): Promise<OrderHistoryItem[]> {
   const { data } = await apiClient.get<OrderHistoryItemHttpResponse[]>(
     `/orders/${id}/history`,
@@ -163,10 +212,12 @@ async function getOrderHistory(id: string): Promise<OrderHistoryItem[]> {
 }
 
 export {
+  createOrder,
   getOrder,
   getOrderHistory,
   listOrders,
   toOrderDetail,
+  toOrderCreateRequest,
   toOrderHistoryItem,
   toOrderListItem,
   toOrderStatus,
@@ -174,6 +225,8 @@ export {
 }
 export type {
   OrderDetailHttpResponse,
+  OrderCreateHttpRequest,
+  OrderCreateValues,
   OrderHistoryItemHttpResponse,
   OrderHttpErrorCode,
   OrderHttpErrorResponse,

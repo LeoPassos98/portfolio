@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { isAxiosError } from 'axios'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type Resolver } from 'react-hook-form'
 import { Link } from 'react-router'
 import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
@@ -14,36 +15,22 @@ import {
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
 import { Textarea } from '../../../components/ui/Textarea'
+import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 import { useAuthSession } from '../../auth/hooks/useAuthSession'
-import { mockClients } from '../../clients/mocks/clients'
-import { mockEmployees } from '../../employees/mocks/employees'
 import {
   getAllowedOrderStatusTransitions,
   type OrderEditPermissions,
 } from '../lib/orderVisibility'
+import type { OrderHttpErrorResponse } from '../api/ordersApi'
 import {
+  createOrderCreateSchema,
   createOrderFormSchema,
+  type OrderCreateFormValues,
   type OrderFormData,
   type OrderFormValues,
 } from '../schemas/orderSchema'
-import type { Order } from '../types/order'
+import type { Order, OrderDetail } from '../types/order'
 
-const activeClients = mockClients.filter((client) => client.status === 'active')
-const activeEmployees = mockEmployees.filter(
-  (employee) => employee.status === 'active',
-)
-const clientOptions: SearchableSelectOption[] = activeClients.map((client) => ({
-  label: client.name,
-  searchTerms: client.document ? [client.document] : [],
-  value: client.id,
-}))
-const employeeOptions: SearchableSelectOption[] = activeEmployees.map(
-  (employee) => ({
-    label: employee.name,
-    searchTerms: [employee.contactEmail, employee.phone],
-    value: employee.id,
-  }),
-)
 const orderStatusLabels = {
   awaiting: 'Aguardando',
   'in-progress': 'Em andamento',
@@ -54,13 +41,41 @@ const orderStatusLabels = {
 type OrderFormProps = {
   order?: Order
   editPermissions?: OrderEditPermissions
+  creation?: {
+    clientOptions: readonly SearchableSelectOption[]
+    employeeOptions: readonly SearchableSelectOption[]
+    responsibleName?: string
+    isPending: boolean
+    onCreate: (values: OrderCreateFormValues) => Promise<OrderDetail>
+    onStaleClient: () => void
+    onStaleResponsible: () => void
+    onSuccess: (order: OrderDetail) => void
+  }
+  editing?: {
+    clientIds: readonly string[]
+    clientOptions: readonly SearchableSelectOption[]
+    employeeOptions: readonly SearchableSelectOption[]
+    responsibleIds: readonly string[]
+  }
 }
 
-function OrderForm({ order, editPermissions }: OrderFormProps) {
+function isOrderApiError(error: unknown, code: OrderHttpErrorResponse['code']) {
+  return (
+    isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
+  )
+}
+
+function OrderForm({
+  order,
+  editPermissions,
+  creation,
+  editing,
+}: OrderFormProps) {
   const session = useAuthSession()
   const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] =
     useState(false)
   const isEditing = order !== undefined
+  const isCreating = !isEditing && creation !== undefined
   const isEmployee = session?.currentUser.profile === 'employee'
   const fieldPrefix = isEditing ? 'edit-order' : 'new-order'
   const cancelLink = isEditing ? `/orders/${order.id}` : '/orders'
@@ -70,9 +85,7 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
     : isEmployee
       ? session?.currentUser.employeeId
       : undefined
-  const responsibleName =
-    activeEmployees.find((employee) => employee.id === responsibleId)?.name ??
-    order?.responsibleName
+  const responsibleName = creation?.responsibleName ?? order?.responsibleName
   const responsibleHelperText = isEditing
     ? 'O responsável não pode ser alterado por Funcionário.'
     : 'Definido automaticamente como responsável pela OS.'
@@ -85,26 +98,35 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
       : []
   const statusOptions =
     order !== undefined && allowedStatusTransitions.length > 0
-    ? [
-        order.status,
-        ...allowedStatusTransitions.filter(
-          (status) => status !== order.status,
-        ),
-      ]
-    : []
+      ? [
+          order.status,
+          ...allowedStatusTransitions.filter(
+            (status) => status !== order.status,
+          ),
+        ]
+      : []
   const canChangeStatus = statusOptions.length > 0
-  const orderFormSchema = createOrderFormSchema({
-    clientIds: activeClients.map((client) => client.id),
-    requiresClient: !isEditing,
-    responsibleIds: activeEmployees.map((employee) => employee.id),
-  })
+  const orderFormSchema = isCreating
+    ? createOrderCreateSchema(!isEmployee)
+    : createOrderFormSchema({
+        clientIds: editing?.clientIds ?? [],
+        requiresClient: !isEditing,
+        responsibleIds: editing?.responsibleIds ?? [],
+      })
   const {
+    clearErrors,
     register,
     handleSubmit,
+    reset,
+    setError,
     setValue,
     formState: { errors, isDirty },
   } = useForm<OrderFormData, unknown, OrderFormValues>({
-    resolver: zodResolver(orderFormSchema),
+    resolver: zodResolver(orderFormSchema) as unknown as Resolver<
+      OrderFormData,
+      unknown,
+      OrderFormValues
+    >,
     defaultValues: {
       clientId: '',
       responsibleId: responsibleId ?? '',
@@ -116,10 +138,85 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
     },
   })
   const { confirmationDialog } = useUnsavedChangesGuard(isDirty)
+  const [formError, setFormError] = useState<string | null>(null)
 
   function submitOrder() {}
 
-  function onSubmit(values: OrderFormValues) {
+  async function onSubmit(values: OrderFormValues) {
+    if (isCreating && creation) {
+      if (creation.isPending) {
+        return
+      }
+
+      setFormError(null)
+      clearErrors(['clientId', 'responsibleId'])
+
+      try {
+        const createValues = values as unknown as OrderCreateFormValues
+        const order = await creation.onCreate({
+          clientId: createValues.clientId,
+          description: createValues.description,
+          value: createValues.value,
+          notes: createValues.notes,
+          visibility: createValues.visibility,
+          responsibleId: isEmployee ? '' : createValues.responsibleId,
+        })
+        reset()
+        creation.onSuccess(order)
+      } catch (error) {
+        if (isOrderApiError(error, 'ORDER_CLIENT_INACTIVE')) {
+          creation.onStaleClient()
+          setError('clientId', {
+            type: 'server',
+            message:
+              'Este cliente está inativo. Solicite a um administrador que o reative para criar uma nova OS.',
+          })
+          return
+        }
+
+        if (isOrderApiError(error, 'ORDER_CLIENT_NOT_FOUND')) {
+          creation.onStaleClient()
+          setError('clientId', {
+            type: 'server',
+            message: 'O cliente selecionado não está mais disponível.',
+          })
+          return
+        }
+
+        if (isOrderApiError(error, 'ORDER_RESPONSIBLE_REQUIRED')) {
+          setError('responsibleId', {
+            type: 'server',
+            message: 'Selecione um responsável ativo.',
+          })
+          return
+        }
+
+        if (isOrderApiError(error, 'ORDER_RESPONSIBLE_INACTIVE')) {
+          creation.onStaleResponsible()
+          setError('responsibleId', {
+            type: 'server',
+            message: 'O funcionário selecionado não está mais ativo.',
+          })
+          return
+        }
+
+        if (isOrderApiError(error, 'ORDER_RESPONSIBLE_NOT_FOUND')) {
+          creation.onStaleResponsible()
+          setError('responsibleId', {
+            type: 'server',
+            message: 'O funcionário selecionado não está mais disponível.',
+          })
+          return
+        }
+
+        setFormError(
+          'Não foi possível criar a ordem de serviço. Tente novamente.',
+        )
+      }
+
+      return
+    }
+
     const isCancellingOrder =
       isEditing &&
       order?.status !== 'cancelled' &&
@@ -168,7 +265,7 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
             <SearchableSelect
               id={`${fieldPrefix}-client`}
               name="clientId"
-              options={clientOptions}
+              options={creation?.clientOptions ?? editing?.clientOptions ?? []}
               placeholder="Pesquisar cliente"
               emptyMessage="Nenhum cliente ativo encontrado."
               ariaInvalid={Boolean(errors.clientId)}
@@ -183,7 +280,10 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
               }}
             />
             {errors.clientId?.message && (
-              <p id={`${fieldPrefix}-client-error`} className="text-error text-sm">
+              <p
+                id={`${fieldPrefix}-client-error`}
+                className="text-error text-sm"
+              >
                 {errors.clientId.message}
               </p>
             )}
@@ -209,7 +309,9 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
               aria-invalid={Boolean(errors.description)}
               aria-required="true"
               aria-describedby={
-                errors.description ? `${fieldPrefix}-description-error` : undefined
+                errors.description
+                  ? `${fieldPrefix}-description-error`
+                  : undefined
               }
               {...register('description')}
             />
@@ -239,14 +341,19 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
               {...register('value')}
             />
             {errors.value?.message && (
-              <p id={`${fieldPrefix}-value-error`} className="text-error text-sm">
+              <p
+                id={`${fieldPrefix}-value-error`}
+                className="text-error text-sm"
+              >
                 {errors.value.message}
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor={`${fieldPrefix}-notes`}>Observações (opcional)</Label>
+            <Label htmlFor={`${fieldPrefix}-notes`}>
+              Observações (opcional)
+            </Label>
             <Textarea
               id={`${fieldPrefix}-notes`}
               rows={4}
@@ -257,7 +364,10 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
               {...register('notes')}
             />
             {errors.notes?.message && (
-              <p id={`${fieldPrefix}-notes-error`} className="text-error text-sm">
+              <p
+                id={`${fieldPrefix}-notes-error`}
+                className="text-error text-sm"
+              >
                 {errors.notes.message}
               </p>
             )}
@@ -290,14 +400,14 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
             </dl>
           ) : (
             <div className="space-y-2">
-              <Label htmlFor={`${fieldPrefix}-responsible`}>
-                Responsável
-              </Label>
+              <Label htmlFor={`${fieldPrefix}-responsible`}>Responsável</Label>
               <SearchableSelect
                 id={`${fieldPrefix}-responsible`}
                 name="responsibleId"
                 defaultValue={responsibleId}
-                options={employeeOptions}
+                options={
+                  creation?.employeeOptions ?? editing?.employeeOptions ?? []
+                }
                 placeholder="Pesquisar responsável"
                 emptyMessage="Nenhum funcionário ativo encontrado."
                 ariaInvalid={Boolean(errors.responsibleId)}
@@ -343,7 +453,10 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
                 ))}
               </Select>
               {errors.status?.message && (
-                <p id={`${fieldPrefix}-status-error`} className="text-error text-sm">
+                <p
+                  id={`${fieldPrefix}-status-error`}
+                  className="text-error text-sm"
+                >
                   {errors.status.message}
                 </p>
               )}
@@ -378,7 +491,9 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
                   className="h-4 w-4 accent-primary"
                   aria-invalid={Boolean(errors.visibility)}
                   aria-describedby={
-                    errors.visibility ? `${fieldPrefix}-visibility-error` : undefined
+                    errors.visibility
+                      ? `${fieldPrefix}-visibility-error`
+                      : undefined
                   }
                   {...register('visibility')}
                 />
@@ -392,7 +507,9 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
                   className="h-4 w-4 accent-primary"
                   aria-invalid={Boolean(errors.visibility)}
                   aria-describedby={
-                    errors.visibility ? `${fieldPrefix}-visibility-error` : undefined
+                    errors.visibility
+                      ? `${fieldPrefix}-visibility-error`
+                      : undefined
                   }
                   {...register('visibility')}
                 />
@@ -429,8 +546,12 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit">
-          {isEditing ? 'Salvar alterações' : 'Criar OS'}
+        <Button type="submit" disabled={creation?.isPending}>
+          {isEditing
+            ? 'Salvar alterações'
+            : creation?.isPending
+              ? 'Criando...'
+              : 'Criar OS'}
         </Button>
         <Link
           to={cancelLink}
@@ -439,6 +560,11 @@ function OrderForm({ order, editPermissions }: OrderFormProps) {
           Cancelar
         </Link>
       </div>
+      {formError ? (
+        <p className="text-error text-sm" role="alert">
+          {formError}
+        </p>
+      ) : null}
 
       <ConfirmationDialog
         isOpen={isCancelConfirmationOpen}
