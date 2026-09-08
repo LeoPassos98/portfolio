@@ -86,9 +86,14 @@ describe('OrdersController', () => {
         'DELETE FROM "session" WHERE "sid" = ANY($1)',
         [sessionIds],
       );
-    if (historyIds.length)
+    if (historyIds.length || orderIds.length)
       await database.historicoOrdemServico.deleteMany({
-        where: { id: { in: historyIds } },
+        where: {
+          OR: [
+            { id: { in: historyIds } },
+            { ordemServicoId: { in: orderIds } },
+          ],
+        },
       });
     if (orderIds.length)
       await database.ordemServico.deleteMany({
@@ -235,6 +240,11 @@ describe('OrdersController', () => {
       status?: StatusOrdemServico;
       visibilidade?: Visibilidade;
       valor?: string;
+      descricao?: string;
+      observacoes?: string | null;
+      versao?: number;
+      concluidoEm?: Date | null;
+      canceladoEm?: Date | null;
     } = {},
   ): Promise<OrderFixture> {
     const suffix = crypto.randomUUID();
@@ -253,11 +263,17 @@ describe('OrdersController', () => {
     const order = await database.ordemServico.create({
       data: {
         numero: options.numero ?? `OS-${suffix}`,
-        descricao: 'Descrição da ordem.',
+        descricao: options.descricao ?? 'Descrição da ordem.',
         valor: options.valor ?? '123.40',
-        observacoes: 'Observação.',
+        observacoes:
+          options.observacoes === undefined
+            ? 'Observação.'
+            : options.observacoes,
         status: options.status ?? StatusOrdemServico.AGUARDANDO,
         visibilidade: options.visibilidade ?? Visibilidade.PRIVADA,
+        versao: options.versao ?? 1,
+        concluidoEm: options.concluidoEm ?? null,
+        canceladoEm: options.canceladoEm ?? null,
         clienteId: client.id,
         responsavelId,
       },
@@ -265,6 +281,25 @@ describe('OrdersController', () => {
     clientIds.push(client.id);
     orderIds.push(order.id);
     return { id: order.id, numero: order.numero };
+  }
+
+  async function currentUpdateBody(
+    orderId: string,
+    overrides: Record<string, unknown> = {},
+  ) {
+    const order = await database.ordemServico.findUniqueOrThrow({
+      where: { id: orderId },
+    });
+
+    return {
+      versao: order.versao,
+      descricao: order.descricao,
+      valor: order.valor.toFixed(2),
+      ...(order.observacoes === null ? {} : { observacoes: order.observacoes }),
+      status: order.status,
+      visibilidade: order.visibilidade,
+      ...overrides,
+    };
   }
 
   async function createHistoryFixture(
@@ -826,6 +861,850 @@ describe('OrdersController', () => {
     expect(operation.responses['409'].description).toContain(
       'ORDER_CLIENT_INACTIVE',
     );
+  });
+
+  describe('PUT /orders/:id', () => {
+    it.each([
+      ['descrição', { descricao: 'Descrição atualizada.' }],
+      ['valor', { valor: '9876.54' }],
+      ['observações', { observacoes: '  Nova observação.  ' }],
+      ['visibilidade', { visibilidade: Visibilidade.PUBLICA }],
+    ])(
+      'lets the responsible employee update %s on an open order',
+      async (_, overrides) => {
+        const employee = await createAgent();
+        const order = await createOrderFixture(employee.user.funcionarioId);
+        const response = await employee.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', employee.csrfToken)
+          .send(await currentUpdateBody(order.id, overrides))
+          .expect(HttpStatus.OK);
+
+        expect(response.body.versao).toBe(2);
+        if ('observacoes' in overrides) {
+          expect(response.body.observacoes).toBe('Nova observação.');
+        }
+        expect(
+          await database.historicoOrdemServico.count({
+            where: { ordemServicoId: order.id },
+          }),
+        ).toBe(1);
+      },
+    );
+
+    it('normalizes blank observations to null during update', async () => {
+      const employee = await createAgent();
+      const order = await createOrderFixture(employee.user.funcionarioId);
+
+      const response = await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(await currentUpdateBody(order.id, { observacoes: '   ' }))
+        .expect(HttpStatus.OK);
+
+      expect(response.body).toMatchObject({ observacoes: null, versao: 2 });
+    });
+
+    it.each([
+      [StatusOrdemServico.AGUARDANDO, StatusOrdemServico.EM_ANDAMENTO],
+      [StatusOrdemServico.EM_ANDAMENTO, StatusOrdemServico.AGUARDANDO],
+      [StatusOrdemServico.AGUARDANDO, StatusOrdemServico.CONCLUIDO],
+      [StatusOrdemServico.EM_ANDAMENTO, StatusOrdemServico.CANCELADO],
+    ])(
+      'lets the responsible employee transition %s to %s',
+      async (currentStatus, nextStatus) => {
+        const employee = await createAgent();
+        const order = await createOrderFixture(employee.user.funcionarioId, {
+          status: currentStatus,
+        });
+        const response = await employee.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', employee.csrfToken)
+          .send(await currentUpdateBody(order.id, { status: nextStatus }))
+          .expect(HttpStatus.OK);
+
+        expect(response.body).toMatchObject({ status: nextStatus, versao: 2 });
+        expect(response.body.concluidoEm).toEqual(
+          nextStatus === StatusOrdemServico.CONCLUIDO
+            ? expect.any(String)
+            : null,
+        );
+        expect(response.body.canceladoEm).toEqual(
+          nextStatus === StatusOrdemServico.CANCELADO
+            ? expect.any(String)
+            : null,
+        );
+      },
+    );
+
+    it('rejects a responsible change requested by an employee', async () => {
+      const employee = await createAgent();
+      const other = await createUserFixture();
+      const order = await createOrderFixture(employee.user.funcionarioId);
+
+      await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            responsavelId: other.funcionarioId,
+          }),
+        )
+        .expect(HttpStatus.FORBIDDEN)
+        .expect(({ body }) =>
+          expect(body.code).toBe('ORDER_RESPONSIBLE_CHANGE_FORBIDDEN'),
+        );
+
+      const persisted = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+        include: { historicos: true },
+      });
+      expect(persisted).toMatchObject({
+        responsavelId: employee.user.funcionarioId,
+        versao: 1,
+        historicos: [],
+      });
+    });
+
+    it('forbids an employee from updating another employee public order', async () => {
+      const employee = await createAgent();
+      const other = await createUserFixture();
+      const order = await createOrderFixture(other.funcionarioId, {
+        visibilidade: Visibilidade.PUBLICA,
+      });
+
+      await employee.agent.get(`/orders/${order.id}`).expect(HttpStatus.OK);
+      await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, { descricao: 'Sem permissão.' }),
+        )
+        .expect(HttpStatus.FORBIDDEN)
+        .expect(({ body }) => expect(body.code).toBe('ORDER_UPDATE_FORBIDDEN'));
+    });
+
+    it('does not reveal another employee private order during update', async () => {
+      const employee = await createAgent();
+      const other = await createUserFixture();
+      const order = await createOrderFixture(other.funcionarioId);
+      const body = await currentUpdateBody(order.id, {
+        descricao: 'Sem acesso.',
+      });
+      const inaccessible = await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(body)
+        .expect(HttpStatus.NOT_FOUND);
+      const absent = await employee.agent
+        .put('/orders/00000000-0000-0000-0000-000000000000')
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(body)
+        .expect(HttpStatus.NOT_FOUND);
+
+      expect(inaccessible.body).toEqual(absent.body);
+      expect(inaccessible.body.code).toBe('ORDER_NOT_FOUND');
+    });
+
+    it.each([StatusOrdemServico.CONCLUIDO, StatusOrdemServico.CANCELADO])(
+      'rejects employee changes to an own terminal %s order',
+      async (status) => {
+        const employee = await createAgent();
+        const order = await createOrderFixture(employee.user.funcionarioId, {
+          status,
+          concluidoEm:
+            status === StatusOrdemServico.CONCLUIDO ? new Date() : null,
+          canceladoEm:
+            status === StatusOrdemServico.CANCELADO ? new Date() : null,
+        });
+
+        await employee.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', employee.csrfToken)
+          .send(await currentUpdateBody(order.id, { descricao: 'Bloqueada.' }))
+          .expect(HttpStatus.CONFLICT)
+          .expect(({ body }) =>
+            expect(body.code).toBe('ORDER_UPDATE_INVALID_FOR_STATE'),
+          );
+
+        expect(
+          await database.historicoOrdemServico.count({
+            where: { ordemServicoId: order.id },
+          }),
+        ).toBe(0);
+        expect(
+          await database.ordemServico.findUniqueOrThrow({
+            where: { id: order.id },
+          }),
+        ).toMatchObject({ versao: 1, descricao: 'Descrição da ordem.' });
+      },
+    );
+
+    it('updates every editable open-order field for an administrator and snapshots the old state', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const previousResponsible = await createUserFixture();
+      const nextResponsible = await createUserFixture();
+      const order = await createOrderFixture(previousResponsible.funcionarioId);
+      const before = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+      });
+      const response = await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            descricao: '  Estado administrativo novo.  ',
+            valor: '456.7',
+            observacoes: '  Observação nova.  ',
+            status: StatusOrdemServico.EM_ANDAMENTO,
+            visibilidade: Visibilidade.PUBLICA,
+            responsavelId: nextResponsible.funcionarioId,
+          }),
+        )
+        .expect(HttpStatus.OK);
+
+      expect(response.body).toMatchObject({
+        descricao: 'Estado administrativo novo.',
+        valor: '456.70',
+        observacoes: 'Observação nova.',
+        status: StatusOrdemServico.EM_ANDAMENTO,
+        visibilidade: Visibilidade.PUBLICA,
+        versao: 2,
+        responsavel: { id: nextResponsible.funcionarioId },
+      });
+      expect(new Date(response.body.atualizadoEm).getTime()).toBeGreaterThan(
+        before.atualizadoEm.getTime(),
+      );
+      const snapshot = await database.historicoOrdemServico.findFirstOrThrow({
+        where: { ordemServicoId: order.id },
+      });
+      expect(snapshot).toMatchObject({
+        versao: 1,
+        descricao: 'Descrição da ordem.',
+        observacoes: 'Observação.',
+        status: StatusOrdemServico.AGUARDANDO,
+        visibilidade: Visibilidade.PRIVADA,
+        responsavelId: previousResponsible.funcionarioId,
+        concluidoEm: null,
+        canceladoEm: null,
+        alteradoPorUsuarioId: administrator.user.userId,
+      });
+      expect(snapshot.valor.toFixed(2)).toBe('123.40');
+
+      const history = await administrator.agent
+        .get(`/orders/${order.id}/history`)
+        .expect(HttpStatus.OK);
+      expect(history.body).toHaveLength(1);
+      expect(history.body[0]).toMatchObject({
+        versao: 1,
+        responsavel: { id: previousResponsible.funcionarioId },
+        alteradoPor: { id: administrator.user.userId },
+      });
+    });
+
+    it.each([
+      [
+        'inexistente',
+        '00000000-0000-0000-0000-000000000000',
+        HttpStatus.NOT_FOUND,
+        'ORDER_RESPONSIBLE_NOT_FOUND',
+      ],
+      ['inativo', null, HttpStatus.CONFLICT, 'ORDER_RESPONSIBLE_INACTIVE'],
+    ] as const)(
+      'rejects an %s new responsible employee without changing the order',
+      async (_label, missingId, status, code) => {
+        const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+        const previousResponsible = await createUserFixture();
+        const inactive = missingId
+          ? null
+          : await createUserFixture({ funcionarioAtivo: false });
+        const order = await createOrderFixture(
+          previousResponsible.funcionarioId,
+        );
+
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(
+            await currentUpdateBody(order.id, {
+              responsavelId: missingId ?? inactive!.funcionarioId,
+            }),
+          )
+          .expect(status)
+          .expect(({ body }) => expect(body.code).toBe(code));
+
+        const persisted = await database.ordemServico.findUniqueOrThrow({
+          where: { id: order.id },
+          include: { historicos: true },
+        });
+        expect(persisted).toMatchObject({
+          responsavelId: previousResponsible.funcionarioId,
+          versao: 1,
+          historicos: [],
+        });
+      },
+    );
+
+    it('lets an administrator correct a completed order without replacing its completion timestamp', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const completedAt = new Date('2026-09-08T10:00:00.000Z');
+      const order = await createOrderFixture(responsible.funcionarioId, {
+        status: StatusOrdemServico.CONCLUIDO,
+        concluidoEm: completedAt,
+      });
+      const response = await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            descricao: 'Correção administrativa.',
+            valor: '222.22',
+            observacoes: 'Correção de observação.',
+            visibilidade: Visibilidade.PUBLICA,
+          }),
+        )
+        .expect(HttpStatus.OK);
+
+      expect(response.body).toMatchObject({
+        status: StatusOrdemServico.CONCLUIDO,
+        concluidoEm: completedAt.toISOString(),
+        canceladoEm: null,
+        responsavel: { id: responsible.funcionarioId },
+        versao: 2,
+      });
+      const snapshot = await database.historicoOrdemServico.findFirstOrThrow({
+        where: { ordemServicoId: order.id },
+      });
+      expect(snapshot.concluidoEm).toEqual(completedAt);
+      expect(snapshot.canceladoEm).toBeNull();
+    });
+
+    it.each([StatusOrdemServico.AGUARDANDO, StatusOrdemServico.EM_ANDAMENTO])(
+      'lets an administrator reopen a completed order to %s',
+      async (status) => {
+        const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+        const responsible = await createUserFixture();
+        const completedAt = new Date('2026-09-08T11:00:00.000Z');
+        const order = await createOrderFixture(responsible.funcionarioId, {
+          status: StatusOrdemServico.CONCLUIDO,
+          concluidoEm: completedAt,
+        });
+        const response = await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(await currentUpdateBody(order.id, { status }))
+          .expect(HttpStatus.OK);
+
+        expect(response.body).toMatchObject({
+          status,
+          concluidoEm: null,
+          canceladoEm: null,
+          versao: 2,
+        });
+        const snapshot = await database.historicoOrdemServico.findFirstOrThrow({
+          where: { ordemServicoId: order.id },
+        });
+        expect(snapshot.concluidoEm).toEqual(completedAt);
+      },
+    );
+
+    it.each([
+      ['cancelar diretamente', { status: StatusOrdemServico.CANCELADO }],
+      [
+        'trocar responsável ao reabrir',
+        { status: StatusOrdemServico.AGUARDANDO },
+      ],
+    ])(
+      'rejects an administrator trying to %s a completed order',
+      async (label, overrides) => {
+        const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+        const responsible = await createUserFixture();
+        const other = await createUserFixture();
+        const order = await createOrderFixture(responsible.funcionarioId, {
+          status: StatusOrdemServico.CONCLUIDO,
+          concluidoEm: new Date(),
+        });
+        const requestOverrides =
+          label === 'trocar responsável ao reabrir'
+            ? { ...overrides, responsavelId: other.funcionarioId }
+            : overrides;
+
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(await currentUpdateBody(order.id, requestOverrides))
+          .expect(HttpStatus.CONFLICT)
+          .expect(({ body }) =>
+            expect(body.code).toBe('ORDER_UPDATE_INVALID_FOR_STATE'),
+          );
+      },
+    );
+
+    it.each([StatusOrdemServico.AGUARDANDO, StatusOrdemServico.EM_ANDAMENTO])(
+      'lets an administrator reopen a cancelled order to %s only',
+      async (status) => {
+        const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+        const responsible = await createUserFixture();
+        const cancelledAt = new Date('2026-09-08T12:00:00.000Z');
+        const order = await createOrderFixture(responsible.funcionarioId, {
+          status: StatusOrdemServico.CANCELADO,
+          canceladoEm: cancelledAt,
+        });
+        const response = await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(await currentUpdateBody(order.id, { status }))
+          .expect(HttpStatus.OK);
+
+        expect(response.body).toMatchObject({
+          status,
+          concluidoEm: null,
+          canceladoEm: null,
+          versao: 2,
+        });
+        const snapshot = await database.historicoOrdemServico.findFirstOrThrow({
+          where: { ordemServicoId: order.id },
+        });
+        expect(snapshot.canceladoEm).toEqual(cancelledAt);
+      },
+    );
+
+    it.each([
+      ['descrição', { descricao: 'Mudança combinada.' }],
+      ['valor', { valor: '999.99' }],
+      ['observação', { observacoes: 'Mudança combinada.' }],
+      ['visibilidade', { visibilidade: Visibilidade.PUBLICA }],
+      ['responsável', { responsavelId: 'placeholder' }],
+    ])(
+      'rejects %s changes combined with reopening a cancelled order',
+      async (_, fieldOverride) => {
+        const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+        const responsible = await createUserFixture();
+        const other = await createUserFixture();
+        const order = await createOrderFixture(responsible.funcionarioId, {
+          status: StatusOrdemServico.CANCELADO,
+          canceladoEm: new Date(),
+        });
+        const override =
+          fieldOverride.responsavelId === 'placeholder'
+            ? { responsavelId: other.funcionarioId }
+            : fieldOverride;
+
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(
+            await currentUpdateBody(order.id, {
+              status: StatusOrdemServico.AGUARDANDO,
+              ...override,
+            }),
+          )
+          .expect(HttpStatus.CONFLICT)
+          .expect(({ body }) =>
+            expect(body.code).toBe('ORDER_UPDATE_INVALID_FOR_STATE'),
+          );
+
+        expect(
+          await database.historicoOrdemServico.count({
+            where: { ordemServicoId: order.id },
+          }),
+        ).toBe(0);
+      },
+    );
+
+    it('rejects keeping a cancelled order while changing data or moving it directly to completed', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId, {
+        status: StatusOrdemServico.CANCELADO,
+        canceladoEm: new Date(),
+      });
+
+      for (const overrides of [
+        { descricao: 'Não pode.' },
+        { status: StatusOrdemServico.CONCLUIDO },
+      ]) {
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(await currentUpdateBody(order.id, overrides))
+          .expect(HttpStatus.CONFLICT)
+          .expect(({ body }) =>
+            expect(body.code).toBe('ORDER_UPDATE_INVALID_FOR_STATE'),
+          );
+      }
+    });
+
+    it('returns an exact no-op without a snapshot, version increment, or updated timestamp', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      const before = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+      });
+      const response = await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            descricao: '  Descrição da ordem.  ',
+            valor: '123.4',
+            observacoes: '  Observação.  ',
+            responsavelId: responsible.funcionarioId,
+          }),
+        )
+        .expect(HttpStatus.OK);
+      const after = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+      });
+
+      expect(response.body).toMatchObject({ versao: 1 });
+      expect(after.atualizadoEm).toEqual(before.atualizadoEm);
+      expect(after.versao).toBe(1);
+      expect(
+        await database.historicoOrdemServico.count({
+          where: { ordemServicoId: order.id },
+        }),
+      ).toBe(0);
+    });
+
+    it('rejects a sequential stale request without a second snapshot', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(await currentUpdateBody(order.id, { descricao: 'Vencedora.' }))
+        .expect(HttpStatus.OK);
+      const staleBody = await currentUpdateBody(order.id, { versao: 1 });
+
+      await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(staleBody)
+        .expect(HttpStatus.CONFLICT)
+        .expect(({ body }) => expect(body.code).toBe('ORDER_VERSION_CONFLICT'));
+
+      const persisted = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+        include: { historicos: true },
+      });
+      expect(persisted).toMatchObject({
+        descricao: 'Vencedora.',
+        versao: 2,
+      });
+      expect(persisted.historicos).toHaveLength(1);
+    });
+
+    it('allows exactly one of two concurrent updates based on the same version', async () => {
+      const firstAdministrator = await createAgent({
+        perfil: 'ADMINISTRADOR',
+      });
+      const secondAdministrator = await createAgent({
+        perfil: 'ADMINISTRADOR',
+      });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      const baseBody = await currentUpdateBody(order.id);
+      const [first, second] = await Promise.all([
+        firstAdministrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', firstAdministrator.csrfToken)
+          .send({ ...baseBody, descricao: 'Concorrente A.' }),
+        secondAdministrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', secondAdministrator.csrfToken)
+          .send({ ...baseBody, descricao: 'Concorrente B.' }),
+      ]);
+
+      expect([first.status, second.status].sort()).toEqual([
+        HttpStatus.OK,
+        HttpStatus.CONFLICT,
+      ]);
+      const winner = first.status === HttpStatus.OK ? first : second;
+      const loser = first.status === HttpStatus.CONFLICT ? first : second;
+      expect(loser.body.code).toBe('ORDER_VERSION_CONFLICT');
+      const persisted = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+        include: { historicos: true },
+      });
+      expect(persisted).toMatchObject({
+        descricao: winner.body.descricao,
+        versao: 2,
+      });
+      expect(persisted.historicos).toHaveLength(1);
+      expect(persisted.historicos[0]).toMatchObject({
+        versao: 1,
+        descricao: 'Descrição da ordem.',
+      });
+      expect(persisted.descricao).not.toBe(
+        loser === first ? 'Concorrente A.' : 'Concorrente B.',
+      );
+    });
+
+    it('appends exact snapshots across sequential versions', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      const changes = [
+        { descricao: 'Versão dois.' },
+        { valor: '200.25' },
+        { status: StatusOrdemServico.EM_ANDAMENTO },
+      ];
+
+      for (const change of changes) {
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(await currentUpdateBody(order.id, change))
+          .expect(HttpStatus.OK);
+      }
+
+      const persisted = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+        include: { historicos: { orderBy: { versao: 'asc' } } },
+      });
+      expect(persisted.versao).toBe(4);
+      expect(persisted.historicos.map(({ versao }) => versao)).toEqual([
+        1, 2, 3,
+      ]);
+      expect(persisted.historicos[0]).toMatchObject({
+        descricao: 'Descrição da ordem.',
+        status: StatusOrdemServico.AGUARDANDO,
+      });
+      expect(persisted.historicos[0]!.valor.toFixed(2)).toBe('123.40');
+      expect(persisted.historicos[1]!.descricao).toBe('Versão dois.');
+      expect(persisted.historicos[1]!.valor.toFixed(2)).toBe('123.40');
+      expect(persisted.historicos[2]!.valor.toFixed(2)).toBe('200.25');
+      expect(persisted.historicos[2]!.status).toBe(
+        StatusOrdemServico.AGUARDANDO,
+      );
+    });
+
+    it('rolls back the snapshot when the conditioned update fails before commit', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      const functionName = 'test_reject_order_update';
+      const triggerName = 'test_reject_order_update_trigger';
+
+      try {
+        await verificationPool.query(
+          `CREATE OR REPLACE FUNCTION ${functionName}() RETURNS trigger AS $$
+         BEGIN
+           IF NEW.descricao = 'Forçar rollback transacional.' THEN
+             RAISE EXCEPTION 'deterministic test rejection';
+           END IF;
+           RETURN NEW;
+         END;
+         $$ LANGUAGE plpgsql`,
+        );
+        await verificationPool.query(
+          `CREATE TRIGGER ${triggerName}
+         BEFORE UPDATE ON "ordem_servico"
+         FOR EACH ROW EXECUTE FUNCTION ${functionName}()`,
+        );
+
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(
+            await currentUpdateBody(order.id, {
+              descricao: 'Forçar rollback transacional.',
+            }),
+          )
+          .expect(HttpStatus.INTERNAL_SERVER_ERROR);
+      } finally {
+        await verificationPool.query(
+          `DROP TRIGGER IF EXISTS ${triggerName} ON "ordem_servico"`,
+        );
+        await verificationPool.query(
+          `DROP FUNCTION IF EXISTS ${functionName}()`,
+        );
+      }
+
+      const persisted = await database.ordemServico.findUniqueOrThrow({
+        where: { id: order.id },
+        include: { historicos: true },
+      });
+      expect(persisted).toMatchObject({
+        descricao: 'Descrição da ordem.',
+        versao: 1,
+        historicos: [],
+      });
+    });
+
+    it('linearizes reassignment against concurrent responsible deactivation', async () => {
+      const updateAdministrator = await createAgent({
+        perfil: 'ADMINISTRADOR',
+      });
+      const statusAdministrator = await createAgent({
+        perfil: 'ADMINISTRADOR',
+      });
+      const previousResponsible = await createUserFixture();
+      const nextResponsible = await createUserFixture();
+      const order = await createOrderFixture(previousResponsible.funcionarioId);
+      const [updateResponse, deactivationResponse] = await Promise.all([
+        updateAdministrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', updateAdministrator.csrfToken)
+          .send(
+            await currentUpdateBody(order.id, {
+              responsavelId: nextResponsible.funcionarioId,
+            }),
+          ),
+        statusAdministrator.agent
+          .patch(`/employees/${nextResponsible.funcionarioId}/status`)
+          .set('X-CSRF-Token', statusAdministrator.csrfToken)
+          .send({ status: 'inactive' }),
+      ]);
+      const [persistedOrder, persistedResponsible] = await Promise.all([
+        database.ordemServico.findUniqueOrThrow({
+          where: { id: order.id },
+          include: { historicos: true },
+        }),
+        database.funcionario.findUniqueOrThrow({
+          where: { id: nextResponsible.funcionarioId },
+        }),
+      ]);
+
+      if (updateResponse.status === HttpStatus.OK) {
+        expect(deactivationResponse.status).toBe(HttpStatus.CONFLICT);
+        expect(deactivationResponse.body.code).toBe(
+          'EMPLOYEE_HAS_ACTIVE_ORDERS',
+        );
+        expect(persistedOrder).toMatchObject({
+          responsavelId: nextResponsible.funcionarioId,
+          versao: 2,
+        });
+        expect(persistedOrder.historicos).toHaveLength(1);
+        expect(persistedResponsible.ativo).toBe(true);
+      } else {
+        expect(updateResponse.status).toBe(HttpStatus.CONFLICT);
+        expect(updateResponse.body.code).toBe('ORDER_RESPONSIBLE_INACTIVE');
+        expect(deactivationResponse.status).toBe(HttpStatus.OK);
+        expect(persistedOrder).toMatchObject({
+          responsavelId: previousResponsible.funcionarioId,
+          versao: 1,
+          historicos: [],
+        });
+        expect(persistedResponsible.ativo).toBe(false);
+      }
+    });
+
+    it.each([
+      [{ versao: 0 }],
+      [{ versao: 1.5 }],
+      [{ versao: '1' }],
+      [{ descricao: 'ab' }],
+      [{ valor: '1e3' }],
+      [{ status: 'FINALIZADA' }],
+      [{ visibilidade: 'INTERNA' }],
+      [{ responsavelId: 'not-a-uuid' }],
+    ])('rejects invalid update input %#', async (overrides) => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+
+      await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(await currentUpdateBody(order.id, overrides))
+        .expect(HttpStatus.BAD_REQUEST)
+        .expect(({ body }) => expect(body.code).toBe('VALIDATION_ERROR'));
+    });
+
+    it('rejects immutable and server-owned fields in the update body', async () => {
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      const forbiddenFields = [
+        'clienteId',
+        'numero',
+        'criadoEm',
+        'atualizadoEm',
+        'concluidoEm',
+        'canceladoEm',
+      ];
+
+      for (const field of forbiddenFields) {
+        await administrator.agent
+          .put(`/orders/${order.id}`)
+          .set('X-CSRF-Token', administrator.csrfToken)
+          .send(await currentUpdateBody(order.id, { [field]: 'forbidden' }))
+          .expect(HttpStatus.BAD_REQUEST)
+          .expect(({ body }) => expect(body.code).toBe('VALIDATION_ERROR'));
+      }
+    });
+
+    it('protects order updates with UUID validation, session, first access, and CSRF', async () => {
+      const responsible = await createUserFixture();
+      const order = await createOrderFixture(responsible.funcionarioId);
+      const body = await currentUpdateBody(order.id);
+      const unauthenticated = request.agent(app);
+      const csrf = await unauthenticated
+        .get('/auth/csrf')
+        .expect(HttpStatus.OK);
+      sessionIds.push(getSessionId(csrf.headers['set-cookie']?.[0]));
+      await unauthenticated
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', csrf.body.csrfToken as string)
+        .send(body)
+        .expect(HttpStatus.UNAUTHORIZED);
+      const pending = await createAgent({ deveAlterarSenha: true });
+      await pending.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', pending.csrfToken)
+        .send(body)
+        .expect(HttpStatus.FORBIDDEN);
+      const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+      await administrator.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', 'invalid')
+        .send(body)
+        .expect(HttpStatus.FORBIDDEN);
+      await administrator.agent
+        .put('/orders/not-a-uuid')
+        .set('X-CSRF-Token', administrator.csrfToken)
+        .send(body)
+        .expect(HttpStatus.BAD_REQUEST);
+    });
+
+    it('documents atomic order updates and stable errors in OpenAPI', async () => {
+      const response = await request(app)
+        .get('/api/docs/openapi.json')
+        .expect(HttpStatus.OK);
+      const operation = response.body.paths['/orders/{id}'].put;
+
+      expect(operation.parameters).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ name: 'id', in: 'path' }),
+          expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+        ]),
+      );
+      expect(
+        operation.requestBody.content['application/json'].schema,
+      ).toMatchObject({
+        additionalProperties: false,
+        required: ['versao', 'descricao', 'valor', 'status', 'visibilidade'],
+        properties: expect.objectContaining({
+          versao: expect.objectContaining({ minimum: 1 }),
+          responsavelId: expect.objectContaining({ format: 'uuid' }),
+        }),
+      });
+      expect(operation.responses).toHaveProperty('200');
+      expect(operation.responses['403'].description).toContain(
+        'ORDER_UPDATE_FORBIDDEN',
+      );
+      expect(operation.responses['404'].description).toContain(
+        'ORDER_RESPONSIBLE_NOT_FOUND',
+      );
+      expect(operation.responses['409'].description).toContain(
+        'ORDER_VERSION_CONFLICT',
+      );
+    });
   });
 
   it('allows an administrator to list private and public orders and read either detail', async () => {

@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -43,6 +44,10 @@ import {
   orderListQuerySchema,
   type OrderListQuery,
 } from './order-list-query.schema.js';
+import {
+  orderUpdateSchema,
+  type OrderUpdateInput,
+} from './order-update.schema.js';
 import { OrdersService } from './orders.service.js';
 
 const badRequestResponse = {
@@ -131,6 +136,70 @@ export class OrdersController {
     @Body(new ZodValidationPipe(orderCreateSchema)) input: OrderCreateInput,
   ): Promise<OrderDetailResponse> {
     return this.ordersService.create(request.authenticatedUser!, input);
+  }
+
+  @Put(':id')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({ summary: 'Atualiza atomicamente uma ordem de serviço' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['versao', 'descricao', 'valor', 'status', 'visibilidade'],
+      properties: {
+        versao: { type: 'integer', minimum: 1 },
+        descricao: { type: 'string', minLength: 3, maxLength: 2000 },
+        valor: {
+          type: 'string',
+          pattern: '^(?:0|[1-9]\\d{0,9})(?:\\.\\d{1,2})?$',
+          example: '1250.99',
+        },
+        observacoes: { type: 'string', maxLength: 4000 },
+        status: {
+          type: 'string',
+          enum: ['AGUARDANDO', 'EM_ANDAMENTO', 'CONCLUIDO', 'CANCELADO'],
+        },
+        visibilidade: {
+          type: 'string',
+          enum: ['PRIVADA', 'PUBLICA'],
+        },
+        responsavelId: {
+          type: 'string',
+          format: 'uuid',
+          description:
+            'Opcional. Quando omitido, preserva o responsável atual.',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: OrderDetailResponse })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou body inválido (VALIDATION_ERROR).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF inválido, primeiro acesso pendente, OS pública de terceiro (ORDER_UPDATE_FORBIDDEN) ou tentativa de transferência por Funcionário (ORDER_RESPONSIBLE_CHANGE_FORBIDDEN).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'OS inexistente/privada sem acesso (ORDER_NOT_FOUND) ou novo responsável inexistente (ORDER_RESPONSIBLE_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'Versão desatualizada (ORDER_VERSION_CONFLICT), estado/transição inválidos (ORDER_UPDATE_INVALID_FOR_STATE) ou novo responsável inativo (ORDER_RESPONSIBLE_INACTIVE).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  update(
+    @Req() request: Request,
+    @Param(new ZodValidationPipe(orderIdSchema)) { id }: OrderIdInput,
+    @Body(new ZodValidationPipe(orderUpdateSchema)) input: OrderUpdateInput,
+  ): Promise<OrderDetailResponse> {
+    return this.ordersService.update(request.authenticatedUser!, id, input);
   }
 
   @Get()
