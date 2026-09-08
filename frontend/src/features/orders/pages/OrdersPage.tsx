@@ -1,4 +1,5 @@
 import { Link, useSearchParams } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -6,9 +7,8 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
-import { useAuthSession } from '../../auth/hooks/useAuthSession'
-import { getVisibleOrders } from '../lib/orderVisibility'
-import { mockOrders } from '../mocks/orders'
+import { ordersQueryKeys } from '../api/orderQueryKeys'
+import { listOrders } from '../api/ordersApi'
 import type { OrderStatus } from '../types/order'
 
 const orderStatuses: readonly OrderStatus[] = [
@@ -40,58 +40,80 @@ const orderDateFormatter = new Intl.DateTimeFormat('pt-BR', {
   dateStyle: 'short',
 })
 
-function isOrderStatus(value: string | null): value is OrderStatus {
-  return value !== null && orderStatuses.some((status) => status === value)
+function isOrderListStatus(value: string | null): value is OrderListStatus {
+  return value !== null && orderListStatuses.some((status) => status === value)
 }
 
-function isOrderListStatus(value: string | null): value is OrderListStatus {
+function OrdersListSkeleton() {
   return (
-    value !== null && orderListStatuses.some((status) => status === value)
+    <>
+      <ul
+        className="mt-8 space-y-4 md:hidden"
+        aria-label="Carregando ordens de serviço"
+      >
+        {[0, 1].map((item) => (
+          <li
+            key={item}
+            className="bg-surface animate-pulse rounded-ui border border-neutral-bg p-4"
+          >
+            <div className="h-5 w-32 rounded bg-neutral-bg" />
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {[0, 1, 2, 3].map((detail) => (
+                <div key={detail} className="h-4 w-24 rounded bg-neutral-bg" />
+              ))}
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <div
+        className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block"
+        aria-label="Carregando ordens de serviço"
+      >
+        <div className="bg-neutral-bg h-12" />
+        {[0, 1].map((item) => (
+          <div
+            key={item}
+            className="bg-surface flex animate-pulse gap-8 border-t border-neutral-bg px-4 py-4"
+          >
+            {[0, 1, 2, 3, 4, 5].map((column) => (
+              <div key={column} className="h-4 flex-1 rounded bg-neutral-bg" />
+            ))}
+          </div>
+        ))}
+      </div>
+    </>
   )
 }
 
 function OrdersPage() {
-  const session = useAuthSession()
   const [searchParams, setSearchParams] = useSearchParams()
   const statusParam = searchParams.get('status')
   const status = isOrderListStatus(statusParam) ? statusParam : 'all'
   const search = searchParams.get('search') ?? ''
-  const visibleOrders = session
-    ? getVisibleOrders(mockOrders, session.currentUser)
-    : []
-  const ordersFilteredByStatus = isOrderStatus(statusParam)
-    ? visibleOrders.filter((order) => order.status === statusParam)
-    : statusParam === 'open'
-      ? visibleOrders.filter(
-          (order) =>
-            order.status === 'awaiting' || order.status === 'in-progress',
-        )
-    : visibleOrders
-  const normalizedSearch = search.trim().toLocaleLowerCase('pt-BR')
-  const filteredOrders = normalizedSearch
-    ? ordersFilteredByStatus.filter((order) =>
-        [order.number, order.clientName].some(
-          (value) =>
-            value.toLocaleLowerCase('pt-BR').includes(normalizedSearch),
-        ),
-      )
-    : ordersFilteredByStatus
-  const hasOrders = filteredOrders.length > 0
-  const hasActiveFilters = isOrderListStatus(statusParam) || search.trim() !== ''
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredOrders.length / ordersPerPage),
-  )
+  const listParams = {
+    status,
+    ...(search.trim() === '' ? {} : { search: search.trim() }),
+  } as const
+  const {
+    data: orders = [],
+    isError,
+    isPending,
+    refetch,
+  } = useQuery({
+    queryKey: ordersQueryKeys.list(listParams),
+    queryFn: () => listOrders(listParams),
+  })
+  const hasOrders = orders.length > 0
+  const hasActiveFilters = status !== 'all' || search.trim() !== ''
+  const totalPages = Math.max(1, Math.ceil(orders.length / ordersPerPage))
   const requestedPage = Number(searchParams.get('page') ?? '1')
   const currentPage =
     Number.isInteger(requestedPage) && requestedPage > 0
       ? Math.min(requestedPage, totalPages)
       : 1
   const pageStart = (currentPage - 1) * ordersPerPage
-  const currentOrders = filteredOrders.slice(
-    pageStart,
-    pageStart + ordersPerPage,
-  )
+  const currentOrders = orders.slice(pageStart, pageStart + ordersPerPage)
 
   function changePage(nextPage: number) {
     const nextSearchParams = new URLSearchParams(searchParams)
@@ -172,7 +194,23 @@ function OrdersPage() {
         />
       </div>
 
-      {!hasOrders && (
+      {isPending && <OrdersListSkeleton />}
+
+      {isError && (
+        <div className="mt-8 space-y-4">
+          <EmptyState
+            title="Não foi possível carregar as ordens de serviço"
+            description="Verifique sua conexão e tente novamente."
+          />
+          <div className="flex justify-center">
+            <Button type="button" onClick={() => void refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!isPending && !isError && !hasOrders && (
         <div className="mt-8 space-y-4">
           <EmptyState
             title="Nenhuma ordem encontrada"
@@ -188,7 +226,7 @@ function OrdersPage() {
         </div>
       )}
 
-      {hasOrders && (
+      {!isPending && !isError && hasOrders && (
         <ul className="mt-8 space-y-4 md:hidden">
           {currentOrders.map((order) => {
             const statusDetail = statusDetails[order.status]
@@ -213,9 +251,7 @@ function OrdersPage() {
                 <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                   <div>
                     <dt className="text-neutral text-xs">Cliente</dt>
-                    <dd className="text-foreground mt-1">
-                      {order.clientName}
-                    </dd>
+                    <dd className="text-foreground mt-1">{order.clientName}</dd>
                   </div>
                   <div>
                     <dt className="text-neutral text-xs">Responsável</dt>
@@ -234,7 +270,7 @@ function OrdersPage() {
                   <div>
                     <dt className="text-neutral text-xs">Valor</dt>
                     <dd className="text-foreground mt-1 font-medium">
-                      {currencyFormatter.format(order.value)}
+                      {currencyFormatter.format(Number(order.value))}
                     </dd>
                   </div>
                 </dl>
@@ -244,7 +280,7 @@ function OrdersPage() {
         </ul>
       )}
 
-      {hasOrders && (
+      {!isPending && !isError && hasOrders && (
         <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
           <table className="w-full text-left">
             <caption className="sr-only">Lista de ordens de serviço</caption>
@@ -301,7 +337,7 @@ function OrdersPage() {
                       </time>
                     </td>
                     <td className="text-foreground whitespace-nowrap px-4 py-3 font-medium">
-                      {currencyFormatter.format(order.value)}
+                      {currencyFormatter.format(Number(order.value))}
                     </td>
                   </tr>
                 )
@@ -311,7 +347,7 @@ function OrdersPage() {
         </div>
       )}
 
-      {hasOrders && (
+      {!isPending && !isError && hasOrders && (
         <nav
           aria-label="Paginação de ordens"
           className="mt-6 flex items-center justify-between gap-4"

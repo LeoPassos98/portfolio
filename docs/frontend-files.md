@@ -21,7 +21,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Layouts                 | Estruturas compartilhadas de páginas                                              |        3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
 | Dashboard               | Visões administrativa e individual de métricas                                    |        5 |
-| Ordens de Serviço       | Listagem, detalhes, criação, edição, histórico, validação, tipos e mocks          |       11 |
+| Ordens de Serviço       | Listagem real, detalhes, criação, edição, histórico, validação, tipos e mocks     |       13 |
 | Clientes                | Listagem, cadastro e edição reais, com mocks preservados para Ordens              |        8 |
 | Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
 
@@ -300,7 +300,9 @@ Diretório principal: `frontend/src/features/orders/`
 
 ### 1. `frontend/src/features/orders/pages/OrdersPage.tsx`
 
-Lista ordens em tabela desktop ou lista mobile, controla filtros, busca e paginação pela URL e oferece criação e acesso aos detalhes.
+Lista OS em tabela desktop ou lista mobile com TanStack Query, preservando filtros, busca e paginação pela URL e oferecendo criação e acesso aos detalhes.
+
+Envia status e busca normalizada a `GET /orders`; o backend aplica a autorização contextual e a filtragem, enquanto a paginação visual permanece local sobre o resultado recebido.
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
@@ -356,7 +358,19 @@ Centraliza políticas mockadas de consulta, edição, transição de status e re
 
 Administrador vê todas e reabre Canceladas. Funcionário vê as próprias e as públicas de outros responsáveis, mas edita somente as próprias em aberto.
 
-É reutilizada por listagem, detalhes, rota e formulário.
+É reutilizada por detalhes, rota e formulário.
+
+### 12. `frontend/src/features/orders/api/ordersApi.ts`
+
+Concentra a consulta tipada de `GET /orders` na instância Axios compartilhada.
+
+Separa o contrato HTTP do NestJS do modelo `OrderListItem` do React, convertendo enums e preservando `valor` como texto decimal exato no server state.
+
+### 13. `frontend/src/features/orders/api/orderQueryKeys.ts`
+
+Centraliza as query keys de listagem e detalhe futuro de OS.
+
+A chave da listagem contém somente os parâmetros efetivamente enviados ao backend, para separar corretamente os resultados filtrados no cache.
 
 ---
 
