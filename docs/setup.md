@@ -173,7 +173,7 @@ Não os execute novamente apenas para preparar um clone existente; para isso, us
 | ------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------- |
 | React, TypeScript e Vite | Base tipada da SPA e ambiente de desenvolvimento e build.               | `npm create vite@latest frontend -- --template react-ts` |
 | Axios                    | Cliente HTTP compartilhado com `withCredentials` e CSRF em memória.     | `cd frontend && npm install axios`                       |
-| TanStack Query           | Cache e coordenação de server state, sem substituir o estado de sessão. | `cd frontend && npm install @tanstack/react-query`       |
+| TanStack Query           | Cache e coordenação de server state, sem substituir o estado de sessão; a troca ou perda de identidade descarta o cache integralmente. | `cd frontend && npm install @tanstack/react-query`       |
 
 ### Backend
 

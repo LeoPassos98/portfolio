@@ -80,7 +80,7 @@ Anexa o token CSRF em memória às mutações, invalida-o após troca de sessão
 
 ## Infraestrutura de dados
 
-Disponibiliza a instância compartilhada de TanStack Query para futuras integrações de server state, sem assumir a responsabilidade de autenticação.
+Disponibiliza a instância compartilhada de TanStack Query para o server state real; o `AuthSessionProvider` descarta integralmente esse cache nas fronteiras de identidade.
 
 Diretório principal: `frontend/src/shared/lib/query/`
 
@@ -460,7 +460,7 @@ Aplica visualmente a relação entre cadastro e acesso. A decisão sobre o últi
 
 Consulta o perfil administrativo real do Funcionário com TanStack Query, incluindo a conta de acesso opcional, loading, erro com retry e estado de não encontrado.
 
-Preserva as ações de edição e acesso; o painel compartilhado de desempenho continua mockado nesta etapa.
+Preserva as ações de edição e acesso e integra o painel compartilhado de desempenho real do Dashboard para o Funcionário consultado.
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 

@@ -528,7 +528,7 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Dashboard
 
-Expõe a situação atual da operação e o desempenho temporal no escopo autenticado, sem integrar o React nesta etapa. A situação não recebe período; o desempenho aceita um intervalo RFC3339 explícito ou todo o período.
+Expõe a situação atual da operação e o desempenho temporal no escopo autenticado, consumidos pelo Dashboard React. A situação não recebe período; o desempenho aceita um intervalo RFC3339 explícito ou todo o período.
 
 Diretório principal: `backend/src/dashboard/`
 
