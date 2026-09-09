@@ -213,7 +213,6 @@ function EmployeeProfilePage() {
         </dl>
       </section>
 
-      {/* O painel de desempenho permanece mockado nesta etapa. */}
       <EmployeePerformancePanel
         employeeId={employee.id}
         context="administrative"

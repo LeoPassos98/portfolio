@@ -63,3 +63,18 @@ function MetricCard({
 }
 
 export { MetricCard }
+
+function MetricCardSkeleton() {
+  return (
+    <div
+      aria-label="Carregando indicador"
+      className="bg-surface animate-pulse rounded-ui border border-neutral-bg p-5"
+    >
+      <div className="h-4 w-32 rounded bg-neutral-bg" />
+      <div className="mt-3 h-9 w-24 rounded bg-neutral-bg" />
+      <div className="mt-3 h-4 w-48 rounded bg-neutral-bg" />
+    </div>
+  )
+}
+
+export { MetricCardSkeleton }

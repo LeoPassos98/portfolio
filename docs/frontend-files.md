@@ -20,7 +20,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        6 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              |        3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
-| Dashboard               | Visões administrativa e individual de métricas                                    |        5 |
+| Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              |        7 |
 | Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
 | Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor       |        8 |
 | Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
@@ -264,31 +264,39 @@ Apresenta o estado mínimo de verificação inicial da sessão e a falha técnic
 
 ## Dashboard
 
-Apresenta métricas de situação atual e desempenho para as visões de Administrador e Funcionário com dados mockados.
+Apresenta métricas de situação atual e desempenho para Administrador e Funcionário, consumindo a API real com TanStack Query.
 
 Diretório principal: `frontend/src/features/dashboard/`
 
 ### 1. `frontend/src/features/dashboard/pages/DashboardPage.tsx`
 
-Compõe o Dashboard administrativo ou individual conforme o perfil da sessão autenticada.
+Compõe o Dashboard administrativo ou individual conforme o perfil da sessão autenticada, com queries independentes para situação e desempenho.
 
-Recebe o feedback do guard e delega o painel individual ao componente compartilhado.
+Preserva o feedback do guard, exibe skeletons e erros recuperáveis e delega o painel individual ao componente compartilhado.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 
-Renderiza métricas numéricas ou monetárias com texto secundário e classes semânticas, usando link acessível somente quando existe um destino compatível.
+Renderiza métricas numéricas ou monetárias e seu skeleton correspondente, usando link acessível somente quando existe um destino compatível.
 
 ### 3. `frontend/src/features/dashboard/components/EmployeePerformancePanel.tsx`
 
-Reúne situação atual, seletor de período, cálculos e cards de desempenho de um funcionário, adaptando os textos para uso próprio ou consulta administrativa.
+Consulta a situação e o desempenho reais do `employeeId`, com cache isolado, período local, skeleton, erro/retry e atalhos de OS restritos ao responsável.
 
-### 4. `frontend/src/features/dashboard/mocks/adminDashboard.ts`
+### 4. `frontend/src/features/dashboard/api/dashboardApi.ts`
 
-Define os totais atuais, opções de período e valores mockados de desempenho usados exclusivamente pelo Dashboard do Administrador.
+Modela os contratos discriminados de situação e desempenho e concentra as requisições Axios tipadas para os escopos administrativo e de Funcionário.
 
-### 5. `frontend/src/features/dashboard/mocks/employeeDashboard.ts`
+### 5. `frontend/src/features/dashboard/api/dashboardQueryKeys.ts`
 
-Relaciona cada funcionário mockado às suas ordens atuais e métricas por período, permitindo reutilizar o mesmo painel no Dashboard e no Perfil administrativo.
+Define keys de TanStack Query que distinguem Administrador, Funcionário, situação, desempenho e intervalo efetivamente enviado.
+
+### 6. `frontend/src/features/dashboard/lib/dashboardPeriod.ts`
+
+Define as opções reais do seletor e converte período civil local em limites RFC3339 `[from, before)`, ou em intervalo ausente para todo o período.
+
+### 7. `frontend/src/features/dashboard/lib/dashboardFormatters.ts`
+
+Centraliza a apresentação de valores monetários decimais recebidos como string e percentuais derivados de contagens inteiras.
 
 ---
 
