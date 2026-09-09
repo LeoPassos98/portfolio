@@ -74,7 +74,7 @@ Diretório principal: `frontend/src/shared/lib/http/`
 
 Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials`; falha sem a URL da API.
 
-Anexa o token CSRF em memória às mutações, invalida-o após troca de sessão e encaminha `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
+Anexa o token CSRF em memória às mutações, invalida-o após troca de sessão e recupera uma única vez mutations rejeitadas especificamente por `CSRF_INVALID_TOKEN`, obtendo o novo token pelo interceptor de request. Encaminha `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
 
 ---
 

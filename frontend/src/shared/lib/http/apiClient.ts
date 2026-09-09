@@ -5,6 +5,8 @@ import axios, {
 
 declare module 'axios' {
   interface AxiosRequestConfig {
+    csrfRetryAttempted?: boolean
+    csrfTokenVersion?: number
     suppressUnauthenticatedSessionHandling?: boolean
   }
 }
@@ -83,18 +85,38 @@ apiClient.interceptors.request.use(async (config) => {
     return config
   }
 
+  const tokenVersion = csrfTokenVersion
+
   config.headers.set('X-CSRF-Token', await getCsrfToken())
+  config.csrfTokenVersion = tokenVersion
 
   return config
 })
 
-apiClient.interceptors.response.use(undefined, (error: AxiosError<HttpErrorResponse>) => {
+apiClient.interceptors.response.use(undefined, async (error: AxiosError<HttpErrorResponse>) => {
+  const requestConfig = error.config
   const response = error.response
+
+  if (
+    requestConfig &&
+    requiresCsrfToken(requestConfig) &&
+    response?.status === 403 &&
+    response.data?.code === 'CSRF_INVALID_TOKEN' &&
+    !requestConfig.csrfRetryAttempted
+  ) {
+    requestConfig.csrfRetryAttempted = true
+
+    if (requestConfig.csrfTokenVersion === csrfTokenVersion) {
+      invalidateCsrfToken()
+    }
+
+    return apiClient.request(requestConfig)
+  }
 
   if (
     response?.status === 401 &&
     response.data?.code === 'AUTH_UNAUTHENTICATED' &&
-    !error.config?.suppressUnauthenticatedSessionHandling
+    !requestConfig?.suppressUnauthenticatedSessionHandling
   ) {
     unauthenticatedHandler?.()
   }
