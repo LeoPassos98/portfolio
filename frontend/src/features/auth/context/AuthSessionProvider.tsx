@@ -16,6 +16,7 @@ import {
 } from '../api/authApi'
 import { setUnauthenticatedHandler } from '../../../shared/lib/http/apiClient'
 import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
+import { queryClient } from '../../../shared/lib/query/queryClient'
 import {
   toAuthenticatedSession,
   type AuthenticatedSession,
@@ -78,6 +79,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       ) {
         const hadKnownSession = hasKnownSession()
 
+        queryClient.clear()
         setSession(null)
         clearKnownSession()
         setSessionExpiredMessage(hadKnownSession)
@@ -96,6 +98,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     const response = await loginRequest(input)
     const nextSession = toAuthenticatedSession(response)
 
+    queryClient.clear()
     setSession(nextSession)
     markSessionAsKnown()
     setSessionExpiredMessage(false)
@@ -116,11 +119,13 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   )
 
   const clearSession = useCallback(() => {
+    queryClient.clear()
     setSession(null)
   }, [])
 
   const logout = useCallback(async () => {
     await logoutRequest()
+    queryClient.clear()
     setSession(null)
     clearKnownSession()
     setSessionExpiredMessage(false)
@@ -140,6 +145,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   useEffect(
     () =>
       setUnauthenticatedHandler(() => {
+        queryClient.clear()
         setSession(null)
         clearKnownSession()
         setInitialSessionError(false)

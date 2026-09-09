@@ -228,9 +228,9 @@ Declara o Context tipado da autenticação real, com sessão, bootstrap, ações
 
 ### 6. `frontend/src/features/auth/context/AuthSessionProvider.tsx`
 
-Restaura a sessão por `/auth/session` e mantém a fonte global de autenticação.
+Restaura a sessão por `/auth/session` e mantém a fonte global de autenticação e a fronteira entre identidade e server state.
 
-Expõe login, troca de senha, logout, nova tentativa de bootstrap e limpeza central após `AUTH_UNAUTHENTICATED`.
+Expõe login, troca de senha, logout, nova tentativa de bootstrap e limpeza central após `AUTH_UNAUTHENTICATED`. Limpa todo o cache TanStack antes de expor uma identidade autenticada no login, depois do logout confirmado e quando a identidade deixa de ser válida, incluindo o `401` suprimido da checagem de sessão.
 
 ### 7. `frontend/src/features/auth/hooks/useAuthSession.ts`
 
