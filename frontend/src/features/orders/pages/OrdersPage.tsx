@@ -67,12 +67,8 @@ function parseCivilDate(value: string): Date | null {
   return date
 }
 
-function toLocalDayISOString(value: string, isAfterEnd = false) {
-  const date = parseCivilDate(value)
-
-  if (!date) {
-    return undefined
-  }
+function toLocalDayISOString(parsedDate: Date, isAfterEnd = false) {
+  const date = new Date(parsedDate)
 
   if (isAfterEnd) {
     date.setDate(date.getDate() + 1)
@@ -131,10 +127,22 @@ function OrdersPage() {
   const responsibleId = searchParams.get('responsibleId') ?? ''
   const dateFrom = searchParams.get('dateFrom') ?? ''
   const dateTo = searchParams.get('dateTo') ?? ''
-  const createdFrom = toLocalDayISOString(dateFrom)
-  const createdBefore = toLocalDayISOString(dateTo, true)
+  const parsedDateFrom = dateFrom === '' ? null : parseCivilDate(dateFrom)
+  const parsedDateTo = dateTo === '' ? null : parseCivilDate(dateTo)
+  const hasInvalidDateFrom = dateFrom !== '' && parsedDateFrom === null
+  const hasInvalidDateTo = dateTo !== '' && parsedDateTo === null
   const isInvalidDateRange =
-    dateFrom !== '' && dateTo !== '' && dateFrom > dateTo
+    parsedDateFrom !== null &&
+    parsedDateTo !== null &&
+    parsedDateFrom > parsedDateTo
+  const hasInvalidDateFilter = hasInvalidDateFrom || hasInvalidDateTo
+  const hasInvalidPeriod = hasInvalidDateFilter || isInvalidDateRange
+  const createdFrom = parsedDateFrom
+    ? toLocalDayISOString(parsedDateFrom)
+    : undefined
+  const createdBefore = parsedDateTo
+    ? toLocalDayISOString(parsedDateTo, true)
+    : undefined
   const listParams = {
     status,
     ...(search.trim() === '' ? {} : { search: search.trim() }),
@@ -150,7 +158,7 @@ function OrdersPage() {
   } = useQuery({
     queryKey: ordersQueryKeys.list(listParams),
     queryFn: () => listOrders(listParams),
-    enabled: !isInvalidDateRange,
+    enabled: !hasInvalidPeriod,
   })
   const {
     data: responsibles = [],
@@ -315,15 +323,27 @@ function OrdersPage() {
         </div>
       </div>
 
-      {isInvalidDateRange ? (
+      {hasActiveFilters ? (
+        <div className="mt-4 flex justify-end">
+          <Button type="button" onClick={clearFilters}>
+            Limpar filtros
+          </Button>
+        </div>
+      ) : null}
+
+      {hasInvalidDateFilter ? (
+        <p className="text-error mt-4" role="alert">
+          Informe uma data válida para o período.
+        </p>
+      ) : isInvalidDateRange ? (
         <p className="text-error mt-4" role="alert">
           A data inicial não pode ser posterior à data final.
         </p>
       ) : null}
 
-      {!isInvalidDateRange && isPending && <OrdersListSkeleton />}
+      {!hasInvalidPeriod && isPending && <OrdersListSkeleton />}
 
-      {!isInvalidDateRange && isError && (
+      {!hasInvalidPeriod && isError && (
         <div className="mt-8 space-y-4">
           <EmptyState
             title="Não foi possível carregar as ordens de serviço"
@@ -337,23 +357,24 @@ function OrdersPage() {
         </div>
       )}
 
-      {!isInvalidDateRange && !isPending && !isError && !hasOrders && (
+      {!hasInvalidPeriod && !isPending && !isError && !hasOrders && (
         <div className="mt-8 space-y-4">
           <EmptyState
-            title="Nenhuma ordem encontrada"
-            description="Tente ajustar a busca ou os filtros."
+            title={
+              hasActiveFilters
+                ? 'Nenhum resultado encontrado com os filtros atuais.'
+                : 'Nenhuma ordem encontrada'
+            }
+            description={
+              hasActiveFilters
+                ? 'Tente ajustar os critérios da consulta.'
+                : 'Nenhuma ordem de serviço está disponível no momento.'
+            }
           />
-          {hasActiveFilters ? (
-            <div className="flex justify-center">
-              <Button type="button" onClick={clearFilters}>
-                Limpar filtros
-              </Button>
-            </div>
-          ) : null}
         </div>
       )}
 
-      {!isInvalidDateRange && !isPending && !isError && hasOrders && (
+      {!hasInvalidPeriod && !isPending && !isError && hasOrders && (
         <ul className="mt-8 space-y-4 md:hidden">
           {currentOrders.map((order) => {
             const statusDetail = statusDetails[order.status]
@@ -407,7 +428,7 @@ function OrdersPage() {
         </ul>
       )}
 
-      {!isInvalidDateRange && !isPending && !isError && hasOrders && (
+      {!hasInvalidPeriod && !isPending && !isError && hasOrders && (
         <div className="mt-8 hidden overflow-hidden rounded-ui border border-neutral-bg md:block">
           <table className="w-full text-left">
             <caption className="sr-only">Lista de ordens de serviço</caption>
@@ -474,7 +495,7 @@ function OrdersPage() {
         </div>
       )}
 
-      {!isInvalidDateRange && !isPending && !isError && hasOrders && (
+      {!hasInvalidPeriod && !isPending && !isError && hasOrders && (
         <nav
           aria-label="Paginação de ordens"
           className="mt-6 flex items-center justify-between gap-4"

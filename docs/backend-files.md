@@ -526,7 +526,7 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Ordens de Serviço
 
-Implementa consultas reais contextualizadas, filtros de lista e opções seguras de responsáveis, criação e atualização transacionais para Administrador e Funcionário, incluindo geração e leitura de snapshots. A integração dos filtros no React permanece fora deste marco.
+Implementa consultas reais contextualizadas, filtros de lista e opções seguras de responsáveis, criação e atualização transacionais para Administrador e Funcionário, incluindo geração e leitura de snapshots. Listagem, filtros, detalhe, histórico, criação e atualização estão integrados ao React.
 
 Diretório principal: `backend/src/orders/`
 
@@ -544,7 +544,7 @@ Cria OS em transação interativa `Serializable`, com retry limitado, locks para
 
 Também monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status, busca, responsável e intervalo `criadoEm`, ordena por criação decrescente, converte `Decimal` para texto exato com duas casas e consulta snapshots pela autorização da versão atual. Deriva os responsáveis distintos diretamente das OS visíveis, sem consultar o diretório administrativo.
 
-Atualiza a OS em transação `Serializable` sem lock pessimista sobre ela: confirma acesso e versão, aplica as regras por perfil e estado, revalida novo responsável ativo, detecta no-op e cria o snapshot pré-alteração antes do `updateMany` condicionado por `id + versao`. Mudanças reais incrementam a versão e atualizam as datas de conclusão ou cancelamento; conflitos concorrentes revertem snapshot e update e retornam `ORDER_VERSION_CONFLICT`.
+Atualiza a OS em transação `Serializable` sem lock pessimista sobre ela: aplica a policy de leitura na busca, valida a autorização da mutation antes de comparar a versão, aplica as regras de estado, revalida novo responsável ativo, detecta no-op e cria o snapshot pré-alteração antes do `updateMany` condicionado por `id + versao`. Assim, OS pública alheia retorna `ORDER_UPDATE_FORBIDDEN` antes de OCC, enquanto usuários autorizados continuam recebendo `ORDER_VERSION_CONFLICT` para versão stale. Mudanças reais incrementam a versão e atualizam as datas de conclusão ou cancelamento; conflitos concorrentes revertem snapshot e update.
 
 ### 4. `backend/src/orders/order-list-query.schema.ts`
 
@@ -570,7 +570,7 @@ Declara o detalhe seguro sem histórico, credenciais ou outras relações admini
 
 Exercita por HTTP criação, atualização, autorização contextual, não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
 
-Cobre regras por perfil e estado, normalização, transições e datas de negócio, snapshots sequenciais, autoria, no-op, rollback, OCC concorrente e stale request. Também testa filtros por responsável e período, limites temporais inclusivo/exclusivo, opções deduplicadas sem dados administrativos, não revelação de responsáveis privados, numeração concorrente na criação e a corrida linearizável entre reassociação da OS e inativação do novo responsável.
+Cobre regras por perfil e estado, normalização, transições e datas de negócio, snapshots sequenciais, autoria, no-op, rollback, OCC concorrente e stale request. Verifica também a prioridade entre autorização e OCC para OS própria, pública alheia e privada alheia, além da tentativa proibida de trocar responsável. Testa filtros por responsável e período, limites temporais inclusivo/exclusivo, opções deduplicadas sem dados administrativos, não revelação de responsáveis privados, numeração concorrente na criação e a corrida linearizável entre reassociação da OS e inativação do novo responsável.
 
 ### 10. `backend/src/orders/order-history-item-response.dto.ts`
 

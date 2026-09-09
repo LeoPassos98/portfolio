@@ -73,6 +73,11 @@ type OrderFormProps = {
   };
 };
 
+type PendingCriticalTransition = {
+  kind: "cancel" | "complete";
+  values: OrderFormValues;
+};
+
 function isOrderApiError(error: unknown, code: OrderHttpErrorResponse["code"]) {
   return (
     isAxiosError<HttpErrorResponse>(error) && error.response?.data.code === code
@@ -93,9 +98,10 @@ function toFormValues(order: OrderDetail): OrderFormValues {
 
 function OrderForm({ creation, editing }: OrderFormProps) {
   const session = useAuthSession();
-  const [cancelValues, setCancelValues] = useState<OrderFormValues | null>(
-    null,
-  );
+  const [pendingCriticalTransition, setPendingCriticalTransition] =
+    useState<PendingCriticalTransition | null>(null);
+  const [isConfirmingCriticalTransition, setIsConfirmingCriticalTransition] =
+    useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [canReloadData, setCanReloadData] = useState(false);
   const [isReloadingData, setIsReloadingData] = useState(false);
@@ -309,9 +315,17 @@ function OrderForm({ creation, editing }: OrderFormProps) {
 
     const isCancellingOrder =
       order.status !== "cancelled" && values.status === "cancelled";
+    const isCompletingOrder =
+      (order.status === "awaiting" || order.status === "in-progress") &&
+      values.status === "completed";
 
     if (isCancellingOrder) {
-      setCancelValues(values);
+      setPendingCriticalTransition({ kind: "cancel", values });
+      return;
+    }
+
+    if (isCompletingOrder) {
+      setPendingCriticalTransition({ kind: "complete", values });
       return;
     }
 
@@ -339,6 +353,36 @@ function OrderForm({ creation, editing }: OrderFormProps) {
   const responsibleHelperText = isEditing
     ? "O responsável não pode ser alterado neste estado."
     : "Definido automaticamente como responsável pela OS.";
+  const isCriticalTransitionPending =
+    isConfirmingCriticalTransition || editing?.isPending === true;
+  const criticalTransitionDialog =
+    pendingCriticalTransition?.kind === "complete"
+      ? {
+          title: "Concluir esta OS?",
+          description:
+            "Após a conclusão, ela ficará somente leitura para Funcionários. Apenas um administrador poderá corrigi-la ou reabri-la.",
+          confirmLabel: "Confirmar conclusão",
+        }
+      : {
+          title: "Cancelar esta OS?",
+          description:
+            "Após o cancelamento, ela ficará somente leitura e apenas um administrador poderá reabri-la.",
+          confirmLabel: "Confirmar cancelamento",
+        };
+
+  async function confirmCriticalTransition() {
+    if (!pendingCriticalTransition || isCriticalTransitionPending) {
+      return;
+    }
+
+    setIsConfirmingCriticalTransition(true);
+    try {
+      await submitEditing(pendingCriticalTransition.values);
+      setPendingCriticalTransition(null);
+    } finally {
+      setIsConfirmingCriticalTransition(false);
+    }
+  }
 
   return (
     <form
@@ -650,10 +694,10 @@ function OrderForm({ creation, editing }: OrderFormProps) {
       <div className="flex flex-wrap items-center gap-3">
         <Button
           type="submit"
-          disabled={creation?.isPending || editing?.isPending}
+          disabled={creation?.isPending || isCriticalTransitionPending}
         >
           {isEditing
-            ? editing?.isPending
+            ? isCriticalTransitionPending
               ? "Salvando..."
               : "Salvar alterações"
             : creation?.isPending
@@ -684,19 +728,17 @@ function OrderForm({ creation, editing }: OrderFormProps) {
       ) : null}
 
       <ConfirmationDialog
-        isOpen={cancelValues !== null}
-        isPending={editing?.isPending}
-        title="Cancelar esta OS?"
-        description="Após o cancelamento, ela ficará somente leitura e apenas um administrador poderá reabri-la."
-        confirmLabel="Confirmar cancelamento"
-        onCancel={() => setCancelValues(null)}
-        onConfirm={() => {
-          const values = cancelValues;
-          setCancelValues(null);
-          if (values) {
-            void submitEditing(values);
+        isOpen={pendingCriticalTransition !== null}
+        isPending={isCriticalTransitionPending}
+        title={criticalTransitionDialog.title}
+        description={criticalTransitionDialog.description}
+        confirmLabel={criticalTransitionDialog.confirmLabel}
+        onCancel={() => {
+          if (!isCriticalTransitionPending) {
+            setPendingCriticalTransition(null);
           }
         }}
+        onConfirm={() => void confirmCriticalTransition()}
       />
       {confirmationDialog}
     </form>

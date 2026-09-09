@@ -428,10 +428,6 @@ export class OrdersService {
       throw new NotFoundException(ORDER_NOT_FOUND_ERROR);
     }
 
-    if (current.versao !== input.versao) {
-      throw new ConflictException(ORDER_VERSION_CONFLICT_ERROR);
-    }
-
     const currentResponsibleId = current.responsavel.id;
     const nextResponsibleId = input.responsavelId ?? currentResponsibleId;
     const responsibleChanged = nextResponsibleId !== currentResponsibleId;
@@ -441,6 +437,10 @@ export class OrdersService {
       current,
       responsibleChanged,
     );
+
+    if (current.versao !== input.versao) {
+      throw new ConflictException(ORDER_VERSION_CONFLICT_ERROR);
+    }
 
     const nextValue = new Prisma.Decimal(input.valor);
     const changedFields = {

@@ -940,16 +940,19 @@ describe('OrdersController', () => {
       },
     );
 
-    it('rejects a responsible change requested by an employee', async () => {
+    it('rejects a responsible change requested by an employee before OCC', async () => {
       const employee = await createAgent();
       const other = await createUserFixture();
-      const order = await createOrderFixture(employee.user.funcionarioId);
+      const order = await createOrderFixture(employee.user.funcionarioId, {
+        versao: 2,
+      });
 
       await employee.agent
         .put(`/orders/${order.id}`)
         .set('X-CSRF-Token', employee.csrfToken)
         .send(
           await currentUpdateBody(order.id, {
+            versao: 1,
             responsavelId: other.funcionarioId,
           }),
         )
@@ -964,7 +967,7 @@ describe('OrdersController', () => {
       });
       expect(persisted).toMatchObject({
         responsavelId: employee.user.funcionarioId,
-        versao: 1,
+        versao: 2,
         historicos: [],
       });
     });
@@ -982,6 +985,27 @@ describe('OrdersController', () => {
         .set('X-CSRF-Token', employee.csrfToken)
         .send(
           await currentUpdateBody(order.id, { descricao: 'Sem permissão.' }),
+        )
+        .expect(HttpStatus.FORBIDDEN)
+        .expect(({ body }) => expect(body.code).toBe('ORDER_UPDATE_FORBIDDEN'));
+    });
+
+    it('prioritizes authorization over OCC for another employee public order', async () => {
+      const employee = await createAgent();
+      const other = await createUserFixture();
+      const order = await createOrderFixture(other.funcionarioId, {
+        versao: 2,
+        visibilidade: Visibilidade.PUBLICA,
+      });
+
+      await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            versao: 1,
+            descricao: 'Tentativa stale sem permissão.',
+          }),
         )
         .expect(HttpStatus.FORBIDDEN)
         .expect(({ body }) => expect(body.code).toBe('ORDER_UPDATE_FORBIDDEN'));
@@ -1007,6 +1031,45 @@ describe('OrdersController', () => {
 
       expect(inaccessible.body).toEqual(absent.body);
       expect(inaccessible.body.code).toBe('ORDER_NOT_FOUND');
+    });
+
+    it('does not reveal another employee private order before checking OCC', async () => {
+      const employee = await createAgent();
+      const other = await createUserFixture();
+      const order = await createOrderFixture(other.funcionarioId, {
+        versao: 2,
+      });
+
+      await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            versao: 1,
+            descricao: 'Tentativa stale sem acesso.',
+          }),
+        )
+        .expect(HttpStatus.NOT_FOUND)
+        .expect(({ body }) => expect(body.code).toBe('ORDER_NOT_FOUND'));
+    });
+
+    it('preserves OCC for an authorized responsible employee', async () => {
+      const employee = await createAgent();
+      const order = await createOrderFixture(employee.user.funcionarioId, {
+        versao: 2,
+      });
+
+      await employee.agent
+        .put(`/orders/${order.id}`)
+        .set('X-CSRF-Token', employee.csrfToken)
+        .send(
+          await currentUpdateBody(order.id, {
+            versao: 1,
+            descricao: 'Tentativa stale autorizada.',
+          }),
+        )
+        .expect(HttpStatus.CONFLICT)
+        .expect(({ body }) => expect(body.code).toBe('ORDER_VERSION_CONFLICT'));
     });
 
     it.each([StatusOrdemServico.CONCLUIDO, StatusOrdemServico.CANCELADO])(

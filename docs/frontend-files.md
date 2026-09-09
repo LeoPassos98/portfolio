@@ -22,7 +22,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
 | Dashboard               | Visões administrativa e individual de métricas                                    |        5 |
 | Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
-| Clientes                | Listagem, cadastro e edição reais, com mocks preservados para Ordens              |        8 |
+| Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor       |        8 |
 | Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
 
 ## Sumário
@@ -302,7 +302,7 @@ Diretório principal: `frontend/src/features/orders/`
 
 Lista OS em tabela desktop ou lista mobile com TanStack Query, preservando filtros de status, busca, responsável e período pela URL, paginação visual local, criação e acesso aos detalhes.
 
-Envia status, busca normalizada, responsável e intervalo de criação a `GET /orders`; datas civis da URL são convertidas no timezone local para o intervalo `[from, before)`. As opções seguras de responsáveis vêm de `GET /orders/responsibles`; o backend aplica a autorização contextual e a filtragem, enquanto a paginação visual permanece local sobre o resultado recebido.
+Envia status, busca normalizada, responsável e intervalo de criação a `GET /orders`; datas civis válidas da URL são convertidas no timezone local para o intervalo `[from, before)`. Datas civis inválidas ou intervalos invertidos bloqueiam e ocultam a consulta até correção. As opções seguras de responsáveis vêm de `GET /orders/responsibles`; o backend aplica a autorização contextual e a filtragem, enquanto a paginação visual permanece local sobre o resultado recebido. Uma ação global limpa todos os filtros mesmo durante erros, e o vazio filtrado usa a mensagem aprovada distinta da ausência real de OS.
 
 ### 2. `frontend/src/features/orders/types/order.ts`
 
@@ -334,7 +334,7 @@ Reúne a estrutura visual reutilizável e validada de criação e edição de OS
 
 Inclui seletores pesquisáveis para Administrador e consome permissões e transições centralizadas.
 
-Nos modos de criação e edição, recebe operações reais, mantém o decimal como texto, trata pendência, registros stale e dirty state. A edição mantém o submit confirmado de cancelamento, trata os erros estáveis do backend e preserva valores até a recarga consciente do conflito.
+Nos modos de criação e edição, recebe operações reais, mantém o decimal como texto, trata pendência, registros stale e dirty state. Na edição, as transições para Cancelada e Concluída exigem confirmação e preservam exatamente o payload validado até o envio; correções de OS já concluída não reabrem o diálogo. Erros estáveis do backend mantêm os valores até a recarga consciente do conflito.
 
 ### 7. `frontend/src/features/orders/schemas/orderSchema.ts`
 
@@ -374,7 +374,7 @@ Define o modelo de detalhe `Client`, o item compacto `ClientListItem`, a situaç
 
 ### 2. `frontend/src/features/clients/mocks/clients.ts`
 
-Exporta clientes representativos usados somente pelas features ainda mockadas, especialmente o seletor de Cliente das Ordens de Serviço.
+Mantém dados representativos legados sem consumidores no runtime atual; Clientes e Ordens de Serviço usam APIs reais.
 
 ### 3. `frontend/src/features/clients/pages/ClientsPage.tsx`
 
@@ -456,7 +456,7 @@ Preserva as ações de edição e acesso; o painel compartilhado de desempenho c
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 
-Exporta funcionários representativos, com dados de conta ativa, inativa ou ausente, para edição, Perfil administrativo e demais fluxos mockados ainda não integrados.
+Mantém dados representativos legados sem consumidores no runtime atual; os fluxos de Funcionários e Ordens de Serviço usam APIs reais.
 
 ### 6. `frontend/src/features/employees/types/employee.ts`
 
