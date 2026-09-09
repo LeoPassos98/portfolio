@@ -20,7 +20,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       17 |
 | Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros  |       12 |
-| Dashboard                | Indicadores atuais globais ou por Funcionário, com escopo autenticado, DTOs e validação                                  |        6 |
+| Dashboard                | Situação atual e desempenho temporal globais ou por Funcionário, com escopo autenticado, DTOs e validação                |        8 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
@@ -528,7 +528,7 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 ## Dashboard
 
-Expõe somente a situação atual da operação para Administradores e o trabalho atualmente atribuído para Funcionários. Não incorpora métricas temporais, valores, ticket médio, recorrência ou integração React.
+Expõe a situação atual da operação e o desempenho temporal no escopo autenticado, sem integrar o React nesta etapa. A situação não recebe período; o desempenho aceita um intervalo RFC3339 explícito ou todo o período.
 
 Diretório principal: `backend/src/dashboard/`
 
@@ -540,23 +540,31 @@ Valida estritamente a query opcional `employeeId` como UUID, impedindo filtros t
 
 Documenta os contratos discriminados do OpenAPI: situação global de Administrador e situação de Funcionário, sem dados de conta, contato, credenciais ou objetos Prisma.
 
-### 3. `backend/src/dashboard/dashboard.service.ts`
+### 3. `backend/src/dashboard/dashboard-performance-query.schema.ts`
 
-Resolve o escopo a partir da sessão e agrega exclusivamente contagens do PostgreSQL. Administrador sem `employeeId` recebe totais globais; com identificador recebe o contexto, inclusive histórico, do Funcionário existente. Funcionário só consulta a própria responsabilidade atual e recebe `DASHBOARD_SCOPE_FORBIDDEN` ao tentar outro identificador.
+Valida estritamente `employeeId`, `from` e `before`. Exige os dois limites RFC3339 com offset, `from < before` e interpreta a ausência de ambos como todo o período.
 
-As leituras correlatas ocorrem em transação `RepeatableRead` e usam `count`, preservando um snapshot lógico sem locks ou retentativas de escrita.
+### 4. `backend/src/dashboard/dashboard-performance-response.dto.ts`
 
-### 4. `backend/src/dashboard/dashboard.controller.ts`
+Documenta os contratos discriminados de desempenho: métricas globais do Administrador e métricas pessoais de Funcionário, incluindo valores monetários decimais serializados com duas casas.
 
-Expõe `GET /dashboard/situation` protegido por sessão, primeiro acesso concluído e perfis Administrador ou Funcionário. Documenta a query, respostas discriminadas e erros de validação, autenticação, escopo e Funcionário inexistente.
+### 5. `backend/src/dashboard/dashboard.service.ts`
 
-### 5. `backend/src/dashboard/dashboard.module.ts`
+Resolve o escopo a partir da sessão e agrega indicadores atuais e temporais no PostgreSQL. Administrador sem `employeeId` recebe totais globais; com identificador recebe o contexto, inclusive histórico, do Funcionário existente. Funcionário só consulta a própria responsabilidade atual e recebe `DASHBOARD_SCOPE_FORBIDDEN` ao tentar outro identificador.
+
+O desempenho usa `concluidoEm`, `canceladoEm` e `criadoEm` conforme a métrica, com soma/média `Decimal` no banco e uma consulta SQL parametrizada para clientes distintos e recorrentes. As leituras correlatas ocorrem em transação `RepeatableRead`, preservando um snapshot lógico sem locks ou retentativas de escrita.
+
+### 6. `backend/src/dashboard/dashboard.controller.ts`
+
+Expõe `GET /dashboard/situation` e `GET /dashboard/performance` protegidos por sessão, primeiro acesso concluído e perfis Administrador ou Funcionário. Documenta as queries, respostas discriminadas e erros de validação, autenticação, escopo e Funcionário inexistente.
+
+### 7. `backend/src/dashboard/dashboard.module.ts`
 
 Agrupa controller e service do Dashboard com autenticação e acesso ao banco, mantendo a agregação fora da feature de Ordens.
 
-### 6. `backend/src/dashboard/dashboard.controller.spec.ts`
+### 8. `backend/src/dashboard/dashboard.controller.spec.ts`
 
-Exercita o endpoint HTTP contra PostgreSQL isolado, incluindo escopos, estados, visibilidade, autorização, validação, primeiro acesso e limpeza das fixtures e sessões.
+Exercita os endpoints HTTP contra PostgreSQL isolado, incluindo escopos, estados, visibilidade, autorização, validação, períodos, precisão decimal, recorrência, transferência de responsabilidade, primeiro acesso e limpeza das fixtures, históricos e sessões.
 
 ---
 

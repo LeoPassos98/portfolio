@@ -41,6 +41,7 @@ describe('DashboardController', () => {
   let verificationPool: Pool;
   const clientIds: string[] = [];
   const employeeIds: string[] = [];
+  const historyIds: string[] = [];
   const orderIds: string[] = [];
   const sessionIds: string[] = [];
   const userIds: string[] = [];
@@ -69,6 +70,11 @@ describe('DashboardController', () => {
       );
     }
     if (orderIds.length) {
+      if (historyIds.length) {
+        await database.historicoOrdemServico.deleteMany({
+          where: { id: { in: historyIds } },
+        });
+      }
       await database.ordemServico.deleteMany({
         where: { id: { in: orderIds } },
       });
@@ -88,6 +94,7 @@ describe('DashboardController', () => {
     }
     clientIds.length = 0;
     employeeIds.length = 0;
+    historyIds.length = 0;
     orderIds.length = 0;
     sessionIds.length = 0;
     userIds.length = 0;
@@ -103,6 +110,7 @@ describe('DashboardController', () => {
       ativo?: boolean;
       perfil?: 'ADMINISTRADOR' | 'FUNCIONARIO';
       createUser?: boolean;
+      criadoEm?: Date;
       deveAlterarSenha?: boolean;
     } = {},
   ): Promise<EmployeeFixture> {
@@ -113,6 +121,7 @@ describe('DashboardController', () => {
         telefone: '11999999999',
         email: `funcionario-${suffix}@example.test`,
         ativo: options.ativo ?? true,
+        criadoEm: options.criadoEm,
       },
     });
     employeeIds.push(employee.id);
@@ -180,6 +189,57 @@ describe('DashboardController', () => {
     });
     clientIds.push(client.id);
     orderIds.push(order.id);
+  }
+
+  async function createPerformanceClientFixture(
+    options: { ativo?: boolean; criadoEm?: Date } = {},
+  ) {
+    const suffix = crypto.randomUUID();
+    const client = await database.cliente.create({
+      data: {
+        nome: `Cliente de desempenho ${suffix}`,
+        telefone: '11988887777',
+        cep: '01001000',
+        logradouro: 'Praça da Sé',
+        numero: '1',
+        bairro: 'Sé',
+        cidade: 'São Paulo',
+        uf: 'SP',
+        ativo: options.ativo ?? true,
+        criadoEm: options.criadoEm,
+      },
+    });
+    clientIds.push(client.id);
+    return client;
+  }
+
+  async function createPerformanceOrderFixture(options: {
+    responsavelId: string;
+    status: StatusOrdemServico;
+    valor?: string;
+    clienteId?: string;
+    concluidoEm?: Date | null;
+    canceladoEm?: Date | null;
+    visibilidade?: Visibilidade;
+  }) {
+    const client = options.clienteId
+      ? undefined
+      : await createPerformanceClientFixture();
+    const order = await database.ordemServico.create({
+      data: {
+        numero: `OS-${crypto.randomUUID()}`,
+        descricao: 'Ordem usada nas métricas temporais.',
+        valor: options.valor ?? '100.00',
+        status: options.status,
+        visibilidade: options.visibilidade ?? Visibilidade.PRIVADA,
+        concluidoEm: options.concluidoEm,
+        canceladoEm: options.canceladoEm,
+        clienteId: options.clienteId ?? client!.id,
+        responsavelId: options.responsavelId,
+      },
+    });
+    orderIds.push(order.id);
+    return order;
   }
 
   it('returns zero-valued global indicators when there is no relevant data', async () => {
@@ -396,9 +456,396 @@ describe('DashboardController', () => {
     }
   });
 
+  it('returns zero performance metrics when no data is in the requested interval', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const employee = await createAgent({ perfil: 'FUNCIONARIO' });
+    const query =
+      'from=2035-01-01T00:00:00.000Z&before=2035-02-01T00:00:00.000Z';
+
+    await administrator.agent
+      .get(`/dashboard/performance?${query}`)
+      .expect(HttpStatus.OK)
+      .expect({
+        scope: 'administrator',
+        performance: {
+          completedOrdersValue: '0.00',
+          completedOrders: 0,
+          cancelledOrders: 0,
+          newClients: 0,
+          newEmployees: 0,
+          averageCompletedOrderValue: '0.00',
+        },
+      });
+    await employee.agent
+      .get(`/dashboard/performance?${query}`)
+      .expect(HttpStatus.OK)
+      .expect({
+        scope: 'employee',
+        employeeId: employee.employee.id,
+        performance: {
+          completedOrdersValue: '0.00',
+          completedOrders: 0,
+          cancelledOrders: 0,
+          averageCompletedOrderValue: '0.00',
+          recurringDistinctClients: 0,
+          distinctClientsServed: 0,
+        },
+      });
+  });
+
+  it('calculates administrator performance with inclusive start and exclusive end timestamps', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const from = new Date('2030-09-01T00:00:00.000Z');
+    const before = new Date('2030-10-01T00:00:00.000Z');
+    const query = `from=${from.toISOString()}&before=${before.toISOString()}`;
+    const inside = new Date('2030-09-15T12:00:00.000Z');
+    const after = new Date('2030-10-01T00:00:00.001Z');
+    const beforeFrom = new Date('2030-08-31T23:59:59.999Z');
+
+    await createEmployeeFixture({
+      createUser: false,
+      criadoEm: beforeFrom,
+    });
+    await createEmployeeFixture({ createUser: false, criadoEm: from });
+    await createEmployeeFixture({
+      ativo: false,
+      createUser: false,
+      criadoEm: inside,
+    });
+    await createEmployeeFixture({ createUser: false, criadoEm: before });
+    await createEmployeeFixture({ createUser: false, criadoEm: after });
+    await createPerformanceClientFixture({ criadoEm: beforeFrom });
+    await createPerformanceClientFixture({ criadoEm: from });
+    await createPerformanceClientFixture({ ativo: false, criadoEm: inside });
+    await createPerformanceClientFixture({ criadoEm: before });
+    await createPerformanceClientFixture({ criadoEm: after });
+
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '7.00',
+      concluidoEm: beforeFrom,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '0.10',
+      concluidoEm: from,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '0.20',
+      concluidoEm: inside,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '8.00',
+      concluidoEm: before,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '9.00',
+      concluidoEm: after,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: beforeFrom,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: from,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: inside,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: before,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: after,
+    });
+    const reopenedOrder = await createPerformanceOrderFixture({
+      responsavelId: administrator.employee.id,
+      status: StatusOrdemServico.AGUARDANDO,
+    });
+    const reopenedSnapshot = await database.historicoOrdemServico.create({
+      data: {
+        versao: 1,
+        descricao: 'Versão concluída antes da reabertura.',
+        valor: '300.00',
+        status: StatusOrdemServico.CONCLUIDO,
+        visibilidade: Visibilidade.PRIVADA,
+        concluidoEm: inside,
+        ordemServicoId: reopenedOrder.id,
+        responsavelId: administrator.employee.id,
+        alteradoPorUsuarioId: administrator.employee.userId!,
+      },
+    });
+    historyIds.push(reopenedSnapshot.id);
+
+    await administrator.agent
+      .get(`/dashboard/performance?${query}`)
+      .expect(HttpStatus.OK)
+      .expect({
+        scope: 'administrator',
+        performance: {
+          completedOrdersValue: '0.30',
+          completedOrders: 2,
+          cancelledOrders: 2,
+          newClients: 2,
+          newEmployees: 2,
+          averageCompletedOrderValue: '0.15',
+        },
+      });
+  });
+
+  it('uses all current terminal orders and registrations when no interval is sent', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const employee = await createEmployeeFixture({ createUser: false });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '10.00',
+      concluidoEm: new Date('2020-01-01T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: new Date('2020-01-02T00:00:00.000Z'),
+    });
+
+    await administrator.agent
+      .get('/dashboard/performance')
+      .expect(HttpStatus.OK)
+      .expect({
+        scope: 'administrator',
+        performance: {
+          completedOrdersValue: '10.00',
+          completedOrders: 1,
+          cancelledOrders: 1,
+          newClients: 2,
+          newEmployees: 2,
+          averageCompletedOrderValue: '10.00',
+        },
+      });
+  });
+
+  it('credits employee performance by terminal responsibility and detects recurring clients globally', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const employee = await createAgent({ perfil: 'FUNCIONARIO' });
+    const otherEmployee = await createEmployeeFixture();
+    const from = new Date('2030-09-01T00:00:00.000Z');
+    const before = new Date('2030-10-01T00:00:00.000Z');
+    const query = `from=${from.toISOString()}&before=${before.toISOString()}`;
+    const globallyRecurringClient = await createPerformanceClientFixture();
+    const withinPeriodClient = await createPerformanceClientFixture();
+    const firstOrderClient = await createPerformanceClientFixture();
+    const sameTimestampClient = await createPerformanceClientFixture();
+
+    await createPerformanceOrderFixture({
+      responsavelId: otherEmployee.id,
+      clienteId: globallyRecurringClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      concluidoEm: new Date('2029-08-01T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      clienteId: globallyRecurringClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '100.00',
+      concluidoEm: new Date('2030-09-02T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      clienteId: withinPeriodClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '0.10',
+      concluidoEm: new Date('2030-09-03T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      clienteId: withinPeriodClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '0.20',
+      concluidoEm: new Date('2030-09-04T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      clienteId: firstOrderClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '9999999999.99',
+      concluidoEm: new Date('2030-09-05T00:00:00.000Z'),
+    });
+    const sameTimestamp = new Date('2030-09-06T00:00:00.000Z');
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      clienteId: sameTimestampClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '12.00',
+      concluidoEm: sameTimestamp,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      clienteId: sameTimestampClient.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      valor: '13.00',
+      concluidoEm: sameTimestamp,
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: new Date('2030-09-07T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: employee.employee.id,
+      status: StatusOrdemServico.CANCELADO,
+      canceladoEm: new Date('2030-09-08T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: otherEmployee.id,
+      status: StatusOrdemServico.CONCLUIDO,
+      visibilidade: Visibilidade.PUBLICA,
+      concluidoEm: new Date('2030-09-09T00:00:00.000Z'),
+    });
+    await createPerformanceOrderFixture({
+      responsavelId: otherEmployee.id,
+      status: StatusOrdemServico.CANCELADO,
+      visibilidade: Visibilidade.PUBLICA,
+      canceladoEm: new Date('2030-09-10T00:00:00.000Z'),
+    });
+
+    const expected = {
+      scope: 'employee',
+      employeeId: employee.employee.id,
+      performance: {
+        completedOrdersValue: '10000000125.29',
+        completedOrders: 6,
+        cancelledOrders: 2,
+        averageCompletedOrderValue: '1666666687.55',
+        recurringDistinctClients: 2,
+        distinctClientsServed: 4,
+      },
+    };
+    await employee.agent
+      .get(`/dashboard/performance?${query}`)
+      .expect(HttpStatus.OK)
+      .expect(expected);
+    await administrator.agent
+      .get(`/dashboard/performance?employeeId=${employee.employee.id}&${query}`)
+      .expect(HttpStatus.OK)
+      .expect(expected);
+  });
+
+  it('credits a completed order to the employee responsible after its transfer', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const previousResponsible = await createEmployeeFixture({
+      createUser: false,
+    });
+    const finalResponsible = await createEmployeeFixture({ createUser: false });
+    const from = new Date('2030-09-01T00:00:00.000Z');
+    const before = new Date('2030-10-01T00:00:00.000Z');
+    const order = await createPerformanceOrderFixture({
+      responsavelId: previousResponsible.id,
+      status: StatusOrdemServico.AGUARDANDO,
+      valor: '50.00',
+    });
+    await database.ordemServico.update({
+      where: { id: order.id },
+      data: {
+        responsavelId: finalResponsible.id,
+        status: StatusOrdemServico.CONCLUIDO,
+        concluidoEm: new Date('2030-09-15T00:00:00.000Z'),
+      },
+    });
+
+    for (const [employeeId, expectedCompletedOrders] of [
+      [previousResponsible.id, 0],
+      [finalResponsible.id, 1],
+    ]) {
+      const response = await administrator.agent
+        .get(
+          `/dashboard/performance?employeeId=${employeeId}&from=${from.toISOString()}&before=${before.toISOString()}`,
+        )
+        .expect(HttpStatus.OK);
+      expect(response.body.performance).toMatchObject({
+        completedOrders: expectedCompletedOrders,
+        completedOrdersValue: expectedCompletedOrders ? '50.00' : '0.00',
+      });
+    }
+  });
+
+  it('keeps performance authorization and temporal validation independent', async () => {
+    const administrator = await createAgent({ perfil: 'ADMINISTRADOR' });
+    const employee = await createAgent({ perfil: 'FUNCIONARIO' });
+    const otherEmployee = await createEmployeeFixture();
+    const inactiveEmployee = await createEmployeeFixture({
+      ativo: false,
+      createUser: false,
+    });
+    const interval =
+      'from=2030-09-01T00:00:00.000Z&before=2030-10-01T00:00:00.000Z';
+
+    await employee.agent
+      .get(`/dashboard/performance?${interval}`)
+      .expect(HttpStatus.OK);
+    await employee.agent
+      .get(
+        `/dashboard/performance?employeeId=${employee.employee.id}&${interval}`,
+      )
+      .expect(HttpStatus.OK);
+    await employee.agent
+      .get(
+        `/dashboard/performance?employeeId=${otherEmployee.id}&${interval}`,
+      )
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'DASHBOARD_SCOPE_FORBIDDEN',
+        message: 'Employee cannot view another employee dashboard situation',
+      });
+    await administrator.agent
+      .get(
+        `/dashboard/performance?employeeId=${crypto.randomUUID()}&${interval}`,
+      )
+      .expect(HttpStatus.NOT_FOUND);
+    await administrator.agent
+      .get(
+        `/dashboard/performance?employeeId=${inactiveEmployee.id}&${interval}`,
+      )
+      .expect(HttpStatus.OK);
+
+    for (const query of [
+      'from=2030-09-01T00:00:00.000Z',
+      'before=2030-10-01T00:00:00.000Z',
+      'from=2030-10-01T00:00:00.000Z&before=2030-10-01T00:00:00.000Z',
+      'from=2030-10-02T00:00:00.000Z&before=2030-10-01T00:00:00.000Z',
+      'from=2030-09-01T00:00:00&before=2030-10-01T00:00:00.000Z',
+      `${interval}&period=current-month`,
+    ]) {
+      const response = await administrator.agent
+        .get(`/dashboard/performance?${query}`)
+        .expect(HttpStatus.BAD_REQUEST);
+      expect(response.body.code).toBe('VALIDATION_ERROR');
+    }
+  });
+
   it('requires a valid session and a completed first access', async () => {
     await request(app)
       .get('/dashboard/situation')
+      .expect(HttpStatus.UNAUTHORIZED);
+    await request(app)
+      .get('/dashboard/performance')
       .expect(HttpStatus.UNAUTHORIZED);
     const pendingEmployee = await createAgent({
       perfil: 'FUNCIONARIO',
@@ -407,6 +854,14 @@ describe('DashboardController', () => {
 
     await pendingEmployee.agent
       .get('/dashboard/situation')
+      .expect(HttpStatus.FORBIDDEN)
+      .expect({
+        statusCode: HttpStatus.FORBIDDEN,
+        code: 'AUTH_PASSWORD_CHANGE_REQUIRED',
+        message: 'Password change is required before accessing the application',
+      });
+    await pendingEmployee.agent
+      .get('/dashboard/performance')
       .expect(HttpStatus.FORBIDDEN)
       .expect({
         statusCode: HttpStatus.FORBIDDEN,

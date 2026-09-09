@@ -12,7 +12,7 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
 | Arquivos catalogados         | 16 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **437 testes aprovados** após a situação atual real do Dashboard no backend                                |
+| Último resultado consolidado | **443 testes aprovados** após o desempenho temporal real do Dashboard no backend                           |
 
 ## Executar agora
 
@@ -69,7 +69,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **437 testes** executada após a situação atual real do Dashboard no backend. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **443 testes** executada após o desempenho temporal real do Dashboard no backend. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -170,12 +170,15 @@ Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseServ
 
 #### [`backend/src/dashboard/dashboard.controller.spec.ts`](../backend/src/dashboard/dashboard.controller.spec.ts)
 
-Exercita `GET /dashboard/situation` pela aplicação NestJS real contra PostgreSQL isolado.
+Exercita `GET /dashboard/situation` e `GET /dashboard/performance` pela aplicação NestJS real contra PostgreSQL isolado.
 
 | Cenários concretos | Regra ou risco comprovado |
 | --- | --- |
 | Situação global com Clientes e Funcionários ativos/inativos, OS em todos os status, visibilidades e múltiplos responsáveis; situação de Funcionário com OS própria aguardando, em andamento, concluída e cancelada, além de OS pública e privada de terceiro. | A agregação usa o estado atual: Admin conta toda a empresa; Funcionário conta somente `responsavelId` próprio, sem confundir visibilidade pública com atribuição. |
 | Contexto administrativo de Funcionário ativo, inativo, sem OS e inexistente; contexto próprio explícito ou implícito; tentativa de consultar terceiro; UUID, período e parâmetros não permitidos. | Administrador pode preservar o contexto histórico por `employeeId`; Funcionário não usa o Dashboard como consulta indireta de colega; Zod mantém o contrato sem período e com `VALIDATION_ERROR`. |
+| Desempenho global e individual vazio; limites explícitos imediatamente antes, em `from`, dentro, em `before` e depois; todo o período; Clientes e Funcionários ativos/inativos criados no período; concluídas, canceladas e OS reaberta com snapshot concluído. | O intervalo é `[from, before)` e usa os timestamps de negócio atuais: `concluidoEm`, `canceladoEm` e `criadoEm`. Snapshots e estado terminal reaberto não criam eventos comerciais no Dashboard. |
+| Valor concluído, ticket médio e crédito comercial após transferência; OS pública de terceiro; clientes distintos; histórico global de Cliente, primeira e segunda conclusão no próprio período e timestamps idênticos. | Valores usam agregação decimal do PostgreSQL e chegam como strings de duas casas. O crédito pertence ao responsável final pela conclusão; recorrência é global ao Cliente, estritamente anterior e contada uma vez por Cliente, sem N+1. |
+| Escopo de desempenho implícito ou próprio explícito, consulta administrativa por Funcionário, terceiro proibido, Funcionário inexistente, intervalo parcial, intervalo inválido, RFC3339 sem offset e query desconhecida. | O desempenho preserva a autorização da situação e rejeita query estrita com `VALIDATION_ERROR`, sem permitir que o filtro temporal amplie o escopo. |
 | Sem sessão e primeiro acesso pendente. | A leitura exige sessão válida e primeiro acesso concluído, sem CSRF por ser `GET`. |
 
 Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test` e fixtures/sessões removidas ao final.
@@ -276,3 +279,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.5J — filtros backend da lista de OS      | **423 testes** |
 | N5.5L — correções pós-auditoria              | **426 testes** |
 | N5.6A — situação atual do Dashboard backend  | **437 testes** |
+| N5.6B — desempenho temporal do Dashboard backend | **443 testes** |
