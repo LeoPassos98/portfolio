@@ -224,11 +224,11 @@ Não bloqueadores mantidos como dívidas de baixa prioridade: alterar o e-mail d
 
 O isolamento da suíte foi concluído em N5.5E: `portfolio_dev` permanece exclusivo de desenvolvimento/manual, `portfolio_test` é a única base automatizada e `portfolio_shadow` continua exclusivo do Prisma Migrate.
 
-#### Auditoria final N5.5 e correções
+#### Auditoria final e revalidação N5.5
 
 A auditoria atribuiu nota B, sem P0, e encontrou um P1 e quatro P2 funcionais. Foram corrigidos a confirmação da transição para Concluída, o bloqueio de datas civis inválidas na URL, a disponibilidade global de **Limpar filtros**, a mensagem do vazio filtrado e a prioridade da autorização de mutation antes do OCC para OS pública alheia. A documentação foi sincronizada com os endpoints, filtros, criação, atualização, snapshots, histórico e integração atuais.
 
-A validação consolidada aprovou 426 testes de backend em `portfolio_test`, incluindo os contratos stale de OS própria, pública alheia e privada alheia; Prisma validate, lint e build do backend; lint e build do frontend; e `git diff --check`. O warning de dependência do `SearchableSelect`, a ausência de configuração global de Prettier no frontend, o helper legado `employeeStatus.ts`, o bundle acima de 500 kB e a ausência de runner de navegador permanecem classificados como P3 fora desta correção. O N5.5 continua em andamento e exige revalidação final curta antes do fechamento.
+A revalidação final confirmou os cinco reparos, incluindo o payload preservado nas confirmações críticas, e aprovou novamente 106/106 testes focalizados de Ordens e 426/426 testes de backend em `portfolio_test`; Prisma validate, lint e build do backend; lint e build do frontend; e `git diff --check`. Fixtures e sessões foram removidas ao final, não houve migration na correção e as Ordens de Serviço permanecem end-to-end reais. O Dashboard continua como principal consumidor remanescente de mocks para o N5.6. O warning de dependência do `SearchableSelect`, a ausência de configuração global de Prettier no frontend, o helper legado `employeeStatus.ts`, o bundle acima de 500 kB e a ausência de runner de navegador permanecem classificados como P3 não bloqueadores. **Veredito: A — N5.5 concluído.**
 
 ## Resultados consolidados
 
