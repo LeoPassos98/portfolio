@@ -9,6 +9,7 @@ import { SessionModule } from './auth/session/session.module.js';
 import { ClientsModule } from './clients/clients.module.js';
 import { validateEnvironment } from './config/environment.validation.js';
 import { DatabaseModule } from './database/database.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { EmployeesModule } from './employees/employees.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 
@@ -19,6 +20,7 @@ import { OrdersModule } from './orders/orders.module.js';
       validate: validateEnvironment,
     }),
     DatabaseModule,
+    DashboardModule,
     AuthModule,
     ClientsModule,
     EmployeesModule,

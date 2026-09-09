@@ -10,9 +10,9 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
-| Arquivos catalogados         | 15 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
+| Arquivos catalogados         | 16 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **426 testes aprovados** após as correções funcionais da auditoria final do N5.5                           |
+| Último resultado consolidado | **437 testes aprovados** após a situação atual real do Dashboard no backend                                |
 
 ## Executar agora
 
@@ -60,6 +60,7 @@ git diff --check
   - [Autenticação HTTP](#autenticação-http)
   - [Clientes e CEP](#clientes-e-cep)
   - [Funcionários](#funcionários)
+  - [Dashboard](#dashboard)
   - [Ordens de Serviço](#ordens-de-serviço)
 - [Validações manuais e de navegador](#validações-manuais-e-de-navegador)
 - [Resultados consolidados](#resultados-consolidados)
@@ -68,7 +69,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **426 testes** executada após as correções funcionais da auditoria final do N5.5. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **437 testes** executada após a situação atual real do Dashboard no backend. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -165,6 +166,20 @@ Exercita criação, edição cadastral, situações do cadastro e da conta, perf
 
 Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test`, fixtures e sessões auxiliares removidas ao final.
 
+### Dashboard
+
+#### [`backend/src/dashboard/dashboard.controller.spec.ts`](../backend/src/dashboard/dashboard.controller.spec.ts)
+
+Exercita `GET /dashboard/situation` pela aplicação NestJS real contra PostgreSQL isolado.
+
+| Cenários concretos | Regra ou risco comprovado |
+| --- | --- |
+| Situação global com Clientes e Funcionários ativos/inativos, OS em todos os status, visibilidades e múltiplos responsáveis; situação de Funcionário com OS própria aguardando, em andamento, concluída e cancelada, além de OS pública e privada de terceiro. | A agregação usa o estado atual: Admin conta toda a empresa; Funcionário conta somente `responsavelId` próprio, sem confundir visibilidade pública com atribuição. |
+| Contexto administrativo de Funcionário ativo, inativo, sem OS e inexistente; contexto próprio explícito ou implícito; tentativa de consultar terceiro; UUID, período e parâmetros não permitidos. | Administrador pode preservar o contexto histórico por `employeeId`; Funcionário não usa o Dashboard como consulta indireta de colega; Zod mantém o contrato sem período e com `VALIDATION_ERROR`. |
+| Sem sessão e primeiro acesso pendente. | A leitura exige sessão válida e primeiro acesso concluído, sem CSRF por ser `GET`. |
+
+Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseService`, PostgreSQL `portfolio_test` e fixtures/sessões removidas ao final.
+
 ### Ordens de Serviço
 
 #### [`backend/src/orders/orders.controller.spec.ts`](../backend/src/orders/orders.controller.spec.ts)
@@ -260,3 +275,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.5H — edição atômica, snapshots e OCC     | **418 testes** |
 | N5.5J — filtros backend da lista de OS      | **423 testes** |
 | N5.5L — correções pós-auditoria              | **426 testes** |
+| N5.6A — situação atual do Dashboard backend  | **437 testes** |

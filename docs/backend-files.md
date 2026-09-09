@@ -12,7 +12,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área                     | Responsabilidade                                                                                                        | Arquivos |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, ordens e endpoint raiz atual                      |        4 |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, Dashboard, ordens e endpoint raiz atual           |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        7 |
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                 |       12 |
@@ -20,13 +20,14 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       17 |
 | Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros  |       12 |
+| Dashboard                | Indicadores atuais globais ou por Funcionário, com escopo autenticado, DTOs e validação                                  |        6 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários e ordens   |       17 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários, Dashboard e ordens |       18 |
 
 ## Sumário
 
@@ -38,6 +39,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Clientes](#clientes)
 - [Funcionários](#funcionários)
 - [Ordens de Serviço](#ordens-de-serviço)
+- [Dashboard](#dashboard)
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Proteção de origem](#proteção-de-origem)
@@ -521,6 +523,40 @@ Diretório principal: `backend/src/common/openapi/`
 ### 1. `backend/src/common/openapi/openapi.setup.ts`
 
 Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o schema global de erros e publica a Swagger UI em `/api/docs` com o JSON em `/api/docs/openapi.json`.
+
+---
+
+## Dashboard
+
+Expõe somente a situação atual da operação para Administradores e o trabalho atualmente atribuído para Funcionários. Não incorpora métricas temporais, valores, ticket médio, recorrência ou integração React.
+
+Diretório principal: `backend/src/dashboard/`
+
+### 1. `backend/src/dashboard/dashboard-situation-query.schema.ts`
+
+Valida estritamente a query opcional `employeeId` como UUID, impedindo filtros temporais e parâmetros não previstos pelo contrato.
+
+### 2. `backend/src/dashboard/dashboard-situation-response.dto.ts`
+
+Documenta os contratos discriminados do OpenAPI: situação global de Administrador e situação de Funcionário, sem dados de conta, contato, credenciais ou objetos Prisma.
+
+### 3. `backend/src/dashboard/dashboard.service.ts`
+
+Resolve o escopo a partir da sessão e agrega exclusivamente contagens do PostgreSQL. Administrador sem `employeeId` recebe totais globais; com identificador recebe o contexto, inclusive histórico, do Funcionário existente. Funcionário só consulta a própria responsabilidade atual e recebe `DASHBOARD_SCOPE_FORBIDDEN` ao tentar outro identificador.
+
+As leituras correlatas ocorrem em transação `RepeatableRead` e usam `count`, preservando um snapshot lógico sem locks ou retentativas de escrita.
+
+### 4. `backend/src/dashboard/dashboard.controller.ts`
+
+Expõe `GET /dashboard/situation` protegido por sessão, primeiro acesso concluído e perfis Administrador ou Funcionário. Documenta a query, respostas discriminadas e erros de validação, autenticação, escopo e Funcionário inexistente.
+
+### 5. `backend/src/dashboard/dashboard.module.ts`
+
+Agrupa controller e service do Dashboard com autenticação e acesso ao banco, mantendo a agregação fora da feature de Ordens.
+
+### 6. `backend/src/dashboard/dashboard.controller.spec.ts`
+
+Exercita o endpoint HTTP contra PostgreSQL isolado, incluindo escopos, estados, visibilidade, autorização, validação, primeiro acesso e limpeza das fixtures e sessões.
 
 ---
 
