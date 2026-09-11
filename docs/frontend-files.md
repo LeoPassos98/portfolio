@@ -56,7 +56,7 @@ Compõe os providers de server state, autenticação, feedback de sucesso e nave
 
 ### 2. `frontend/src/App.tsx`
 
-Declara as rotas da SPA, associa caminhos às páginas, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador.
+Declara as rotas da SPA, associa caminhos às páginas, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
 
 ### 3. `frontend/vite.config.ts`
 
@@ -188,7 +188,7 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão.
+Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. Expõe logout no cabeçalho desktop e no menu de perfil mobile, com estado pendente e erro acessível compartilhados.
 
 Preserva a rolagem própria da sidebar e do drawer mobile. Também encerra a sessão real antes de voltar ao Login.
 

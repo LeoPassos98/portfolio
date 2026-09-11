@@ -397,6 +397,24 @@ function AppLayout({ children }: AppLayoutProps) {
               </p>
               <p className="text-neutral text-xs">{profileLabel}</p>
             </div>
+            <div className="relative">
+              <button
+                type="button"
+                className="text-foreground rounded-ui px-3 py-2 text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={isLoggingOut}
+                onClick={() => void handleLogout()}
+              >
+                {isLoggingOut ? 'Saindo...' : 'Sair'}
+              </button>
+              {logoutError ? (
+                <p
+                  role="alert"
+                  className="bg-surface absolute right-0 top-full z-40 mt-2 w-64 rounded-ui border border-neutral-bg px-3 py-2 text-sm text-error shadow-md"
+                >
+                  {logoutError}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
       </header>
