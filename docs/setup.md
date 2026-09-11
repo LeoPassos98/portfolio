@@ -11,6 +11,7 @@ Destina-se a pessoas e agentes que precisam executar o projeto localmente ou man
 - [Configuração importante](#configuração-importante)
   - [Variáveis de ambiente](#variáveis-de-ambiente)
   - [Banco, Prisma e migrations](#banco-prisma-e-migrations)
+  - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Sessão, CSRF e CORS](#sessão-csrf-e-cors)
   - [Documentação HTTP, CEP e logs](#documentação-http-cep-e-logs)
 - [Tecnologias configuradas](#tecnologias-configuradas)
@@ -132,6 +133,28 @@ npm run prisma:generate
 ```
 
 Use `npx prisma migrate dev --name <nome-da-migration>` somente ao criar uma migration local. Para aplicar as migrations já versionadas em um clone, use o comando da etapa 4.
+
+### Bootstrap do primeiro Administrador
+
+Use o bootstrap somente uma vez, depois de aplicar as migrations em um banco novo e antes de existir qualquer `Usuario`. O comando cria um `Funcionario` ativo e sua conta ativa de perfil `ADMINISTRADOR` na mesma transação, sem iniciar servidor ou expor rota HTTP:
+
+```bash
+cd backend
+BOOTSTRAP_ADMIN_NAME='Nome do Administrador' \
+BOOTSTRAP_ADMIN_PHONE='11999999999' \
+BOOTSTRAP_ADMIN_CONTACT_EMAIL='contato@example.com' \
+BOOTSTRAP_ADMIN_LOGIN_EMAIL='admin@example.com' \
+BOOTSTRAP_ADMIN_PASSWORD='<senha-temporaria-segura>' \
+npm run bootstrap:admin
+```
+
+Além dessas variáveis one-shot, `DATABASE_URL` deve apontar para o banco novo. A ausência das variáveis `BOOTSTRAP_ADMIN_*` não afeta o startup normal da API. Forneça a senha pelo mecanismo de secrets do ambiente ou apenas ao processo e remova-a assim que o comando terminar; não a mantenha em `.env`, histórico compartilhado ou logs.
+
+O e-mail de login recebe trim e lowercase. A senha temporária preserva exatamente seus caracteres, deve ter de 8 a 128 caracteres e é persistida somente como hash Argon2id. O e-mail de contato permanece um campo separado.
+
+Um advisory lock transacional do PostgreSQL serializa execuções concorrentes. Depois de obter o lock, o comando confirma `usuario.count() === 0` e cria `Funcionario` e `Usuario` na mesma transação. Se qualquer usuário já existir, recusa a operação sem promover, reativar ou alterar registros; se qualquer insert falhar, tudo sofre rollback.
+
+Após o sucesso, autentique-se com o e-mail normalizado e a senha temporária. A conta nasce com `deveAlterarSenha = true`, portanto o fluxo normal de primeiro acesso exige a definição da senha definitiva antes de liberar a administração da interface.
 
 ### Sessão, CSRF e CORS
 

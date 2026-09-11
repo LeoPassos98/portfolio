@@ -10,9 +10,9 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
-| Arquivos catalogados         | 16 arquivos `*.spec.ts` na suíte principal e o smoke e2e `backend/test/app.e2e-spec.ts`                   |
+| Arquivos catalogados         | 18 arquivos `*.spec.ts` na suíte principal e o smoke e2e separado `backend/test/app.e2e-spec.ts`          |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **443 testes aprovados** após o desempenho temporal real do Dashboard no backend                           |
+| Último resultado consolidado | **450 testes aprovados** após o bootstrap controlado do primeiro Administrador                             |
 
 ## Executar agora
 
@@ -57,6 +57,7 @@ git diff --check
 - [Catálogo de testes automatizados](#catálogo-de-testes-automatizados)
   - [Aplicação, configuração e HTTP](#aplicação-configuração-e-http)
   - [Credenciais, sessão e guards](#credenciais-sessão-e-guards)
+  - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Autenticação HTTP](#autenticação-http)
   - [Clientes e CEP](#clientes-e-cep)
   - [Funcionários](#funcionários)
@@ -69,7 +70,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **443 testes** executada após o desempenho temporal real do Dashboard no backend. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **450 testes** executada após o bootstrap controlado do primeiro Administrador. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -85,7 +86,7 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/common/validation/zod-validation.pipe.spec.ts`](../backend/src/common/validation/zod-validation.pipe.spec.ts) | Aceita entrada parseada, preserva transformações Zod e devolve `BadRequestException` com as issues.                                              | DTOs normalizam dados e expõem erros de schema consistentes na camada HTTP.             | Vitest, Zod e `ZodValidationPipe` isolado.                         |
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas; sempre responde `statusCode`, `code` e `message`. | O contrato público de erro permanece estável sem vazar detalhes internos.               | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
-Observação do smoke e2e: `app.e2e-spec.ts` é selecionado tanto por `npm test` quanto por `npm run test:e2e`; o primeiro o inclui no total consolidado de 426 testes, e o segundo permite executá-lo isoladamente.
+Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 450 testes selecionados por `npm test`.
 
 ### Credenciais, sessão e guards
 
@@ -98,6 +99,20 @@ Observação do smoke e2e: `app.e2e-spec.ts` é selecionado tanto por `npm test`
 | [`backend/src/auth/guards/session.guard.spec.ts`](../backend/src/auth/guards/session.guard.spec.ts)                               | Ausência de `usuarioId` não consulta serviço; usuário ativo gera principal seguro; usuário inexistente ou inativo destrói sessão.                        | A identidade da sessão é revalidada e não expõe senha ou hash no request.                   | Vitest, mock de `AuthService` e contexto HTTP simulado.                              |
 | [`backend/src/auth/guards/first-access-completed.guard.spec.ts`](../backend/src/auth/guards/first-access-completed.guard.spec.ts) | `deveAlterarSenha` gera `AUTH_PASSWORD_CHANGE_REQUIRED`; usuário regular é liberado.                                                                     | A regra de primeiro acesso é aplicada no backend, independente da interface.                | Vitest e contexto HTTP simulado.                                                     |
 | [`backend/src/auth/guards/role.guard.spec.ts`](../backend/src/auth/guards/role.guard.spec.ts)                                     | Perfis compatíveis e múltiplos perfis são aceitos; handler sem metadata é livre; incompatibilidade retorna `AUTH_FORBIDDEN`; não acessa sessão ou banco. | Autorização declarativa por `@Roles` permanece isolada do guard de sessão.                  | Vitest, `Reflector`, decorator `Roles` e contexto HTTP simulado.                     |
+
+### Bootstrap do primeiro Administrador
+
+#### [`backend/src/bootstrap/admin-bootstrap.service.spec.ts`](../backend/src/bootstrap/admin-bootstrap.service.spec.ts)
+
+| Cenário | Regra ou risco comprovado |
+| --- | --- |
+| Banco sem usuários | Cria exatamente um Funcionário e um Usuario ativos, vinculados, com perfil `ADMINISTRADOR`, `deveAlterarSenha = true`, login normalizado e senha somente em hash Argon2id verificável. |
+| Sistema inicializado | Qualquer Usuario existente causa recusa controlada, sem segundo usuário e sem alterar conta ou Funcionário existentes. |
+| Configuração inválida | E-mail inválido e senhas abaixo de 8 ou acima de 128 caracteres falham antes de qualquer escrita. |
+| Atomicidade | Um trigger temporário de teste rejeita o insert de Usuario no PostgreSQL e comprova que o Funcionario criado na mesma transação sofre rollback. |
+| Concorrência | Duas transações reais simultâneas disputam o advisory lock transacional; apenas uma cria a identidade e a outra observa o Usuario após o lock e recusa. |
+
+Infraestrutura: Vitest, contexto NestJS sem HTTP, Prisma/`DatabaseService`, `PasswordService` real, PostgreSQL `portfolio_test`, trigger temporário removido e fixtures removidas ao final.
 
 ### Autenticação HTTP
 
@@ -216,6 +231,7 @@ Estas validações não correspondem a arquivos `.spec.ts`; registram evidência
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Autenticação no navegador                       | Login real, primeiro acesso, logout, sessão revogada seguida de reload e comportamento móvel. Confirma tela, roteamento, cookie de sessão e bootstrap do frontend.                                                                                                                                                                                                                                                                                                                                                    | Validada em navegador durante a consolidação de autenticação N5.2H.                                                                                                                                                                                       |
 | Recuperação de CSRF obsoleto                     | Em uso local após o N5, a SPA aberta manteve em memória o token de uma sessão que deixou de ser a atual; `POST /auth/login` recebeu `403 CSRF_INVALID_TOKEN` repetidamente até um hard reload. O cliente agora invalida o token e repete uma única vez somente mutations com esse status e código; o interceptor de request obtém o token da sessão atual. Credenciais inválidas, outros `403` e uma segunda rejeição CSRF continuam chegando ao chamador, enquanto `401 AUTH_UNAUTHENTICATED` mantém o tratamento global existente. | Correção validada estruturalmente por lint e build. O frontend não possui runner de testes ou navegador automatizado; o cenário original deve ser repetido manualmente mantendo a SPA aberta e trocando a sessão server-side, sem usar `Ctrl + Shift + R`. O backend permaneceu inalterado e o N5 continua concluído. |
+| Bootstrap one-shot em banco vazio              | O entrypoint compilado foi executado em `portfolio_test` vazio com configuração artificial, persistiu um Funcionário e um Usuario `ADMINISTRADOR`, ambos ativos e com troca obrigatória pendente; uma segunda execução foi recusada. A fixture foi removida e as contagens finais voltaram a zero.                                                                                                                                                                                                                       | Primeira execução encerrou com código 0 e segunda com código 1, preservando exatamente um par antes da limpeza. Nenhuma senha ou hash apareceu no output.                                                                                 |
 | Isolamento do server state entre identidades    | A revisão estrutural cobre cache residual antes de novo login, logout confirmado, `AUTH_UNAUTHENTICATED` global, `401` suprimido em `retrySessionCheck` e `clearSession`. Confirma `queryClient.clear()` antes de expor a nova identidade ou o estado sem sessão, com descarte global de queries, mutations e requests em andamento.                                                                                                                                                                                       | P1 encontrado na auditoria N5.6D e corrigido em N5.6E. Validado por lint e build; o frontend não possui runner de testes ou navegador automatizado, e o backend permaneceu inalterado com baseline de 443 testes.                                                                                                          |
 | Clientes end-to-end no navegador                | Listagem real, filtros, busca, cadastro, edição, situação, exclusão, bloqueio por OS, visões de Administrador e Funcionário, cache e persistência após reload. Verifica interface, estado React, cache, API e banco.                                                                                                                                                                                                                                                                                                  | Registrada na auditoria de Clientes N5.3.                                                                                                                                                                                                                 |
 | Auditoria N5.3: filtro Todos                    | A API com `status=all` estava correta, mas o seletor visual voltava para Ativos. O defeito de estado visual não era detectado pelos testes de backend.                                                                                                                                                                                                                                                                                                                                                                | Corrigido em `1835291 fix: keep all clients filter selected`. Demonstra a limitação atual da cobertura automatizada do frontend.                                                                                                                          |
@@ -292,3 +308,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.5L — correções pós-auditoria              | **426 testes** |
 | N5.6A — situação atual do Dashboard backend  | **437 testes** |
 | N5.6B — desempenho temporal do Dashboard backend | **443 testes** |
+| Pré-deploy — bootstrap do primeiro Administrador | **450 testes** |

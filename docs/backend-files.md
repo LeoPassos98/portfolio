@@ -13,6 +13,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Área                     | Responsabilidade                                                                                                        | Arquivos |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------: |
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, Dashboard, ordens e endpoint raiz atual           |        4 |
+| Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador                  |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        7 |
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                 |       12 |
@@ -27,11 +28,12 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, clientes, funcionários, Dashboard e ordens |       18 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, bootstrap, clientes, funcionários, Dashboard e ordens |       19 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
+- [Bootstrap operacional](#bootstrap-operacional)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Autenticação](#autenticação)
@@ -75,6 +77,32 @@ Expõe temporariamente a rota raiz `GET /`, delega sua resposta a `AppService` e
 ### 4. `backend/src/app.service.ts`
 
 Fornece a resposta temporária do endpoint raiz consumido por `AppController`.
+
+---
+
+## Bootstrap operacional
+
+Cria explicitamente a primeira identidade administrativa de um banco novo sem abrir listener HTTP e deixa a troca de senha obrigatória para o fluxo normal de primeiro acesso.
+
+Diretórios principais: `backend/src/` e `backend/src/bootstrap/`
+
+### 1. `backend/src/bootstrap-admin.ts`
+
+Inicializa um contexto NestJS exclusivo do comando `npm run bootstrap:admin`, relata somente estados operacionais seguros e encerra com falha controlada para configuração inválida, sistema já inicializado ou erro inesperado.
+
+### 2. `backend/src/bootstrap/admin-bootstrap.module.ts`
+
+Compõe apenas configuração de banco, `DatabaseModule`, `PasswordModule` e o serviço do bootstrap, sem controllers, sessão ou servidor HTTP.
+
+### 3. `backend/src/bootstrap/admin-bootstrap.schema.ts`
+
+Lê as cinco variáveis `BOOTSTRAP_ADMIN_*` e reutiliza os schemas oficiais de cadastro do Funcionário, e-mail de login e senha, mantendo essas variáveis fora do startup comum.
+
+### 4. `backend/src/bootstrap/admin-bootstrap.service.ts`
+
+Obté um advisory lock transacional fixo no PostgreSQL, confirma a ausência total de usuários e cria atomicamente o Funcionário e a conta Administrador ativa com troca obrigatória de senha.
+
+O lock serializa duas execuções concorrentes; a segunda só faz o `count()` depois do commit da primeira e recusa sem alteração. O hash usa o `PasswordService` Argon2id já compartilhado pela autenticação.
 
 ---
 
@@ -711,3 +739,7 @@ Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da 
 Executa criação, edição cadastral, situação, criação explícita, administração de credenciais e consultas administrativas de Funcionários contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
 
 Cobre conta opcional, criação e redefinição de credenciais Argon2id, normalização, validação, situação, OS ativa, último Administrador, sessões, primeiro acesso, concorrência, guards, CSRF, filtros, privacidade e OpenAPI.
+
+### 17. `backend/src/bootstrap/admin-bootstrap.service.spec.ts`
+
+Executa o bootstrap contra PostgreSQL `portfolio_test`, cobrindo criação e hash reais, recusa imutável após qualquer usuário, configuração inválida sem escrita, rollback induzido por trigger temporário e duas transações concorrentes.
