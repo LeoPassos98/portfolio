@@ -387,7 +387,7 @@ function OrderForm({ creation, editing }: OrderFormProps) {
   return (
     <form
       noValidate
-      className="bg-surface mt-6 max-w-3xl space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6"
+      className="bg-surface mt-6 space-y-8 rounded-ui border border-neutral-bg p-4 sm:p-6"
       onSubmit={handleSubmit(onSubmit)}
     >
       <section aria-labelledby={`${fieldPrefix}-client-title`}>

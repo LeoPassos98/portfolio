@@ -43,7 +43,7 @@ function OrderEditSkeleton() {
     <AppLayout>
       <div className="animate-pulse" aria-label="Carregando ordem de serviço">
         <div className="h-8 w-56 rounded bg-neutral-bg" />
-        <div className="bg-surface mt-6 max-w-3xl rounded-ui border border-neutral-bg p-6">
+        <div className="bg-surface mt-6 rounded-ui border border-neutral-bg p-6">
           <div className="h-6 w-36 rounded bg-neutral-bg" />
           <div className="mt-6 h-16 rounded bg-neutral-bg" />
           <div className="mt-6 h-10 w-60 rounded bg-neutral-bg" />
@@ -59,7 +59,7 @@ function EmployeesDependencySkeleton() {
   return (
     <div
       aria-label="Carregando funcionários ativos"
-      className="bg-surface mt-6 max-w-3xl animate-pulse rounded-ui border border-neutral-bg p-6"
+      className="bg-surface mt-6 animate-pulse rounded-ui border border-neutral-bg p-6"
     >
       <div className="h-6 w-40 rounded bg-neutral-bg" />
       <div className="mt-6 h-10 rounded bg-neutral-bg" />
@@ -176,7 +176,7 @@ function AdminOpenOrderEditContent({
 
   if (isError) {
     return (
-      <div className="bg-surface mt-6 max-w-3xl rounded-ui border border-neutral-bg p-6">
+      <div className="bg-surface mt-6 rounded-ui border border-neutral-bg p-6">
         <p className="text-error" role="alert">
           Falha ao carregar Funcionários ativos.
         </p>
@@ -197,7 +197,7 @@ function AdminOpenOrderEditContent({
 
   if (employeeOptions.length === 0) {
     return (
-      <div className="bg-surface mt-6 max-w-3xl rounded-ui border border-neutral-bg p-6">
+      <div className="bg-surface mt-6 rounded-ui border border-neutral-bg p-6">
         <p className="text-foreground font-medium">
           Nenhum funcionário ativo disponível para assumir esta OS.
         </p>
