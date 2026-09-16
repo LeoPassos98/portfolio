@@ -116,7 +116,25 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('sanitizes unexpected errors', () => {
-    const error = new Error('Unexpected database connection failure');
+    const secrets = [
+      'password-value',
+      'colon-password',
+      'session-value',
+      'database-user',
+      'database-password',
+      'direct-user',
+      'direct-password',
+    ];
+    const error = new Error(
+      [
+        'Database connection failure',
+        `password=${secrets[0]}`,
+        `password: ${secrets[1]}`,
+        `SESSION_SECRET=${secrets[2]}`,
+        `DATABASE_URL=postgresql://${secrets[3]}:${secrets[4]}@db/app`,
+        `postgresql://${secrets[5]}:${secrets[6]}@db/audit`,
+      ].join('\n'),
+    );
     const response = catchException(error);
 
     expect(response).toEqual({
@@ -124,10 +142,20 @@ describe('HttpExceptionFilter', () => {
       code: ERROR_CODES.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
     });
-    expect(Logger.prototype.error).toHaveBeenCalledWith(
-      error.message,
-      error.stack,
-    );
+    expect(Logger.prototype.error).toHaveBeenCalledTimes(1);
+
+    const [loggedMessage, loggedStack] = vi.mocked(Logger.prototype.error).mock
+      .calls[0];
+    const loggedArguments = [loggedMessage, loggedStack].join('\n');
+
+    for (const secret of secrets) {
+      expect(loggedArguments).not.toContain(secret);
+    }
+
+    expect(loggedMessage).toContain('Error: Database connection failure');
+    expect(loggedMessage).toContain('[REDACTED]');
+    expect(loggedStack).toContain('Error: Database connection failure');
+    expect(loggedStack).toContain('[REDACTED]');
   });
 
   it('does not log HTTP exceptions as unexpected errors', () => {

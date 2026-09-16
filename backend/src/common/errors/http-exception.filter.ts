@@ -72,13 +72,34 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   private logUnexpectedException(exception: unknown): void {
     if (exception instanceof Error) {
-      this.logger.error(exception.message, exception.stack);
+      const errorName = this.sanitizeLogText(exception.name || 'Error');
+      const message = `${errorName}: ${this.sanitizeLogText(exception.message)}`;
+
+      if (exception.stack) {
+        this.logger.error(message, this.sanitizeLogText(exception.stack));
+        return;
+      }
+
+      this.logger.error(message);
       return;
     }
 
     this.logger.error(
       `Unhandled exception: ${this.describeUnexpectedException(exception)}`,
     );
+  }
+
+  private sanitizeLogText(value: string): string {
+    return value
+      .replace(/\b(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s/]+@/gi, '$1[REDACTED]@')
+      .replace(
+        /(\b(?:password|SESSION_SECRET|DATABASE_URL)\b["']?\s*=\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi,
+        '$1[REDACTED]',
+      )
+      .replace(
+        /(\bpassword\b["']?\s*:\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\r\n,;]+)/gi,
+        '$1[REDACTED]',
+      );
   }
 
   private describeUnexpectedException(exception: unknown): string {
