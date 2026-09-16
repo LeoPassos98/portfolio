@@ -18,7 +18,8 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Estilos e tema          | Estilos globais e tokens visuais                                                  |        1 |
 | Componentes UI          | Elementos reutilizáveis da interface                                              |        7 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        6 |
-| Layouts                 | Estruturas compartilhadas de páginas                                              |        3 |
+| Layouts                 | Estruturas compartilhadas de páginas                                              |        4 |
+| Área pública            | Home mínima e ponto de entrada público da aplicação                               |        1 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
 | Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              |        7 |
 | Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
@@ -34,6 +35,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Componentes UI](#componentes-ui)
 - [Componentes de feedback](#componentes-de-feedback)
 - [Layouts](#layouts)
+- [Área pública](#área-pública)
 - [Autenticação](#autenticação)
 - [Dashboard](#dashboard)
 - [Ordens de Serviço](#ordens-de-serviço)
@@ -56,7 +58,7 @@ Compõe os providers de server state, autenticação, feedback de sucesso e nave
 
 ### 2. `frontend/src/App.tsx`
 
-Declara as rotas da SPA, associa caminhos às páginas, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
+Declara as rotas da SPA, incluindo a Home pública em `/`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
 
 ### 3. `frontend/vite.config.ts`
 
@@ -178,13 +180,13 @@ Expõe o hook de consumo seguro de `showSuccess` e `dismissSuccess` para fluxos 
 
 ## Layouts
 
-Define estruturas visuais compartilhadas por telas de autenticação e áreas internas.
+Define estruturas visuais compartilhadas por telas públicas, de autenticação e áreas internas.
 
 Diretórios: `frontend/src/features/auth/components/` e `frontend/src/components/layout/`
 
 ### 1. `frontend/src/features/auth/components/AuthLayout.tsx`
 
-Centraliza telas de autenticação em uma superfície sobre o fundo da aplicação e recebe conteúdo por `children`.
+Centraliza telas de autenticação em uma superfície sobre o fundo da aplicação, com marca navegável para a Home, e recebe conteúdo por `children`.
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
@@ -194,7 +196,23 @@ Preserva a rolagem própria da sidebar e do drawer mobile. Também encerra a ses
 
 ### 3. `frontend/src/components/layout/AppBrand.tsx`
 
-Reserva uma marca geométrica reutilizável para o shell autenticado, sem definir o logo final do produto.
+Reserva uma marca geométrica reutilizável e navegável, sem definir o logo final do produto. Aceita destinos contextuais: Home nas áreas pública e de autenticação, Dashboard na aplicação autenticada.
+
+### 4. `frontend/src/components/layout/PublicLayout.tsx`
+
+Estrutura páginas públicas com `header`, `main` e `footer`, marca para a Home e CTA contextual ao estado de sessão existente.
+
+---
+
+## Área pública
+
+Reúne a entrada pública mínima, separada das rotas de autenticação e da aplicação autenticada.
+
+Diretório principal: `frontend/src/features/public/`
+
+### 1. `frontend/src/features/public/pages/HomePage.tsx`
+
+Renderiza a Home pública em `/` no `PublicLayout`, com a apresentação mínima do sistema e sem redirecionar automaticamente visitantes ou sessões válidas.
 
 ---
 

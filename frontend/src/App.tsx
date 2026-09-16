@@ -16,6 +16,7 @@ import { OrderCreatePage } from './features/orders/pages/OrderCreatePage'
 import { OrderDetailsPage } from './features/orders/pages/OrderDetailsPage'
 import { OrderEditPage } from './features/orders/pages/OrderEditPage'
 import { OrdersPage } from './features/orders/pages/OrdersPage'
+import { HomePage } from './features/public/pages/HomePage'
 
 function App() {
   const {
@@ -34,7 +35,7 @@ function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/first-access" element={<FirstAccessPage />} />
       <Route element={<ProtectedRoute />}>

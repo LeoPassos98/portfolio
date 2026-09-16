@@ -384,7 +384,7 @@ function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <div className="absolute left-1/2 -translate-x-1/2">
-            <AppBrand />
+            <AppBrand to="/dashboard" ariaLabel="Ir para o Dashboard" />
           </div>
 
           <div className="absolute right-0 flex items-center gap-3">
@@ -459,7 +459,7 @@ function AppLayout({ children }: AppLayoutProps) {
           </button>
 
           <div className="absolute left-1/2 -translate-x-1/2">
-            <AppBrand />
+            <AppBrand to="/dashboard" ariaLabel="Ir para o Dashboard" />
           </div>
 
           <div className="relative ml-auto">
