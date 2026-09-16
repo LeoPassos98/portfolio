@@ -45,6 +45,8 @@ cd ../frontend
 npm install
 ```
 
+No backend, o npm 11 aplica a política versionada em `allowScripts`: ela permite somente a compilação nativa do `argon2` e o download do engine do Prisma. Os scripts do guard de versão do Prisma e da telemetria transitiva do Scarf permanecem bloqueados. O `npm run build` executa a geração do Prisma Client antes de compilar o NestJS, portanto funciona também em um checkout limpo.
+
 ### 2. Criar os arquivos de ambiente
 
 Copie os exemplos versionados e substitua os valores de exemplo por dados locais seguros:
