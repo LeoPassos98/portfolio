@@ -10,9 +10,9 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
-| Arquivos catalogados         | 18 arquivos `*.spec.ts` na suíte principal e o smoke e2e separado `backend/test/app.e2e-spec.ts`          |
+| Arquivos catalogados         | 19 arquivos `*.spec.ts` na suíte principal e o smoke e2e separado `backend/test/app.e2e-spec.ts`          |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **450 testes aprovados** após o bootstrap controlado do primeiro Administrador                             |
+| Último resultado consolidado | **453 testes aprovados** após configurar com segurança o proxy reverso de produção                         |
 
 ## Executar agora
 
@@ -70,7 +70,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **450 testes** executada após o bootstrap controlado do primeiro Administrador. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **453 testes** executada após configurar com segurança o proxy reverso de produção. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -83,10 +83,11 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/app.controller.spec.ts`](../backend/src/app.controller.spec.ts)                                               | `AppController.getHello()` retorna `Hello World!`.                                                                                               | Controller e serviço base compõem o módulo de testes do NestJS.                         | NestJS `TestingModule`.                                            |
 | [`backend/test/app.e2e-spec.ts`](../backend/test/app.e2e-spec.ts)                                                           | `GET /` responde `200` com `Hello World!`.                                                                                                       | Smoke do caminho HTTP básico, além do teste direto do controller.                       | Vitest, `TestingModule`, aplicação NestJS e Supertest.             |
 | [`backend/src/config/environment.validation.spec.ts`](../backend/src/config/environment.validation.spec.ts)                 | Aceita as variáveis obrigatórias e seus defaults; rejeita `DATABASE_URL` ausente, porta inválida e duração não positiva.                         | O bootstrap não inicia com configuração incompleta ou insegura de banco, sessão e CORS. | Vitest e schema de ambiente Zod.                                   |
+| [`backend/src/common/http/trust-proxy.config.spec.ts`](../backend/src/common/http/trust-proxy.config.spec.ts)               | Em produção configura `trust proxy` com um hop; em desenvolvimento e teste não altera o padrão do Express.                                      | Headers encaminhados são aceitos somente na topologia de produção atrás do proxy imediato. | Vitest, `NestExpressApplication` simulado e `configureTrustProxy`. |
 | [`backend/src/common/validation/zod-validation.pipe.spec.ts`](../backend/src/common/validation/zod-validation.pipe.spec.ts) | Aceita entrada parseada, preserva transformações Zod e devolve `BadRequestException` com as issues.                                              | DTOs normalizam dados e expõem erros de schema consistentes na camada HTTP.             | Vitest, Zod e `ZodValidationPipe` isolado.                         |
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas; sempre responde `statusCode`, `code` e `message`. | O contrato público de erro permanece estável sem vazar detalhes internos.               | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
-Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 450 testes selecionados por `npm test`.
+Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 453 testes selecionados por `npm test`.
 
 ### Credenciais, sessão e guards
 
@@ -310,3 +311,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | N5.6A — situação atual do Dashboard backend  | **437 testes** |
 | N5.6B — desempenho temporal do Dashboard backend | **443 testes** |
 | Pré-deploy — bootstrap do primeiro Administrador | **450 testes** |
+| Deploy Northflank — proxy reverso seguro         | **453 testes** |

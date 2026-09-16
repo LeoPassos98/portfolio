@@ -25,10 +25,11 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
 | Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
+| Proxy reverso            | Confiança limitada ao hop anterior em produção para reconhecer o protocolo original                                    |        1 |
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, bootstrap, clientes, funcionários, Dashboard e ordens |       19 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, bootstrap, clientes, funcionários, Dashboard e ordens |       20 |
 
 ## Sumário
 
@@ -45,6 +46,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Segurança de credenciais](#segurança-de-credenciais)
 - [Sessões server-side](#sessões-server-side)
 - [Proteção de origem](#proteção-de-origem)
+- [Proxy reverso](#proxy-reverso)
 - [Validação HTTP](#validação-http)
 - [Tratamento de erros HTTP](#tratamento-de-erros-http)
 - [Documentação HTTP](#documentação-http)
@@ -62,7 +64,7 @@ Diretório principal: `backend/src/`
 
 Cria a aplicação NestJS a partir de `AppModule` e inicia o servidor HTTP na porta validada por `ConfigService`.
 
-Também configura logger, CORS, sessão, filtro global de exceções, OpenAPI e hooks de desligamento.
+Também configura logger, confiança limitada no proxy de produção, CORS, sessão, filtro global de exceções, OpenAPI e hooks de desligamento.
 
 ### 2. `backend/src/app.module.ts`
 
@@ -506,6 +508,18 @@ Centraliza a origem explícita, credenciais, métodos e cabeçalhos permitidos p
 
 ---
 
+## Proxy reverso
+
+Reconhece o protocolo HTTPS original quando a produção está atrás do edge/load balancer, sem confiar em uma cadeia arbitrária de proxies.
+
+Diretório principal: `backend/src/common/http/`
+
+### 1. `backend/src/common/http/trust-proxy.config.ts`
+
+Configura o Express para confiar exatamente no hop imediatamente anterior somente em produção e preserva o padrão sem confiança em proxy nos demais ambientes.
+
+---
+
 ## Validação HTTP
 
 Conecta schemas Zod ao ciclo de entrada HTTP do NestJS e mantém as issues disponíveis para a normalização global de erros.
@@ -743,3 +757,7 @@ Cobre conta opcional, criação e redefinição de credenciais Argon2id, normali
 ### 17. `backend/src/bootstrap/admin-bootstrap.service.spec.ts`
 
 Executa o bootstrap contra PostgreSQL `portfolio_test`, cobrindo criação e hash reais, recusa imutável após qualquer usuário, configuração inválida sem escrita, rollback induzido por trigger temporário e duas transações concorrentes.
+
+### 18. `backend/src/common/http/trust-proxy.config.spec.ts`
+
+Verifica a confiança de exatamente um hop de proxy em produção e a preservação do padrão do Express em desenvolvimento e teste.

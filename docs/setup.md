@@ -164,6 +164,8 @@ Após o sucesso, autentique-se com o e-mail normalizado e a senha temporária. A
 
 O cookie usa `HttpOnly`, `SameSite=Lax`, caminho `/` e duração configurável. `Secure` é ativado apenas em produção.
 
+Em produção no Northflank, o NestJS configura o Express para confiar somente no hop de proxy imediatamente anterior. Assim, o `X-Forwarded-Proto` definido pelo edge/load balancer permite reconhecer a conexão HTTPS original e emitir o cookie `Secure`; desenvolvimento e testes preservam o padrão do Express sem proxy confiável. Essa configuração é automática a partir de `NODE_ENV=production` e não exige comando adicional.
+
 O store usa `disableTouch` e o middleware usa `rolling: false`, portanto cada acesso não renova a expiração.
 
 Para mutações, o frontend obtém `GET /auth/csrf` e envia o token em `X-CSRF-Token` para `POST`, `PUT`, `PATCH` e `DELETE`.

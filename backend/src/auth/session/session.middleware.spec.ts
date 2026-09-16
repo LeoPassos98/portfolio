@@ -31,6 +31,12 @@ describe('createSessionOptions', () => {
       },
     });
     expect(developmentOptions.cookie).not.toHaveProperty('domain');
-    expect(productionOptions.cookie).toMatchObject({ secure: true });
+    expect(productionOptions.cookie).toMatchObject({
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 28_800_000,
+    });
   });
 });
