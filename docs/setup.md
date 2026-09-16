@@ -10,6 +10,7 @@ Destina-se a pessoas e agentes que precisam executar o projeto localmente ou man
 - [Preparar um clone existente](#preparar-um-clone-existente)
 - [Configuração importante](#configuração-importante)
   - [Variáveis de ambiente](#variáveis-de-ambiente)
+  - [Deploy do frontend](#deploy-do-frontend)
   - [Banco, Prisma e migrations](#banco-prisma-e-migrations)
   - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Sessão, CSRF e CORS](#sessão-csrf-e-cors)
@@ -116,6 +117,12 @@ Antes de carregar qualquer spec, o bootstrap do Vitest lê `.env` e `.env.test`,
 
 `SESSION_MAX_AGE_MS` deve ser um inteiro positivo; o padrão é 28.800.000 ms (8 horas). `SESSION_SECRET` deve ser longo, secreto e exclusivo do ambiente.
 
+### Deploy do frontend
+
+O frontend é publicado como Static Assets no Cloudflare Workers. O Workers Builds deve usar `frontend/` como diretório de trabalho, executar `npm run build` e publicar com `npx wrangler deploy`.
+
+`frontend/wrangler.jsonc` publica `dist/` e usa o fallback de SPA, para que acessos diretos a rotas do React Router, como `/login` e `/dashboard`, recebam `index.html`. Configure `VITE_API_URL` como variável de ambiente do deploy; não a versione no arquivo Wrangler.
+
 ### Banco, Prisma e migrations
 
 O Prisma fornece acesso tipado ao PostgreSQL por meio de `DatabaseModule` e `DatabaseService`. O adapter oficial `@prisma/adapter-pg` usa o driver `pg`.
@@ -201,6 +208,7 @@ Não os execute novamente apenas para preparar um clone existente; para isso, us
 | React, TypeScript e Vite | Base tipada da SPA e ambiente de desenvolvimento e build.               | `npm create vite@latest frontend -- --template react-ts` |
 | Axios                    | Cliente HTTP compartilhado com `withCredentials` e CSRF em memória.     | `cd frontend && npm install axios`                       |
 | TanStack Query           | Cache e coordenação de server state, sem substituir o estado de sessão; a troca ou perda de identidade descarta o cache integralmente. | `cd frontend && npm install @tanstack/react-query`       |
+| Wrangler                 | Publicação do build Vite como Static Assets no Cloudflare Workers, com fallback para rotas da SPA. | `cd frontend && npm install --save-dev wrangler` |
 
 ### Backend
 

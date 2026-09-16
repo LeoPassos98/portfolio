@@ -12,7 +12,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área                    | Responsabilidade                                                                  | Arquivos |
 | ----------------------- | --------------------------------------------------------------------------------- | -------: |
-| Configuração e entrada  | Inicialização, rotas, providers e build do frontend                               |        3 |
+| Configuração e entrada  | Inicialização, rotas, providers, build e publicação estática do frontend          |        4 |
 | Infraestrutura HTTP     | Cliente Axios compartilhado, ambiente e CSRF em memória                           |        1 |
 | Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state                |        1 |
 | Estilos e tema          | Estilos globais e tokens visuais                                                  |        1 |
@@ -63,6 +63,10 @@ Declara as rotas da SPA, incluindo a Home pública em `/`, apresenta o bootstrap
 ### 3. `frontend/vite.config.ts`
 
 Configura desenvolvimento e build com os plugins de React e Tailwind CSS.
+
+### 4. `frontend/wrangler.jsonc`
+
+Configura a publicação de `dist/` como Static Assets no Cloudflare Workers e o fallback de SPA para rotas do React Router.
 
 ---
 
