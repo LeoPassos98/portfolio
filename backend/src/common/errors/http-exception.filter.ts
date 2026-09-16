@@ -41,7 +41,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   private toErrorResponse(exception: unknown): HttpErrorResponse {
     if (!(exception instanceof HttpException)) {
-      this.logger.error('Unhandled exception');
+      this.logUnexpectedException(exception);
 
       return {
         statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
@@ -68,6 +68,39 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message: this.getMessage(statusCode, response),
       ...this.getDetails(response),
     };
+  }
+
+  private logUnexpectedException(exception: unknown): void {
+    if (exception instanceof Error) {
+      this.logger.error(exception.message, exception.stack);
+      return;
+    }
+
+    this.logger.error(
+      `Unhandled exception: ${this.describeUnexpectedException(exception)}`,
+    );
+  }
+
+  private describeUnexpectedException(exception: unknown): string {
+    if (exception === null) {
+      return 'null';
+    }
+
+    switch (typeof exception) {
+      case 'string':
+        return `string (length=${exception.length})`;
+      case 'number':
+      case 'boolean':
+        return `${typeof exception} (${String(exception)})`;
+      case 'bigint':
+      case 'symbol':
+      case 'undefined':
+        return typeof exception;
+      case 'function':
+        return 'function';
+      default:
+        return 'object';
+    }
   }
 
   private getCode(statusCode: number, response: string | object): string {

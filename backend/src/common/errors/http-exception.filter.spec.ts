@@ -116,16 +116,24 @@ describe('HttpExceptionFilter', () => {
   });
 
   it('sanitizes unexpected errors', () => {
-    const response = catchException(
-      new Error('password=secret at /internal/service.ts:10'),
-    );
+    const error = new Error('Unexpected database connection failure');
+    const response = catchException(error);
 
     expect(response).toEqual({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       code: ERROR_CODES.INTERNAL_SERVER_ERROR,
       message: 'Internal server error',
     });
-    expect(Logger.prototype.error).toHaveBeenCalledWith('Unhandled exception');
+    expect(Logger.prototype.error).toHaveBeenCalledWith(
+      error.message,
+      error.stack,
+    );
+  });
+
+  it('does not log HTTP exceptions as unexpected errors', () => {
+    catchException(new BadRequestException());
+
+    expect(Logger.prototype.error).not.toHaveBeenCalled();
   });
 
   it('always returns the required public contract fields', () => {
