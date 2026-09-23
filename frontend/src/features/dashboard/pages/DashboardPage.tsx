@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useLocation } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
+import { useNotifications } from '../../../components/feedback/useNotifications'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import { Label } from '../../../components/ui/Label'
@@ -22,16 +23,35 @@ function DashboardError({ message, retry }: { message: string; retry: () => void
 function DashboardPage() {
   const session = useAuthSession()
   const location = useLocation()
+  const navigate = useNavigate()
+  const { showError } = useNotifications()
+  const notifiedAccessDeniedLocationKeyRef = useRef<string | null>(null)
   const [period, setPeriod] = useState<DashboardPeriod>('current-month')
   const range = useMemo(() => resolveDashboardPeriodRange(period), [period])
   const situationQuery = useQuery({ queryKey: dashboardQueryKeys.situationAdministrator(), queryFn: getAdministratorDashboardSituation, enabled: session?.currentUser.profile === 'admin' })
   const performanceQuery = useQuery({ queryKey: dashboardQueryKeys.performanceAdministrator(range), queryFn: () => getAdministratorDashboardPerformance(range), enabled: session?.currentUser.profile === 'admin' })
   const accessDenied = (location.state as DashboardLocationState | null)?.accessDenied === true
 
+  useEffect(() => {
+    if (
+      !accessDenied ||
+      notifiedAccessDeniedLocationKeyRef.current === location.key
+    ) {
+      return
+    }
+
+    notifiedAccessDeniedLocationKeyRef.current = location.key
+    showError('Você não tem permissão para acessar esta área.')
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true,
+      state: null,
+    })
+  }, [accessDenied, location, navigate, showError])
+
   if (!session) return null
 
   if (session.currentUser.profile === 'employee') {
-    return <AppLayout><header><h1 className="text-foreground text-2xl font-bold">Dashboard</h1><p className="text-neutral mt-1">Acompanhe suas ordens e seu desempenho.</p>{accessDenied && <p role="alert" className="mt-3 text-sm text-error">Você não tem permissão para acessar esta área.</p>}</header><EmployeePerformancePanel employeeId={session.currentUser.employeeId} context="self" /></AppLayout>
+    return <AppLayout><header><h1 className="text-foreground text-2xl font-bold">Dashboard</h1><p className="text-neutral mt-1">Acompanhe suas ordens e seu desempenho.</p></header><EmployeePerformancePanel employeeId={session.currentUser.employeeId} context="self" /></AppLayout>
   }
 
   const situation = situationQuery.data
@@ -53,7 +73,7 @@ function DashboardPage() {
   ]
   const renderSkeletons = (count: number) => Array.from({ length: count }, (_, index) => <MetricCardSkeleton key={index} />)
 
-  return <AppLayout><header><h1 className="text-foreground text-2xl font-bold">Dashboard</h1><p className="text-neutral mt-1">Acompanhe a situação atual da operação e o desempenho do negócio.</p>{accessDenied && <p role="alert" className="mt-3 text-sm text-error">Você não tem permissão para acessar esta área.</p>}</header>
+  return <AppLayout><header><h1 className="text-foreground text-2xl font-bold">Dashboard</h1><p className="text-neutral mt-1">Acompanhe a situação atual da operação e o desempenho do negócio.</p></header>
     <section aria-labelledby="current-situation-title" className="mt-8"><h2 id="current-situation-title" className="text-foreground text-xl font-bold">Situação atual</h2>{situationQuery.isError ? <DashboardError message="Não foi possível carregar a situação atual." retry={() => void situationQuery.refetch()} /> : <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{situationQuery.isPending ? renderSkeletons(3) : situationMetrics?.map((metric) => <MetricCard key={metric.label} {...metric} />)}</div>}</section>
     <section aria-labelledby="performance-title" className="mt-10"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><h2 id="performance-title" className="text-foreground text-xl font-bold">Desempenho</h2><p className="text-neutral mt-1 text-sm">Métricas calculadas para o período selecionado.</p></div><div className="w-full space-y-2 sm:w-48"><Label htmlFor="dashboard-period">Período</Label><Select id="dashboard-period" value={period} onChange={(event) => setPeriod(event.target.value as DashboardPeriod)}>{dashboardPeriodOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></div></div>{performanceQuery.isError ? <DashboardError message="Não foi possível carregar o desempenho." retry={() => void performanceQuery.refetch()} /> : <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">{performanceQuery.isPending ? renderSkeletons(6) : performanceMetrics?.map((metric) => <MetricCard key={metric.label} {...metric} />)}</div>}</section>
   </AppLayout>

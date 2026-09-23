@@ -304,7 +304,7 @@ Diretório principal: `frontend/src/features/dashboard/`
 
 Compõe o Dashboard administrativo ou individual conforme o perfil da sessão autenticada, com queries independentes para situação e desempenho.
 
-Preserva o feedback do guard, exibe skeletons e erros recuperáveis e delega o painel individual ao componente compartilhado.
+Consome uma única vez o redirecionamento de acesso negado produzido pelo guard e o apresenta pelo sistema global de notificações, sem manter mensagem no conteúdo. Também exibe skeletons e erros recuperáveis e delega o painel individual ao componente compartilhado.
 
 ### 2. `frontend/src/features/dashboard/components/MetricCard.tsx`
 

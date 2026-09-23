@@ -4,10 +4,11 @@
 <svg
    version="1.1"
    id="svg1"
-   width="451.17615"
-   height="193.89447"
-   viewBox="0 0 451.17615 193.89447"
-   sodipodi:docname="leonardopassos2.svg"
+   width="443.72815"
+   height="196.40173"
+   viewBox="0 0 443.72815 196.40173"
+   sodipodi:docname="leonardopassos.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:xlink="http://www.w3.org/1999/xlink"
@@ -1414,8 +1415,7 @@
        y1="396.25598"
        x2="599.72815"
        y2="396.25598"
-       gradientUnits="userSpaceOnUse"
-       gradientTransform="translate(6.8942911,-3.0610073)" />
+       gradientUnits="userSpaceOnUse" />
     <linearGradient
        inkscape:collect="always"
        xlink:href="#linearGradient11"
@@ -1480,28 +1480,38 @@
      inkscape:showpageshadow="2"
      inkscape:pageopacity="0.0"
      inkscape:pagecheckerboard="0"
-     inkscape:deskcolor="#d1d1d1">
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="2"
+     inkscape:cx="157.5"
+     inkscape:cy="115"
+     inkscape:window-width="1920"
+     inkscape:window-height="1011"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g1">
     <inkscape:page
        x="0"
        y="0"
-       width="451.17615"
-       height="193.89447"
+       width="443.72815"
+       height="196.40173"
        id="page2"
        margin="0"
        bleed="0" />
   </sodipodi:namedview>
+  <path
+     id="path21-1"
+     d="m 3573.3,2857.31 -283.67,-283.63 h -504.68 l 536.4,536.34 251.95,-252.71"
+     style="display:inline;fill:url(#linearGradient178);fill-opacity:1;fill-rule:nonzero;stroke:none"
+     transform="matrix(0.13333333,0,0,-0.13333333,-126.90233,512.7911)"
+     clip-path="url(#clipPath23-2)" />
   <g
      id="g1"
      inkscape:groupmode="layer"
      inkscape:label="1"
      style="display:inline"
      transform="translate(-156,-211.85425)">
-    <path
-       id="path21-1"
-       d="m 3573.3,2857.31 -283.67,-283.63 h -504.68 l 536.4,536.34 251.95,-252.71"
-       style="display:inline;fill:url(#linearGradient178);fill-opacity:1;fill-rule:nonzero;stroke:none"
-       transform="matrix(0.13333333,0,0,-0.13333333,29.097667,724.64535)"
-       clip-path="url(#clipPath23-2)" />
     <path
        id="path9-5"
        d="m 1710.57,2574.1 -537.24,537.2 253.57,253.56 788.36,-790.76 h -504.69"
@@ -1516,28 +1526,28 @@
        clip-path="url(#clipPath14-2)"
        sodipodi:nodetypes="ccccc" />
     <path
-       id="path15-3"
-       d="m 2784.1,3647.22 -0.43,0.84 -821.22,-821.23 251.96,-252.73 1073.75,1073.75 -504.06,-0.63"
-       style="display:inline;fill:url(#linearGradient176);fill-opacity:1;fill-rule:nonzero;stroke:none"
-       transform="matrix(0.13333333,0,0,-0.13333333,5.3861618,748.40799)"
-       clip-path="url(#clipPath17-9)" />
-    <path
        id="path18-6"
        d="m 3826.67,3110.65 -537.25,537.2 h -1.26 l -252.1,-252.09 537.03,-538.68 253.58,253.57"
        style="display:inline;fill:url(#linearGradient177);fill-opacity:1;fill-rule:nonzero;stroke:none"
-       transform="matrix(0.13333333,0,0,-0.13333333,5.2291771,748.40669)"
+       transform="matrix(0.13333333,0,0,-0.13333333,5.2289968,748.40924)"
        clip-path="url(#clipPath20-5)" />
+    <path
+       id="path15-3"
+       d="m 2784.1,3647.22 -0.43,0.84 -821.22,-821.23 251.96,-252.73 1073.75,1073.75 -504.06,-0.63"
+       style="display:inline;fill:url(#linearGradient176);fill-opacity:1;fill-rule:nonzero;stroke:none"
+       transform="matrix(0.13333333,0,0,-0.13333333,5.38616,748.40799)"
+       clip-path="url(#clipPath17-9)" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:32px;line-height:1.2;font-family:Monospace;-inkscape-font-specification:'Monospace, @wght=700';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;font-variation-settings:'wght' 700;writing-mode:lr-tb;direction:ltr;text-orientation:upright;fill:url(#linearGradient180);stroke:#000000;stroke-width:1.1074;stroke-linejoin:round;stroke-miterlimit:4.6;stroke-opacity:1;paint-order:stroke fill markers"
-       x="324.89429"
-       y="404.93903"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:32px;line-height:1.2;font-family:Monospace;-inkscape-font-specification:'Monospace, @wght=700';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;font-variation-settings:'wght' 700;writing-mode:lr-tb;direction:ltr;text-orientation:upright;fill:url(#linearGradient180);stroke-width:1.1074;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke fill markers"
+       x="318"
+       y="408"
        id="text178"><tspan
          sodipodi:role="line"
          id="tspan178"
-         x="324.89429"
-         y="404.93903"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:32px;font-family:Montserrat;-inkscape-font-specification:'Montserrat, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:url(#linearGradient180);stroke:#000000;stroke-opacity:1">Leonardo Passos</tspan></text>
+         x="318"
+         y="408"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:32px;font-family:Montserrat;-inkscape-font-specification:'Montserrat, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:url(#linearGradient180)">Leonardo Passos</tspan></text>
   </g>
   <g
      id="group-R5"
