@@ -14,6 +14,11 @@ type AuthenticatedSession = {
   mustChangePassword: boolean
 }
 
+type AuthenticatedUserSynchronization = Pick<
+  AuthenticatedUser,
+  'employeeId' | 'name' | 'profile'
+>
+
 function toAuthenticatedSession(session: AuthSession): AuthenticatedSession {
   return {
     currentUser: {
@@ -27,4 +32,9 @@ function toAuthenticatedSession(session: AuthSession): AuthenticatedSession {
 }
 
 export { toAuthenticatedSession }
-export type { AuthenticatedSession, AuthenticatedUser, SessionProfile }
+export type {
+  AuthenticatedSession,
+  AuthenticatedUser,
+  AuthenticatedUserSynchronization,
+  SessionProfile,
+}

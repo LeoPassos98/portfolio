@@ -20,6 +20,7 @@ import { queryClient } from '../../../shared/lib/query/queryClient'
 import {
   toAuthenticatedSession,
   type AuthenticatedSession,
+  type AuthenticatedUserSynchronization,
 } from '../types/authenticatedSession'
 import { AuthSessionContext } from './AuthSessionContext'
 
@@ -123,6 +124,29 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     setSession(null)
   }, [])
 
+  const synchronizeCurrentUser = useCallback(
+    (currentUser: AuthenticatedUserSynchronization) => {
+      setSession((currentSession) => {
+        if (
+          !currentSession ||
+          currentSession.currentUser.employeeId !== currentUser.employeeId
+        ) {
+          return currentSession
+        }
+
+        return {
+          ...currentSession,
+          currentUser: {
+            ...currentSession.currentUser,
+            name: currentUser.name,
+            profile: currentUser.profile,
+          },
+        }
+      })
+    },
+    [],
+  )
+
   const logout = useCallback(async () => {
     await logoutRequest()
     queryClient.clear()
@@ -167,6 +191,7 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         retrySessionCheck: () => retrySessionCheck(),
         session,
         sessionExpiredMessage,
+        synchronizeCurrentUser,
       }}
     >
       {children}

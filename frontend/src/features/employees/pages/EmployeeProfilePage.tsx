@@ -142,18 +142,12 @@ function EmployeeProfilePage() {
           <p className="text-neutral mt-1">Perfil do funcionário</p>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div>
           <Link
             to={`/employees/${employee.id}/edit`}
             className="bg-primary inline-flex justify-center rounded-ui px-4 py-2 text-white hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           >
             Editar funcionário
-          </Link>
-          <Link
-            to={`/employees/${employee.id}/edit#access-management`}
-            className="text-primary inline-flex justify-center rounded-ui border border-primary px-4 py-2 font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-          >
-            Gerenciar acesso
           </Link>
         </div>
       </header>

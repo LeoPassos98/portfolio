@@ -246,13 +246,13 @@ Define com Zod a política de nova senha e confirmação do primeiro acesso sem 
 
 ### 5. `frontend/src/features/auth/context/AuthSessionContext.ts`
 
-Declara o Context tipado da autenticação real, com sessão, bootstrap, ações e sinalização de invalidação centralizada.
+Declara o Context tipado da autenticação real, com sessão, bootstrap, ações, sincronização semântica da identidade autenticada e sinalização de invalidação centralizada.
 
 ### 6. `frontend/src/features/auth/context/AuthSessionProvider.tsx`
 
 Restaura a sessão por `/auth/session` e mantém a fonte global de autenticação e a fronteira entre identidade e server state.
 
-Expõe login, troca de senha, logout, nova tentativa de bootstrap e limpeza central após `AUTH_UNAUTHENTICATED`. Limpa todo o cache TanStack antes de expor uma identidade autenticada no login, depois do logout confirmado e quando a identidade deixa de ser válida, incluindo o `401` suprimido da checagem de sessão.
+Expõe login, troca de senha, logout, nova tentativa de bootstrap, sincronização de nome e perfil do usuário autenticado por `employeeId` e limpeza central após `AUTH_UNAUTHENTICATED`. A sincronização ignora outro Funcionário e sessão já invalidada. Limpa todo o cache TanStack antes de expor uma identidade autenticada no login, depois do logout confirmado e quando a identidade deixa de ser válida, incluindo o `401` suprimido da checagem de sessão.
 
 ### 7. `frontend/src/features/auth/hooks/useAuthSession.ts`
 
@@ -272,7 +272,7 @@ Mantém contratos independentes do modelo da aplicação e invalida o CSRF após
 
 ### 10. `frontend/src/features/auth/types/authenticatedSession.ts`
 
-Define o modelo de sessão da aplicação separado do contrato bruto da API e concentra a tradução de perfil, identificador e nome do funcionário para os nomes usados pelo React.
+Define o modelo de sessão da aplicação e os dados aceitos para sincronizar sua identidade, separados do contrato bruto da API, e concentra a tradução de perfil, identificador e nome do funcionário para os nomes usados pelo React.
 
 ### 11. `frontend/src/features/auth/hooks/useAuth.ts`
 
@@ -424,9 +424,9 @@ Consulta CEP no blur, preenche somente dados disponíveis e mantém fallback man
 
 Carrega o Cliente pela rota e monta o formulário somente após confirmar o detalhe.
 
-Persiste edição cadastral com proteção contra abandono.
+Mantém edição cadastral e situação escolhida no estado local, protege alterações pendentes e persiste somente após `Salvar alterações`.
 
-Administrador também altera situação e exclui com mutations separadas; Funcionário edita somente dados cadastrais. O backend confirma a regra de OS vinculada.
+Administrador também altera situação por `PATCH` no envio explícito e exclui pelo fluxo de confirmação separado; Funcionário edita somente dados cadastrais. O backend confirma a regra de OS vinculada.
 
 ### 6. `frontend/src/features/clients/schemas/clientSchema.ts`
 
@@ -468,9 +468,9 @@ Protege alterações não salvas, bloqueia envios duplicados, sincroniza o cache
 
 Carrega o Funcionário real da rota com TanStack Query, incluindo skeleton, erro com retry e estado específico para `EMPLOYEE_NOT_FOUND`.
 
-Atualiza nome, telefone e e-mail de contato por `PUT`, a situação do Funcionário por `PATCH` separado e os campos independentes da conta por `PATCH /employees/:id/account/status`, `PATCH /employees/:id/account/profile`, `PATCH /employees/:id/account/login-email` e `PATCH /employees/:id/account/password`; as mutations que alteram dados visíveis sincronizam o detalhe e invalidam as listagens.
+Mantém nome, telefone, e-mail de contato, situação do Funcionário, e-mail de login, perfil e situação da conta no formulário local e envia todas as mudanças comuns por uma única mutation para `PUT /employees/:id/administrative`. Após sucesso, sincroniza o formulário e a identidade autenticada correspondente com a resposta real, atualiza o detalhe e invalida as listagens; em falha, preserva os valores locais para correção.
 
-O formulário editável de acesso contém somente o e-mail de login e reseta para a resposta normalizada da API após persistir; perfil e situação seguem seus controles independentes. A redefinição administrativa de senha usa formulário, schema e mutation próprios, mantém a senha somente no estado local, preserva espaços e limpa os campos após sucesso, sem invalidar listagens que a resposta não altera.
+Há um único botão `Salvar alterações` para esse conjunto e nenhum campo faz autosave. A autodespromoção informa que o usuário deixará de ser Administrador e terá a sessão encerrada, e só envia todo o conjunto após confirmação. A redefinição administrativa de senha continua com formulário e mutation próprios, mantém a senha somente no estado local, preserva espaços e limpa os campos após sucesso, sem invalidar listagens que a resposta não altera.
 
 Cria a conta de acesso de Funcionário sem conta por `POST /employees/:id/account`, bloqueia reenvio durante a mutation, atualiza o detalhe/listagens e limpa o formulário após sucesso. Apresenta a duplicidade de e-mail no campo e refaz o detalhe quando outra operação já criou a conta. O perfil exibido sempre vem do cache do detalhe, aguarda a resposta do backend e trata `LAST_ACTIVE_ADMIN_REQUIRED`.
 
@@ -482,7 +482,7 @@ Aplica visualmente a relação entre cadastro e acesso. A decisão sobre o últi
 
 Consulta o perfil administrativo real do Funcionário com TanStack Query, incluindo a conta de acesso opcional, loading, erro com retry e estado de não encontrado.
 
-Preserva as ações de edição e acesso e integra o painel compartilhado de desempenho real do Dashboard para o Funcionário consultado.
+Oferece somente a ação `Editar funcionário`, que também contém a gestão de acesso, e integra o painel compartilhado de desempenho real do Dashboard para o Funcionário consultado.
 
 ### 5. `frontend/src/features/employees/mocks/employees.ts`
 
@@ -498,7 +498,7 @@ Define com Zod as validações e normalizações reutilizadas nos dados cadastra
 
 ### 8. `frontend/src/features/employees/schemas/employeeAccessSchema.ts`
 
-Define com Zod as validações reutilizadas de criação de conta, alteração do e-mail de login e redefinição administrativa de senha. A política de senha preserva o valor exato, inclusive espaços, entre 8 e 128 caracteres.
+Define com Zod as validações reutilizadas da edição administrativa conjunta, criação de conta, alteração do e-mail de login e redefinição administrativa de senha. A política de senha preserva o valor exato, inclusive espaços, entre 8 e 128 caracteres.
 
 Inclui normalização do e-mail de login, perfil e confirmação da senha temporária exigidos na criação.
 
@@ -516,7 +516,7 @@ Cadastro inativo força a conta associada a Inativa; reativação preserva conta
 
 ### 11. `frontend/src/features/employees/api/employeesApi.ts`
 
-Concentra as consultas, a criação, a edição cadastral, a criação de conta e as alterações independentes de situação, perfil e e-mail de login na instância Axios compartilhada.
+Concentra as consultas, a criação, a edição cadastral legada, a edição administrativa conjunta, a criação de conta e as operações próprias de acesso na instância Axios compartilhada.
 
 Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e traduz os formulários de criação, edição e acesso para os contratos HTTP; `loginEmail` só existe no detalhe, onde a API o fornece.
 

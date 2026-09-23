@@ -32,6 +32,10 @@ import { Roles } from '../auth/roles.decorator.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import {
+  employeeAdministrativeUpdateSchema,
+  type EmployeeAdministrativeUpdateInput,
+} from './employee-administrative-update.schema.js';
+import {
   employeeAccessCreateSchema,
   type EmployeeAccessCreateInput,
 } from './employee-access-create.schema.js';
@@ -424,6 +428,83 @@ export class EmployeesController {
     input: EmployeeAccessPasswordResetInput,
   ): Promise<EmployeeDetailResponse> {
     return this.employeesService.resetAccessPassword(id, input);
+  }
+
+  @Put(':id/administrative')
+  @ApiHeader(csrfHeader)
+  @ApiOperation({
+    summary: 'Atualiza atomicamente o funcionário e sua conta de acesso',
+    description:
+      'Aplica dados cadastrais, situação do funcionário e, quando houver, e-mail, perfil e situação da conta em uma única transação serializável. Mudanças de acesso revogam as sessões da conta na mesma transação.',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['nome', 'telefone', 'email', 'status'],
+      properties: {
+        nome: { type: 'string', minLength: 2, maxLength: 120 },
+        telefone: { type: 'string', example: '+55 (11) 99999-9999' },
+        email: {
+          type: 'string',
+          format: 'email',
+          example: 'maria@example.com',
+        },
+        status: { type: 'string', enum: ['active', 'inactive'] },
+        account: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['loginEmail', 'profile', 'status'],
+          properties: {
+            loginEmail: {
+              type: 'string',
+              format: 'email',
+              example: 'maria@login.example.com',
+            },
+            profile: {
+              type: 'string',
+              enum: ['administrator', 'employee'],
+            },
+            status: {
+              type: 'string',
+              enum: ['active', 'inactive'],
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: EmployeeDetailResponse,
+    description: 'Estado real persistido após a atualização conjunta.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Identificador ou corpo da requisição inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiUnauthorizedResponse(unauthorizedResponse)
+  @ApiForbiddenResponse({
+    description:
+      'Token CSRF ausente ou inválido, troca obrigatória de senha pendente ou conta sem perfil de Administrador.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Funcionário não encontrado (EMPLOYEE_NOT_FOUND) ou conta informada não encontrada (EMPLOYEE_ACCESS_NOT_FOUND).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiConflictResponse({
+    description:
+      'Alguma regra conjunta impediu a alteração: OS ativa (EMPLOYEE_HAS_ACTIVE_ORDERS), último Administrador ativo (LAST_ACTIVE_ADMIN_REQUIRED), ativação da conta para Funcionário inativo (EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION) ou e-mail de login duplicado (LOGIN_EMAIL_ALREADY_EXISTS).',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  updateAdministrative(
+    @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Body(new ZodValidationPipe(employeeAdministrativeUpdateSchema))
+    input: EmployeeAdministrativeUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    return this.employeesService.updateAdministrative(id, input);
   }
 
   @Put(':id')

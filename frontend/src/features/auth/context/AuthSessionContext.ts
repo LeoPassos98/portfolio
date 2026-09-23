@@ -3,7 +3,10 @@ import type {
   FirstAccessPasswordInput,
   LoginInput,
 } from '../api/authApi'
-import type { AuthenticatedSession } from '../types/authenticatedSession'
+import type {
+  AuthenticatedSession,
+  AuthenticatedUserSynchronization,
+} from '../types/authenticatedSession'
 
 type AuthSessionContextValue = {
   changeFirstAccessPassword: (
@@ -17,6 +20,9 @@ type AuthSessionContextValue = {
   retrySessionCheck: () => Promise<void>
   session: AuthenticatedSession | null
   sessionExpiredMessage: boolean
+  synchronizeCurrentUser: (
+    currentUser: AuthenticatedUserSynchronization,
+  ) => void
 }
 
 const AuthSessionContext = createContext<AuthSessionContextValue | undefined>(

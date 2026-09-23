@@ -2,8 +2,9 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { Link, useParams } from 'react-router'
+import { useForm, useWatch } from 'react-hook-form'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { EmptyState } from '../../../components/feedback/EmptyState'
 import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
@@ -13,6 +14,7 @@ import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
 import { Select } from '../../../components/ui/Select'
 import { StatusBadge } from '../../../components/ui/StatusBadge'
+import { useAuth } from '../../auth/hooks/useAuth'
 import {
   getEmployeeAccessStatus,
   getEmployeeAccessStatusAvailability,
@@ -22,35 +24,21 @@ import {
   createEmployeeAccess,
   getEmployee,
   resetEmployeeAccessPassword,
-  updateEmployee,
-  updateEmployeeAccessLoginEmail,
-  updateEmployeeAccessProfile,
-  updateEmployeeAccessStatus,
-  updateEmployeeStatus,
+  updateEmployeeAdministrative,
   type EmployeeHttpErrorResponse,
 } from '../api/employeesApi'
 import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
-import type {
-  Employee,
-  EmployeeAccessProfile,
-  EmployeeAccessStatus,
-  EmployeeStatus,
-} from '../types/employee'
+import type { Employee } from '../types/employee'
 import {
-  employeeSchema,
-  type EmployeeFormData,
-  type EmployeeFormValues,
-} from '../schemas/employeeSchema'
-import {
+  employeeAdministrativeUpdateSchema,
   employeeAccessCreationSchema,
   employeeAccessPasswordResetSchema,
-  employeeAccessUpdateSchema,
+  type EmployeeAdministrativeUpdateFormData,
+  type EmployeeAdministrativeUpdateFormValues,
   type EmployeeAccessCreationFormData,
   type EmployeeAccessCreationFormValues,
   type EmployeeAccessPasswordResetFormData,
   type EmployeeAccessPasswordResetFormValues,
-  type EmployeeAccessUpdateFormData,
-  type EmployeeAccessUpdateFormValues,
 } from '../schemas/employeeAccessSchema'
 
 const accessStatusDetails = {
@@ -67,12 +55,21 @@ function isEmployeeApiError(
   )
 }
 
-function toEmployeeFormData(employee: Employee): EmployeeFormData {
+function toEmployeeFormData(
+  employee: Employee,
+): EmployeeAdministrativeUpdateFormData {
   return {
     name: employee.name,
     phone: employee.phone,
     contactEmail: employee.contactEmail,
     status: employee.status,
+    access: employee.access
+      ? {
+          loginEmail: employee.access.loginEmail,
+          profile: employee.access.profile,
+          status: employee.access.status,
+        }
+      : undefined,
   }
 }
 
@@ -100,8 +97,12 @@ function EmployeeEditSkeleton() {
 
 function EmployeeEditPage() {
   const { employeeId } = useParams<{ employeeId: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { clearSession, session, synchronizeCurrentUser } = useAuth()
   const { showSuccess } = useSuccessFeedback()
+  const [pendingAdministrativeUpdate, setPendingAdministrativeUpdate] =
+    useState<EmployeeAdministrativeUpdateFormValues | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [accessStatusError, setAccessStatusError] = useState<string | null>(
@@ -110,9 +111,6 @@ function EmployeeEditPage() {
   const [accessProfileError, setAccessProfileError] = useState<string | null>(
     null,
   )
-  const [accessLoginEmailError, setAccessLoginEmailError] = useState<
-    string | null
-  >(null)
   const [accessPasswordResetError, setAccessPasswordResetError] = useState<
     string | null
   >(null)
@@ -134,15 +132,27 @@ function EmployeeEditPage() {
     register: registerEmployee,
     handleSubmit: handleSubmitEmployee,
     reset: resetEmployee,
+    clearErrors: clearEmployeeErrors,
+    control: employeeFormControl,
+    setError: setEmployeeFieldError,
+    setValue: setEmployeeValue,
     formState: { errors: employeeErrors, isDirty: isEmployeeDirty },
-  } = useForm<EmployeeFormData, unknown, EmployeeFormValues>({
-    resolver: zodResolver(employeeSchema),
+  } = useForm<
+    EmployeeAdministrativeUpdateFormData,
+    unknown,
+    EmployeeAdministrativeUpdateFormValues
+  >({
+    resolver: zodResolver(employeeAdministrativeUpdateSchema),
     values: employee ? toEmployeeFormData(employee) : undefined,
+    resetOptions: {
+      keepDirtyValues: true,
+    },
     defaultValues: {
       name: '',
       phone: '',
       contactEmail: '',
       status: 'active',
+      access: undefined,
     },
   })
   const {
@@ -166,28 +176,6 @@ function EmployeeEditPage() {
     },
   })
   const {
-    register: registerAccessUpdate,
-    handleSubmit: handleSubmitAccessUpdate,
-    clearErrors: clearAccessUpdateErrors,
-    formState: { errors: accessUpdateErrors, isDirty: isAccessUpdateDirty },
-    reset: resetAccessUpdate,
-    setError: setAccessUpdateFieldError,
-  } = useForm<
-    EmployeeAccessUpdateFormData,
-    unknown,
-    EmployeeAccessUpdateFormValues
-  >({
-    resolver: zodResolver(employeeAccessUpdateSchema),
-    values: employee?.access
-      ? {
-          loginEmail: employee.access.loginEmail,
-        }
-      : undefined,
-    defaultValues: {
-      loginEmail: '',
-    },
-  })
-  const {
     clearErrors: clearAccessPasswordResetErrors,
     register: registerAccessPasswordReset,
     handleSubmit: handleSubmitAccessPasswordReset,
@@ -207,32 +195,17 @@ function EmployeeEditPage() {
       confirmPassword: '',
     },
   })
+  const [selectedEmployeeStatus, selectedAccessStatus] = useWatch({
+    control: employeeFormControl,
+    name: ['status', 'access.status'],
+  })
   const { confirmationDialog } = useUnsavedChangesGuard(
-    isEmployeeDirty ||
-      isAccessCreationDirty ||
-      isAccessUpdateDirty ||
-      isAccessPasswordResetDirty,
+    isEmployeeDirty || isAccessCreationDirty || isAccessPasswordResetDirty,
   )
 
-  const updateMutation = useMutation({
-    mutationFn: (values: EmployeeFormValues) =>
-      updateEmployee(employeeId!, values),
-  })
-  const statusMutation = useMutation({
-    mutationFn: (status: EmployeeStatus) =>
-      updateEmployeeStatus(employeeId!, status),
-  })
-  const accessStatusMutation = useMutation({
-    mutationFn: (status: EmployeeAccessStatus) =>
-      updateEmployeeAccessStatus(employeeId!, status),
-  })
-  const accessProfileMutation = useMutation({
-    mutationFn: (profile: EmployeeAccessProfile) =>
-      updateEmployeeAccessProfile(employeeId!, profile),
-  })
-  const accessLoginEmailMutation = useMutation({
-    mutationFn: (loginEmail: string) =>
-      updateEmployeeAccessLoginEmail(employeeId!, loginEmail),
+  const administrativeUpdateMutation = useMutation({
+    mutationFn: (values: EmployeeAdministrativeUpdateFormValues) =>
+      updateEmployeeAdministrative(employeeId!, values),
   })
   const createAccessMutation = useMutation({
     mutationFn: (values: EmployeeAccessCreationFormValues) =>
@@ -242,6 +215,9 @@ function EmployeeEditPage() {
     mutationFn: (values: EmployeeAccessPasswordResetFormValues) =>
       resetEmployeeAccessPassword(employeeId!, values),
   })
+  const isSavingEmployee = administrativeUpdateMutation.isPending
+  const isIndependentAccessMutationPending =
+    createAccessMutation.isPending || accessPasswordResetMutation.isPending
 
   async function synchronizeEmployee(updatedEmployee: Employee) {
     queryClient.setQueryData(
@@ -253,66 +229,147 @@ function EmployeeEditPage() {
     })
   }
 
-  async function onSubmit(values: EmployeeFormValues) {
-    if (updateMutation.isPending) {
+  function isOwnAdministratorDemotion(
+    values: EmployeeAdministrativeUpdateFormValues,
+  ) {
+    return Boolean(
+      employee?.access &&
+      session?.currentUser.employeeId === employee.id &&
+      session.currentUser.profile === 'admin' &&
+      employee.access.profile === 'administrator' &&
+      values.access?.profile === 'employee',
+    )
+  }
+
+  function revokesCurrentSession(
+    values: EmployeeAdministrativeUpdateFormValues,
+  ) {
+    if (
+      !employee?.access ||
+      !values.access ||
+      session?.currentUser.employeeId !== employee.id
+    ) {
+      return false
+    }
+
+    return (
+      employee.access.loginEmail !== values.access.loginEmail ||
+      employee.access.profile !== values.access.profile ||
+      (employee.access.status === 'active' &&
+        values.access.status === 'inactive') ||
+      (employee.status === 'active' &&
+        values.status === 'inactive' &&
+        employee.access.status === 'active')
+    )
+  }
+
+  async function persistAdministrativeUpdate(
+    values: EmployeeAdministrativeUpdateFormValues,
+  ) {
+    if (!employee || isSavingEmployee) {
       return
     }
 
     setFormError(null)
+    setStatusError(null)
+    setAccessStatusError(null)
+    setAccessProfileError(null)
+    clearEmployeeErrors('access.loginEmail')
 
     try {
-      const updatedEmployee = await updateMutation.mutateAsync(values)
+      const shouldClearCurrentSession = revokesCurrentSession(values)
+      const updatedEmployee =
+        await administrativeUpdateMutation.mutateAsync(values)
+
+      if (shouldClearCurrentSession) {
+        queryClient.setQueryData(
+          employeesQueryKeys.detail(updatedEmployee.id),
+          updatedEmployee,
+        )
+        clearSession()
+        navigate('/login', { replace: true })
+        return
+      }
 
       await synchronizeEmployee(updatedEmployee)
+
+      if (updatedEmployee.access) {
+        synchronizeCurrentUser({
+          employeeId: updatedEmployee.id,
+          name: updatedEmployee.name,
+          profile:
+            updatedEmployee.access.profile === 'administrator'
+              ? 'admin'
+              : 'employee',
+        })
+      }
+
       resetEmployee(toEmployeeFormData(updatedEmployee))
       showSuccess('Funcionário atualizado com sucesso.')
-    } catch {
-      setFormError('Não foi possível salvar as alterações. Tente novamente.')
-    }
-  }
-
-  async function handleStatusChange(status: EmployeeStatus) {
-    if (!employee || status === employee.status || statusMutation.isPending) {
-      return
-    }
-
-    setStatusError(null)
-
-    try {
-      const updatedEmployee = await statusMutation.mutateAsync(status)
-
-      await synchronizeEmployee(updatedEmployee)
-      resetEmployee(toEmployeeFormData(updatedEmployee))
-      showSuccess(
-        updatedEmployee.status === 'inactive'
-          ? 'Funcionário desativado com sucesso.'
-          : 'Funcionário reativado com sucesso.',
-      )
-    } catch (statusMutationError) {
-      if (
-        isEmployeeApiError(statusMutationError, 'EMPLOYEE_HAS_ACTIVE_ORDERS')
-      ) {
+    } catch (updateError) {
+      if (isEmployeeApiError(updateError, 'EMPLOYEE_HAS_ACTIVE_ORDERS')) {
         setStatusError(
           'Não é possível inativar este funcionário porque possui uma OS aguardando ou em andamento sob sua responsabilidade.',
         )
         return
       }
 
-      if (
-        isEmployeeApiError(statusMutationError, 'LAST_ACTIVE_ADMIN_REQUIRED')
-      ) {
-        setStatusError(
-          'Não é possível inativar este funcionário porque sua conta é a última conta ativa de Administrador.',
+      if (isEmployeeApiError(updateError, 'LAST_ACTIVE_ADMIN_REQUIRED')) {
+        setAccessProfileError(
+          'A última conta ativa de Administrador não pode ser despromovida nem inativada.',
         )
         return
       }
 
-      setStatusError('Não foi possível atualizar a situação. Tente novamente.')
+      if (
+        isEmployeeApiError(
+          updateError,
+          'EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION',
+        )
+      ) {
+        setAccessStatusError(
+          'Não é possível ativar a conta enquanto o cadastro do funcionário estiver inativo.',
+        )
+        return
+      }
+
+      if (isEmployeeApiError(updateError, 'LOGIN_EMAIL_ALREADY_EXISTS')) {
+        setEmployeeFieldError('access.loginEmail', {
+          type: 'server',
+          message: 'Este e-mail de login já está em uso por outra conta.',
+        })
+        return
+      }
+
+      if (isEmployeeApiError(updateError, 'EMPLOYEE_ACCESS_NOT_FOUND')) {
+        setFormError(
+          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
+        )
+        return
+      }
+
+      if (isEmployeeApiError(updateError, 'EMPLOYEE_NOT_FOUND')) {
+        setFormError(
+          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
+        )
+        return
+      }
+
+      setFormError('Não foi possível salvar as alterações. Tente novamente.')
     }
   }
 
+  function onSubmit(values: EmployeeAdministrativeUpdateFormValues) {
+    if (isOwnAdministratorDemotion(values)) {
+      setPendingAdministrativeUpdate(values)
+      return
+    }
+
+    void persistAdministrativeUpdate(values)
+  }
+
   async function onCreateAccess(values: EmployeeAccessCreationFormValues) {
-    if (!employeeId || createAccessMutation.isPending) {
+    if (!employeeId || createAccessMutation.isPending || isSavingEmployee) {
       return
     }
 
@@ -348,214 +405,14 @@ function EmployeeEditPage() {
     }
   }
 
-  async function handleAccessStatusChange(status: EmployeeAccessStatus) {
-    if (
-      !employeeId ||
-      !employee?.access ||
-      status === employee.access.status ||
-      accessStatusMutation.isPending
-    ) {
-      return
-    }
-
-    setAccessStatusError(null)
-
-    try {
-      const updatedEmployee = await accessStatusMutation.mutateAsync(status)
-
-      await synchronizeEmployee(updatedEmployee)
-      showSuccess(
-        updatedEmployee.access?.status === 'inactive'
-          ? 'Conta de acesso inativada com sucesso.'
-          : 'Conta de acesso reativada com sucesso.',
-      )
-    } catch (accessStatusMutationError) {
-      if (
-        isEmployeeApiError(
-          accessStatusMutationError,
-          'EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION',
-        )
-      ) {
-        setAccessStatusError(
-          'Não é possível ativar a conta enquanto o cadastro do funcionário estiver inativo.',
-        )
-        return
-      }
-
-      if (
-        isEmployeeApiError(
-          accessStatusMutationError,
-          'LAST_ACTIVE_ADMIN_REQUIRED',
-        )
-      ) {
-        setAccessStatusError(
-          'Não é possível inativar a última conta ativa de Administrador.',
-        )
-        return
-      }
-
-      if (
-        isEmployeeApiError(
-          accessStatusMutationError,
-          'EMPLOYEE_ACCESS_NOT_FOUND',
-        )
-      ) {
-        setAccessStatusError(
-          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
-        )
-        await refetch()
-        return
-      }
-
-      if (isEmployeeApiError(accessStatusMutationError, 'EMPLOYEE_NOT_FOUND')) {
-        setAccessStatusError(
-          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
-        )
-        await refetch()
-        return
-      }
-
-      setAccessStatusError(
-        'Não foi possível atualizar a situação da conta. Tente novamente.',
-      )
-    }
-  }
-
-  async function handleAccessProfileChange(profile: EmployeeAccessProfile) {
-    if (
-      !employeeId ||
-      !employee?.access ||
-      profile === employee.access.profile ||
-      accessProfileMutation.isPending
-    ) {
-      return
-    }
-
-    setAccessProfileError(null)
-
-    try {
-      const updatedEmployee = await accessProfileMutation.mutateAsync(profile)
-
-      await synchronizeEmployee(updatedEmployee)
-      showSuccess(
-        updatedEmployee.access?.profile === 'administrator'
-          ? 'Perfil da conta atualizado para Administrador.'
-          : 'Perfil da conta atualizado para Funcionário.',
-      )
-    } catch (accessProfileMutationError) {
-      if (
-        isEmployeeApiError(
-          accessProfileMutationError,
-          'LAST_ACTIVE_ADMIN_REQUIRED',
-        )
-      ) {
-        setAccessProfileError(
-          'A última conta ativa de Administrador não pode ser convertida para Funcionário.',
-        )
-        return
-      }
-
-      if (
-        isEmployeeApiError(
-          accessProfileMutationError,
-          'EMPLOYEE_ACCESS_NOT_FOUND',
-        )
-      ) {
-        setAccessProfileError(
-          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
-        )
-        await refetch()
-        return
-      }
-
-      if (
-        isEmployeeApiError(accessProfileMutationError, 'EMPLOYEE_NOT_FOUND')
-      ) {
-        setAccessProfileError(
-          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
-        )
-        await refetch()
-        return
-      }
-
-      setAccessProfileError(
-        'Não foi possível atualizar o perfil. Tente novamente.',
-      )
-    }
-  }
-
-  async function onUpdateAccess(values: EmployeeAccessUpdateFormValues) {
-    if (
-      !employeeId ||
-      !employee?.access ||
-      accessLoginEmailMutation.isPending
-    ) {
-      return
-    }
-
-    setAccessLoginEmailError(null)
-    clearAccessUpdateErrors('loginEmail')
-
-    try {
-      const updatedEmployee = await accessLoginEmailMutation.mutateAsync(
-        values.loginEmail,
-      )
-
-      await synchronizeEmployee(updatedEmployee)
-      resetAccessUpdate({
-        loginEmail: updatedEmployee.access?.loginEmail ?? values.loginEmail,
-      })
-      showSuccess('E-mail de login atualizado com sucesso.')
-    } catch (accessLoginEmailMutationError) {
-      if (
-        isEmployeeApiError(
-          accessLoginEmailMutationError,
-          'LOGIN_EMAIL_ALREADY_EXISTS',
-        )
-      ) {
-        setAccessUpdateFieldError('loginEmail', {
-          type: 'server',
-          message: 'Este e-mail de login já está em uso por outra conta.',
-        })
-        return
-      }
-
-      if (
-        isEmployeeApiError(
-          accessLoginEmailMutationError,
-          'EMPLOYEE_ACCESS_NOT_FOUND',
-        )
-      ) {
-        setAccessLoginEmailError(
-          'Esta conta de acesso não foi encontrada. Atualize a página e tente novamente.',
-        )
-        await refetch()
-        return
-      }
-
-      if (
-        isEmployeeApiError(accessLoginEmailMutationError, 'EMPLOYEE_NOT_FOUND')
-      ) {
-        setAccessLoginEmailError(
-          'Este funcionário não foi encontrado. Atualize a página e tente novamente.',
-        )
-        await refetch()
-        return
-      }
-
-      setAccessLoginEmailError(
-        'Não foi possível atualizar o e-mail de login. Tente novamente.',
-      )
-    }
-  }
-
   async function onResetAccessPassword(
     values: EmployeeAccessPasswordResetFormValues,
   ) {
     if (
       !employeeId ||
       !employee?.access ||
-      accessPasswordResetMutation.isPending
+      accessPasswordResetMutation.isPending ||
+      isSavingEmployee
     ) {
       return
     }
@@ -650,14 +507,14 @@ function EmployeeEditPage() {
   }
 
   const currentEmployeeAccessStatus = getEmployeeAccessStatus(
-    employee.status,
-    employee.access?.status ?? null,
+    selectedEmployeeStatus,
+    selectedAccessStatus ?? null,
   )
   const accessStatus = currentEmployeeAccessStatus
     ? accessStatusDetails[currentEmployeeAccessStatus]
     : null
   const accessStatusAvailability = getEmployeeAccessStatusAvailability(
-    employee.status,
+    selectedEmployeeStatus,
     currentEmployeeAccessStatus,
   )
   const employeeAccessStatusDescriptionIds = [
@@ -713,21 +570,24 @@ function EmployeeEditPage() {
               </Label>
               <Select
                 id="edit-employee-status"
-                value={employee.status}
-                disabled={statusMutation.isPending}
+                disabled={isSavingEmployee}
                 aria-required="true"
-                onChange={(event) => {
-                  const status = event.target
-                    .value as EmployeeFormData['status']
-                  void handleStatusChange(status)
-                }}
+                {...registerEmployee('status', {
+                  onChange: (event) => {
+                    setStatusError(null)
+
+                    if (event.target.value === 'inactive' && employee.access) {
+                      setEmployeeValue('access.status', 'inactive', {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      })
+                    }
+                  },
+                })}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
-              {statusMutation.isPending && (
-                <p className="text-neutral text-sm">Atualizando situação...</p>
-              )}
               {statusError && (
                 <p role="alert" className="text-error text-sm">
                   {statusError}
@@ -831,44 +691,32 @@ function EmployeeEditPage() {
 
         {employee.access ? (
           <>
-            <form
-              noValidate
-              className="mt-4"
-              onSubmit={handleSubmitAccessUpdate(onUpdateAccess)}
-            >
+            <div className="mt-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="employee-login-email">E-mail de login</Label>
                   <Input
                     id="employee-login-email"
+                    form="employee-details-form"
                     type="email"
                     autoCapitalize="none"
                     autoComplete="username"
-                    aria-invalid={Boolean(accessUpdateErrors.loginEmail)}
+                    aria-invalid={Boolean(employeeErrors.access?.loginEmail)}
                     aria-required="true"
                     aria-describedby={
-                      accessUpdateErrors.loginEmail || accessLoginEmailError
+                      employeeErrors.access?.loginEmail
                         ? 'employee-login-email-error'
                         : undefined
                     }
-                    disabled={accessLoginEmailMutation.isPending}
-                    {...registerAccessUpdate('loginEmail')}
+                    disabled={isSavingEmployee}
+                    {...registerEmployee('access.loginEmail')}
                   />
-                  {accessUpdateErrors.loginEmail?.message && (
+                  {employeeErrors.access?.loginEmail?.message && (
                     <p
                       id="employee-login-email-error"
                       className="text-error text-sm"
                     >
-                      {accessUpdateErrors.loginEmail.message}
-                    </p>
-                  )}
-                  {accessLoginEmailError && (
-                    <p
-                      id="employee-login-email-error"
-                      role="alert"
-                      className="text-error text-sm"
-                    >
-                      {accessLoginEmailError}
+                      {employeeErrors.access.loginEmail.message}
                     </p>
                   )}
                 </div>
@@ -877,8 +725,8 @@ function EmployeeEditPage() {
                   <Label htmlFor="employee-profile">Perfil</Label>
                   <Select
                     id="employee-profile"
-                    value={employee.access.profile}
-                    disabled={accessProfileMutation.isPending}
+                    form="employee-details-form"
+                    disabled={isSavingEmployee}
                     aria-invalid={Boolean(accessProfileError)}
                     aria-required="true"
                     aria-describedby={
@@ -886,21 +734,13 @@ function EmployeeEditPage() {
                         ? 'employee-access-profile-error'
                         : undefined
                     }
-                    onChange={(event) => {
-                      const profile = event.target
-                        .value as EmployeeAccessProfile
-
-                      void handleAccessProfileChange(profile)
-                    }}
+                    {...registerEmployee('access.profile', {
+                      onChange: () => setAccessProfileError(null),
+                    })}
                   >
                     <option value="employee">Funcionário</option>
                     <option value="administrator">Administrador</option>
                   </Select>
-                  {accessProfileMutation.isPending && (
-                    <p className="text-neutral text-sm">
-                      Atualizando perfil...
-                    </p>
-                  )}
                   {accessProfileError && (
                     <p
                       id="employee-access-profile-error"
@@ -918,30 +758,23 @@ function EmployeeEditPage() {
                   </Label>
                   <Select
                     id="employee-access-status"
-                    value={currentEmployeeAccessStatus ?? 'inactive'}
+                    form="employee-details-form"
                     disabled={
                       !accessStatusAvailability.canChangeAccessStatus ||
-                      accessStatusMutation.isPending
+                      isSavingEmployee
                     }
                     aria-invalid={Boolean(accessStatusError)}
                     aria-required="true"
                     aria-describedby={
                       employeeAccessStatusDescriptionIds || undefined
                     }
-                    onChange={(event) => {
-                      const status = event.target.value as EmployeeAccessStatus
-
-                      void handleAccessStatusChange(status)
-                    }}
+                    {...registerEmployee('access.status', {
+                      onChange: () => setAccessStatusError(null),
+                    })}
                   >
                     <option value="active">Ativa</option>
                     <option value="inactive">Inativa</option>
                   </Select>
-                  {accessStatusMutation.isPending && (
-                    <p className="text-neutral text-sm">
-                      Atualizando situação da conta...
-                    </p>
-                  )}
                   {accessStatusError && (
                     <p
                       id="employee-access-status-error"
@@ -961,17 +794,7 @@ function EmployeeEditPage() {
                   )}
                 </div>
               </div>
-
-              <Button
-                className="mt-4"
-                type="submit"
-                disabled={accessLoginEmailMutation.isPending}
-              >
-                {accessLoginEmailMutation.isPending
-                  ? 'Salvando e-mail...'
-                  : 'Salvar e-mail de login'}
-              </Button>
-            </form>
+            </div>
 
             <form
               noValidate
@@ -1004,7 +827,9 @@ function EmployeeEditPage() {
                         ? 'employee-temporary-password-error'
                         : undefined
                     }
-                    disabled={accessPasswordResetMutation.isPending}
+                    disabled={
+                      accessPasswordResetMutation.isPending || isSavingEmployee
+                    }
                     {...registerAccessPasswordReset('temporaryPassword')}
                   />
                   {accessPasswordResetErrors.temporaryPassword?.message && (
@@ -1034,7 +859,9 @@ function EmployeeEditPage() {
                         ? 'employee-temporary-password-confirmation-error'
                         : undefined
                     }
-                    disabled={accessPasswordResetMutation.isPending}
+                    disabled={
+                      accessPasswordResetMutation.isPending || isSavingEmployee
+                    }
                     {...registerAccessPasswordReset('confirmPassword')}
                   />
                   {accessPasswordResetErrors.confirmPassword?.message && (
@@ -1057,7 +884,9 @@ function EmployeeEditPage() {
               <Button
                 className="mt-4"
                 type="submit"
-                disabled={accessPasswordResetMutation.isPending}
+                disabled={
+                  accessPasswordResetMutation.isPending || isSavingEmployee
+                }
               >
                 {accessPasswordResetMutation.isPending
                   ? 'Redefinindo senha...'
@@ -1181,7 +1010,7 @@ function EmployeeEditPage() {
             <Button
               className="mt-4"
               type="submit"
-              disabled={createAccessMutation.isPending}
+              disabled={createAccessMutation.isPending || isSavingEmployee}
             >
               {createAccessMutation.isPending
                 ? 'Criando acesso...'
@@ -1195,11 +1024,9 @@ function EmployeeEditPage() {
         <Button
           form="employee-details-form"
           type="submit"
-          disabled={updateMutation.isPending}
+          disabled={isSavingEmployee || isIndependentAccessMutationPending}
         >
-          {updateMutation.isPending
-            ? 'Salvando alterações...'
-            : 'Salvar alterações'}
+          {isSavingEmployee ? 'Salvando alterações...' : 'Salvar alterações'}
         </Button>
         <Link
           to={`/employees/${employee.id}`}
@@ -1208,6 +1035,23 @@ function EmployeeEditPage() {
           Cancelar
         </Link>
       </div>
+      <ConfirmationDialog
+        isOpen={pendingAdministrativeUpdate !== null}
+        isPending={isSavingEmployee}
+        title="Deixar de ser Administrador?"
+        description="Você deixará de ser Administrador e sua sessão será encerrada após a alteração. Todas as mudanças pendentes desta página serão salvas em conjunto."
+        confirmLabel="Confirmar e salvar"
+        onCancel={() => setPendingAdministrativeUpdate(null)}
+        onConfirm={() => {
+          if (!pendingAdministrativeUpdate) {
+            return
+          }
+
+          void persistAdministrativeUpdate(pendingAdministrativeUpdate).finally(
+            () => setPendingAdministrativeUpdate(null),
+          )
+        }}
+      />
       {confirmationDialog}
     </AppLayout>
   )

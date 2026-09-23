@@ -9,6 +9,7 @@ import type {
 } from '../types/employee'
 import type { EmployeeFormValues } from '../schemas/employeeSchema'
 import type { EmployeeAccessCreationFormValues } from '../schemas/employeeAccessSchema'
+import type { EmployeeAdministrativeUpdateFormValues } from '../schemas/employeeAccessSchema'
 import type { EmployeeAccessPasswordResetFormValues } from '../schemas/employeeAccessSchema'
 
 type EmployeeListParams = {
@@ -65,6 +66,14 @@ type EmployeeCreateHttpBody = {
 }
 
 type EmployeeUpdateHttpBody = Omit<EmployeeCreateHttpBody, 'status'>
+
+type EmployeeAdministrativeUpdateHttpBody = EmployeeCreateHttpBody & {
+  account?: {
+    loginEmail: string
+    profile: EmployeeAccessProfile
+    status: EmployeeAccessStatus
+  }
+}
 
 type EmployeeStatusUpdateRequest = {
   status: EmployeeStatus
@@ -209,6 +218,33 @@ async function updateEmployee(
   return toEmployee(data)
 }
 
+async function updateEmployeeAdministrative(
+  id: string,
+  values: EmployeeAdministrativeUpdateFormValues,
+): Promise<Employee> {
+  const body: EmployeeAdministrativeUpdateHttpBody = {
+    nome: values.name,
+    telefone: values.phone,
+    email: values.contactEmail,
+    status: values.status,
+    ...(values.access
+      ? {
+          account: {
+            loginEmail: values.access.loginEmail,
+            profile: values.access.profile,
+            status: values.access.status,
+          },
+        }
+      : {}),
+  }
+  const { data } = await apiClient.put<EmployeeHttpResponse>(
+    `/employees/${id}/administrative`,
+    body,
+  )
+
+  return toEmployee(data)
+}
+
 async function updateEmployeeStatus(
   id: string,
   status: EmployeeStatus,
@@ -282,6 +318,7 @@ export {
   toEmployee,
   toEmployeeListItem,
   updateEmployee,
+  updateEmployeeAdministrative,
   updateEmployeeAccessLoginEmail,
   updateEmployeeAccessProfile,
   updateEmployeeAccessStatus,
@@ -289,6 +326,7 @@ export {
 }
 export type {
   EmployeeAccessCreateHttpBody,
+  EmployeeAdministrativeUpdateHttpBody,
   EmployeeAccessLoginEmailUpdateRequest,
   EmployeeAccessPasswordResetRequest,
   EmployeeAccessProfileUpdateRequest,

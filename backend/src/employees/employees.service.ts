@@ -11,6 +11,7 @@ import {
 import { PasswordService } from '../auth/password/password.service.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
+import type { EmployeeAdministrativeUpdateInput } from './employee-administrative-update.schema.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
 import type { EmployeeAccessProfileUpdateInput } from './employee-access-profile-update.schema.js';
@@ -184,6 +185,23 @@ export class EmployeesService {
     }
   }
 
+  async updateAdministrative(
+    id: string,
+    input: EmployeeAdministrativeUpdateInput,
+  ): Promise<EmployeeDetailResponse> {
+    try {
+      const employee = await this.executeAdministrativeUpdate(id, input);
+
+      return toEmployeeDetail(employee);
+    } catch (error: unknown) {
+      if (this.isUniqueConstraintError(error)) {
+        throw new ConflictException(LOGIN_EMAIL_ALREADY_EXISTS_ERROR);
+      }
+
+      throw error;
+    }
+  }
+
   async createAccess(
     employeeId: string,
     { loginEmail, profile, initialPassword }: EmployeeAccessCreateInput,
@@ -266,33 +284,19 @@ export class EmployeesService {
     employeeId: string,
     { loginEmail }: EmployeeAccessLoginEmailUpdateInput,
   ): Promise<EmployeeDetailResponse> {
-    const employee = await this.database.funcionario.findUnique({
-      where: { id: employeeId },
-      select: employeeStatusSelect,
-    });
-
-    if (!employee) {
-      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
-    }
-
-    if (!employee.usuario) {
-      throw new NotFoundException(EMPLOYEE_ACCESS_NOT_FOUND_ERROR);
-    }
-
-    if (employee.usuario.emailLogin === loginEmail) {
-      return toEmployeeDetail(employee);
-    }
-
     try {
-      const account = await this.database.usuario.update({
-        where: { id: employee.usuario.id },
-        data: { emailLogin: loginEmail },
-        select: { funcionario: { select: employeeDetailSelect } },
-      });
+      const transition = await this.executeAccessLoginEmailTransition(
+        employeeId,
+        loginEmail,
+      );
 
-      await this.sessionStoreService.revokeUserSessions(employee.usuario.id);
+      if (transition.revokedUserId) {
+        await this.sessionStoreService.revokeUserSessions(
+          transition.revokedUserId,
+        );
+      }
 
-      return toEmployeeDetail(account.funcionario);
+      return toEmployeeDetail(transition.employee);
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException(LOGIN_EMAIL_ALREADY_EXISTS_ERROR);
@@ -403,6 +407,19 @@ export class EmployeesService {
     );
   }
 
+  private async executeAdministrativeUpdate(
+    employeeId: string,
+    input: EmployeeAdministrativeUpdateInput,
+  ): Promise<
+    Prisma.FuncionarioGetPayload<{ select: typeof employeeStatusSelect }>
+  > {
+    return this.executeSerializableTransaction(
+      (transaction) =>
+        this.updateAdministrativeInTransaction(transaction, employeeId, input),
+      'Administrative employee update exhausted its retry limit.',
+    );
+  }
+
   private async executeAccessCreation(
     employeeId: string,
     loginEmail: string,
@@ -443,6 +460,17 @@ export class EmployeesService {
       (transaction) =>
         this.transitionAccessProfile(transaction, employeeId, profile),
       'Employee access profile transition exhausted its retry limit.',
+    );
+  }
+
+  private async executeAccessLoginEmailTransition(
+    employeeId: string,
+    loginEmail: string,
+  ): Promise<EmployeeStatusTransition> {
+    return this.executeSerializableTransaction(
+      (transaction) =>
+        this.transitionAccessLoginEmail(transaction, employeeId, loginEmail),
+      'Employee access login email transition exhausted its retry limit.',
     );
   }
 
@@ -510,6 +538,75 @@ export class EmployeesService {
     });
 
     return account.funcionario;
+  }
+
+  private async updateAdministrativeInTransaction(
+    transaction: Prisma.TransactionClient,
+    employeeId: string,
+    input: EmployeeAdministrativeUpdateInput,
+  ): Promise<
+    Prisma.FuncionarioGetPayload<{ select: typeof employeeStatusSelect }>
+  > {
+    const currentEmployee = await transaction.funcionario.findUnique({
+      where: { id: employeeId },
+      select: { id: true },
+    });
+
+    if (!currentEmployee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    await transaction.funcionario.update({
+      where: { id: employeeId },
+      data: {
+        nome: input.nome,
+        telefone: input.telefone,
+        email: input.email,
+      },
+    });
+
+    let transition = await this.transitionStatus(
+      transaction,
+      employeeId,
+      input.status,
+    );
+    let revokedUserId = transition.revokedUserId;
+
+    if (input.account) {
+      transition = await this.transitionAccessProfile(
+        transaction,
+        employeeId,
+        input.account.profile,
+      );
+      revokedUserId ??= transition.revokedUserId;
+
+      transition = await this.transitionAccessStatus(
+        transaction,
+        employeeId,
+        input.account.status,
+      );
+      revokedUserId ??= transition.revokedUserId;
+
+      transition = await this.transitionAccessLoginEmail(
+        transaction,
+        employeeId,
+        input.account.loginEmail,
+      );
+      revokedUserId ??= transition.revokedUserId;
+    }
+
+    if (revokedUserId) {
+      await transaction.session.deleteMany({
+        where: {
+          sess: {
+            path: ['usuarioId'],
+            equals: revokedUserId,
+          },
+        },
+      });
+    }
+
+    return transition.employee;
   }
 
   private async transitionStatus(
@@ -649,6 +746,42 @@ export class EmployeesService {
     const updatedAccount = await transaction.usuario.update({
       where: { id: employee.usuario.id },
       data: { perfil: updatedProfile },
+      select: {
+        funcionario: { select: employeeStatusSelect },
+      },
+    });
+
+    return {
+      employee: updatedAccount.funcionario,
+      revokedUserId: employee.usuario.id,
+    };
+  }
+
+  private async transitionAccessLoginEmail(
+    transaction: Prisma.TransactionClient,
+    employeeId: string,
+    loginEmail: string,
+  ): Promise<EmployeeStatusTransition> {
+    const employee = await transaction.funcionario.findUnique({
+      where: { id: employeeId },
+      select: employeeStatusSelect,
+    });
+
+    if (!employee) {
+      throw new NotFoundException(EMPLOYEE_NOT_FOUND_ERROR);
+    }
+
+    if (!employee.usuario) {
+      throw new NotFoundException(EMPLOYEE_ACCESS_NOT_FOUND_ERROR);
+    }
+
+    if (employee.usuario.emailLogin === loginEmail) {
+      return { employee, revokedUserId: null };
+    }
+
+    const updatedAccount = await transaction.usuario.update({
+      where: { id: employee.usuario.id },
+      data: { emailLogin: loginEmail },
       select: {
         funcionario: { select: employeeStatusSelect },
       },

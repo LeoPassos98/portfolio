@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { employeeSchema } from './employeeSchema'
 
 const loginEmailSchema = z
   .string()
@@ -17,6 +18,16 @@ const temporaryPasswordSchema = z
 
 const employeeAccessUpdateSchema = z.object({
   loginEmail: loginEmailSchema,
+})
+
+const employeeAdministrativeUpdateSchema = employeeSchema.extend({
+  access: z
+    .object({
+      loginEmail: loginEmailSchema,
+      profile: accessProfileSchema,
+      status: z.enum(['active', 'inactive']),
+    })
+    .optional(),
 })
 
 const employeeAccessCreationSchema = z
@@ -51,6 +62,12 @@ type EmployeeAccessUpdateFormData = z.input<typeof employeeAccessUpdateSchema>
 type EmployeeAccessUpdateFormValues = z.output<
   typeof employeeAccessUpdateSchema
 >
+type EmployeeAdministrativeUpdateFormData = z.input<
+  typeof employeeAdministrativeUpdateSchema
+>
+type EmployeeAdministrativeUpdateFormValues = z.output<
+  typeof employeeAdministrativeUpdateSchema
+>
 type EmployeeAccessPasswordResetFormData = z.input<
   typeof employeeAccessPasswordResetSchema
 >
@@ -59,11 +76,14 @@ type EmployeeAccessPasswordResetFormValues = z.output<
 >
 
 export {
+  employeeAdministrativeUpdateSchema,
   employeeAccessCreationSchema,
   employeeAccessPasswordResetSchema,
   employeeAccessUpdateSchema,
 }
 export type {
+  EmployeeAdministrativeUpdateFormData,
+  EmployeeAdministrativeUpdateFormValues,
   EmployeeAccessCreationFormData,
   EmployeeAccessCreationFormValues,
   EmployeeAccessPasswordResetFormData,

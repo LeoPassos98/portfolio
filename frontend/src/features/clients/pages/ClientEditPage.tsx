@@ -89,8 +89,10 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { showSuccess } = useSuccessFeedback()
+  const [isSavePending, setIsSavePending] = useState(false)
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] =
     useState(false)
+  const [selectedStatus, setSelectedStatus] = useState(client.status)
   const [formError, setFormError] = useState<string | null>(null)
   const [statusError, setStatusError] = useState<string | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -105,7 +107,10 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
     resolver: zodResolver(clientSchema),
     defaultValues: toClientFormData(client),
   })
-  const { confirmationDialog } = useUnsavedChangesGuard(isDirty)
+  const isStatusDirty = selectedStatus !== client.status
+  const { confirmationDialog } = useUnsavedChangesGuard(
+    isDirty || isStatusDirty,
+  )
   const updateMutation = useMutation({
     mutationFn: (values: ClientFormValues) => updateClient(client.id, values),
   })
@@ -115,6 +120,8 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
   const deleteMutation = useMutation({
     mutationFn: () => deleteClient(client.id),
   })
+  const isSaving =
+    isSavePending || updateMutation.isPending || statusMutation.isPending
 
   async function synchronizeClient(updatedClient: Client) {
     queryClient.setQueryData(
@@ -127,47 +134,61 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
   }
 
   async function onSubmit(values: ClientFormValues) {
-    setFormError(null)
-    clearErrors('document')
-
-    try {
-      const updatedClient = await updateMutation.mutateAsync(values)
-
-      await synchronizeClient(updatedClient)
-      reset(toClientFormData(updatedClient))
-      showSuccess('Cliente atualizado com sucesso.')
-      navigate('/clients')
-    } catch (error) {
-      if (isClientApiError(error, 'CLIENT_DOCUMENT_ALREADY_EXISTS')) {
-        setError('document', {
-          type: 'server',
-          message: 'Este CPF/CNPJ já está cadastrado para outro cliente.',
-        })
-        return
-      }
-
-      setFormError('Não foi possível salvar as alterações. Tente novamente.')
-    }
-  }
-
-  async function handleStatusChange(status: ClientStatus) {
-    if (status === client.status) {
+    if (isSaving) {
       return
     }
 
-    setStatusError(null)
+    setIsSavePending(true)
 
     try {
-      const updatedClient = await statusMutation.mutateAsync(status)
+      setFormError(null)
+      setStatusError(null)
+      clearErrors('document')
 
-      await synchronizeClient(updatedClient)
+      let updatedClient = client
+
+      try {
+        if (isDirty) {
+          updatedClient = await updateMutation.mutateAsync(values)
+
+          await synchronizeClient(updatedClient)
+          reset(toClientFormData(updatedClient))
+        }
+      } catch (error) {
+        if (isClientApiError(error, 'CLIENT_DOCUMENT_ALREADY_EXISTS')) {
+          setError('document', {
+            type: 'server',
+            message: 'Este CPF/CNPJ já está cadastrado para outro cliente.',
+          })
+          return
+        }
+
+        setFormError('Não foi possível salvar as alterações. Tente novamente.')
+        return
+      }
+
+      try {
+        if (selectedStatus !== updatedClient.status) {
+          updatedClient = await statusMutation.mutateAsync(selectedStatus)
+
+          await synchronizeClient(updatedClient)
+          setSelectedStatus(updatedClient.status)
+        }
+      } catch {
+        setStatusError('Não foi possível atualizar a situação. Tente novamente.')
+        return
+      }
+
       showSuccess(
-        status === 'inactive'
-          ? 'Cliente desativado com sucesso.'
-          : 'Cliente reativado com sucesso.',
+        isStatusDirty && !isDirty
+          ? updatedClient.status === 'inactive'
+            ? 'Cliente desativado com sucesso.'
+            : 'Cliente reativado com sucesso.'
+          : 'Cliente atualizado com sucesso.',
       )
-    } catch {
-      setStatusError('Não foi possível atualizar a situação. Tente novamente.')
+      navigate('/clients')
+    } finally {
+      setIsSavePending(false)
     }
   }
 
@@ -197,7 +218,7 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
     }
   }
 
-  const clientStatusDetail = clientStatusDetails[client.status]
+  const clientStatusDetail = clientStatusDetails[selectedStatus]
 
   return (
     <AppLayout>
@@ -461,19 +482,17 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
               <Label htmlFor="edit-client-status">Situação</Label>
               <Select
                 id="edit-client-status"
-                value={client.status}
-                disabled={statusMutation.isPending}
+                value={selectedStatus}
+                disabled={isSaving}
                 aria-describedby={statusError ? 'edit-client-status-error' : undefined}
                 onChange={(event) => {
-                  void handleStatusChange(event.target.value as ClientStatus)
+                  setStatusError(null)
+                  setSelectedStatus(event.target.value as ClientStatus)
                 }}
               >
                 <option value="active">Ativo</option>
                 <option value="inactive">Inativo</option>
               </Select>
-              {statusMutation.isPending && (
-                <p className="text-neutral text-sm">Atualizando situação...</p>
-              )}
               {statusError && (
                 <p id="edit-client-status-error" role="alert" className="text-error text-sm">
                   {statusError}
@@ -511,8 +530,8 @@ function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) 
         ) : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={updateMutation.isPending}>
-            {updateMutation.isPending ? 'Salvando alterações...' : 'Salvar alterações'}
+          <Button type="submit" disabled={isSaving}>
+            {isSaving ? 'Salvando alterações...' : 'Salvar alterações'}
           </Button>
           <Link
             to="/clients"

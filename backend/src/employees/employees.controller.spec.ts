@@ -253,6 +253,23 @@ describe('EmployeesController', () => {
     };
   }
 
+  function updateEmployeeAdministrativeBody(
+    overrides: Record<string, unknown> = {},
+  ) {
+    return {
+      nome: 'Maria Administrada',
+      telefone: '11977776666',
+      email: 'maria.administrada@example.test',
+      status: 'active',
+      account: {
+        loginEmail: 'maria.administrada@login.example.test',
+        profile: 'employee',
+        status: 'active',
+      },
+      ...overrides,
+    };
+  }
+
   function updateEmployeeStatusBody(overrides: Record<string, unknown> = {}) {
     return {
       status: 'inactive',
@@ -2350,6 +2367,298 @@ describe('EmployeesController', () => {
       .expect(HttpStatus.OK);
   });
 
+  it('updates employee and account fields atomically and revokes target sessions', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      conta: {
+        emailLogin: 'atomic-before@example.test',
+        perfil: 'FUNCIONARIO',
+      },
+    });
+    const targetSession = await createSessionForUser(employee.usuario!.id);
+    const accountBefore = await database.usuario.findUniqueOrThrow({
+      where: { funcionarioId: employee.id },
+    });
+
+    const response = await agent
+      .put(`/employees/${employee.id}/administrative`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAdministrativeBody({
+          nome: '  Funcionária Atômica  ',
+          telefone: '+55 (11) 98888-7777',
+          email: '  contato.atomico@example.test  ',
+          account: {
+            loginEmail: '  NOVO.ATOMICO@example.test  ',
+            profile: 'administrator',
+            status: 'active',
+          },
+        }),
+      )
+      .expect(HttpStatus.OK);
+    const [persistedEmployee, persistedAccount, targetSessions] =
+      await Promise.all([
+        database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+        database.usuario.findUniqueOrThrow({
+          where: { funcionarioId: employee.id },
+        }),
+        verificationPool!.query(
+          'SELECT "sid" FROM "session" WHERE "sid" = $1',
+          [targetSession.sessionId],
+        ),
+      ]);
+
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      nome: 'Funcionária Atômica',
+      telefone: '11988887777',
+      email: 'contato.atomico@example.test',
+      ativo: true,
+      conta: {
+        emailLogin: 'novo.atomico@example.test',
+        perfil: 'ADMINISTRADOR',
+        ativo: true,
+      },
+    });
+    expect(persistedEmployee).toMatchObject({
+      nome: 'Funcionária Atômica',
+      telefone: '11988887777',
+      email: 'contato.atomico@example.test',
+      ativo: true,
+    });
+    expect(persistedAccount).toMatchObject({
+      emailLogin: 'novo.atomico@example.test',
+      perfil: 'ADMINISTRADOR',
+      ativo: true,
+      senhaHash: accountBefore.senhaHash,
+      deveAlterarSenha: accountBefore.deveAlterarSenha,
+    });
+    expect(targetSessions.rowCount).toBe(0);
+  });
+
+  it('rolls back every administrative change when an active order blocks employee deactivation', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'FUNCIONARIO' },
+    });
+    await createOrderFixture(employee.id, StatusOrdemServico.EM_ANDAMENTO);
+    const [employeeBefore, accountBefore] = await Promise.all([
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ]);
+
+    await agent
+      .put(`/employees/${employee.id}/administrative`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAdministrativeBody({
+          status: 'inactive',
+          account: {
+            loginEmail: 'would-change@example.test',
+            profile: 'administrator',
+            status: 'inactive',
+          },
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'EMPLOYEE_HAS_ACTIVE_ORDERS',
+        message:
+          'Employee has active service orders that must be completed, canceled, or transferred before deactivation',
+      });
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ).resolves.toEqual(accountBefore);
+  });
+
+  it('rolls back registration and profile changes when the login email conflicts', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'FUNCIONARIO' },
+    });
+    const emailOwner = await createEmployeeFixture({
+      conta: { emailLogin: 'login-em-uso@example.test' },
+    });
+    const [employeeBefore, accountBefore] = await Promise.all([
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ]);
+
+    await agent
+      .put(`/employees/${employee.id}/administrative`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAdministrativeBody({
+          account: {
+            loginEmail: emailOwner.usuario!.emailLogin,
+            profile: 'administrator',
+            status: 'active',
+          },
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'LOGIN_EMAIL_ALREADY_EXISTS',
+        message: 'Login email already exists',
+      });
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ).resolves.toEqual(accountBefore);
+  });
+
+  it('rolls back every change when account activation is requested for an inactive employee', async () => {
+    const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
+    const employee = await createEmployeeFixture({
+      ativo: false,
+      conta: { ativo: false, perfil: 'FUNCIONARIO' },
+    });
+    const [employeeBefore, accountBefore] = await Promise.all([
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ]);
+
+    await agent
+      .put(`/employees/${employee.id}/administrative`)
+      .set('X-CSRF-Token', csrfToken)
+      .send(
+        updateEmployeeAdministrativeBody({
+          status: 'inactive',
+          account: {
+            loginEmail: employee.usuario!.emailLogin,
+            profile: 'employee',
+            status: 'active',
+          },
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'EMPLOYEE_MUST_BE_ACTIVE_FOR_ACCOUNT_ACTIVATION',
+        message: 'Employee must be active before activating the access account',
+      });
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ).resolves.toEqual(accountBefore);
+  });
+
+  it('keeps all fields and the session unchanged when self-demotion would remove the last active administrator', async () => {
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    const currentSession = await createSessionForUser(employee.usuario!.id);
+    await waitForActiveAdministratorCount(1);
+    const [employeeBefore, accountBefore] = await Promise.all([
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ]);
+
+    await currentSession.agent
+      .put(`/employees/${employee.id}/administrative`)
+      .set('X-CSRF-Token', currentSession.csrfToken)
+      .send(
+        updateEmployeeAdministrativeBody({
+          account: {
+            loginEmail: employee.usuario!.emailLogin,
+            profile: 'employee',
+            status: 'active',
+          },
+        }),
+      )
+      .expect(HttpStatus.CONFLICT)
+      .expect({
+        statusCode: HttpStatus.CONFLICT,
+        code: 'LAST_ACTIVE_ADMIN_REQUIRED',
+        message: 'At least one active administrator account must remain',
+      });
+
+    await expect(
+      database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
+    ).resolves.toEqual(employeeBefore);
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ).resolves.toEqual(accountBefore);
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        currentSession.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+  });
+
+  it('atomically saves self-demotion and revokes the current session when another administrator remains', async () => {
+    const employee = await createEmployeeFixture({
+      conta: { perfil: 'ADMINISTRADOR' },
+    });
+    await createEmployeeFixture({ conta: { perfil: 'ADMINISTRADOR' } });
+    const currentSession = await createSessionForUser(employee.usuario!.id);
+
+    const response = await currentSession.agent
+      .put(`/employees/${employee.id}/administrative`)
+      .set('X-CSRF-Token', currentSession.csrfToken)
+      .send(
+        updateEmployeeAdministrativeBody({
+          account: {
+            loginEmail: employee.usuario!.emailLogin,
+            profile: 'employee',
+            status: 'active',
+          },
+        }),
+      )
+      .expect(HttpStatus.OK);
+
+    expect(response.body).toMatchObject({
+      id: employee.id,
+      nome: 'Maria Administrada',
+      conta: {
+        emailLogin: employee.usuario!.emailLogin,
+        perfil: 'FUNCIONARIO',
+        ativo: true,
+      },
+    });
+    await expect(
+      database.usuario.findUniqueOrThrow({
+        where: { funcionarioId: employee.id },
+      }),
+    ).resolves.toMatchObject({ perfil: 'FUNCIONARIO', ativo: true });
+    await expect(
+      verificationPool!.query('SELECT "sid" FROM "session" WHERE "sid" = $1', [
+        currentSession.sessionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await currentSession.agent
+      .get('/auth/session')
+      .expect(HttpStatus.UNAUTHORIZED);
+  });
+
   it('allows an administrator to change and repeat the status of an employee without an account', async () => {
     const { agent, csrfToken } = await createAuthenticatedAgentWithCsrf();
     const employee = await createEmployeeFixture({ ativo: true });
@@ -3863,7 +4172,7 @@ describe('EmployeesController', () => {
     ).resolves.toMatchObject({ rowCount: 0 });
   });
 
-  it('documents employee creation, account management, registration and status updates, reads, and nullable account DTOs in OpenAPI', async () => {
+  it('documents employee creation, account management, atomic administration, registration and status updates, reads, and nullable account DTOs in OpenAPI', async () => {
     const response = await request(app)
       .get('/api/docs/openapi.json')
       .expect(HttpStatus.OK);
@@ -3881,6 +4190,8 @@ describe('EmployeesController', () => {
       response.body.paths['/employees/{id}/account/password'].patch;
     const detailOperation = response.body.paths['/employees/{id}'].get;
     const updateOperation = response.body.paths['/employees/{id}'].put;
+    const administrativeUpdateOperation =
+      response.body.paths['/employees/{id}/administrative'].put;
     const statusUpdateOperation =
       response.body.paths['/employees/{id}/status'].patch;
 
@@ -3892,6 +4203,9 @@ describe('EmployeesController', () => {
       'get',
       'put',
     ]);
+    expect(
+      Object.keys(response.body.paths['/employees/{id}/administrative']),
+    ).toEqual(['put']);
     expect(Object.keys(response.body.paths['/employees/{id}/account'])).toEqual(
       ['post'],
     );
@@ -4170,6 +4484,44 @@ describe('EmployeesController', () => {
     for (const status of ['200', '400', '401', '403', '404']) {
       expect(updateOperation.responses).toHaveProperty(status);
     }
+    expect(administrativeUpdateOperation.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'id',
+          in: 'path',
+          schema: expect.objectContaining({ format: 'uuid' }),
+        }),
+        expect.objectContaining({ name: 'X-CSRF-Token', in: 'header' }),
+      ]),
+    );
+    expect(
+      administrativeUpdateOperation.requestBody.content['application/json']
+        .schema,
+    ).toMatchObject({
+      type: 'object',
+      additionalProperties: false,
+      required: ['nome', 'telefone', 'email', 'status'],
+      properties: {
+        status: { type: 'string', enum: ['active', 'inactive'] },
+        account: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['loginEmail', 'profile', 'status'],
+        },
+      },
+    });
+    for (const status of ['200', '400', '401', '403', '404', '409']) {
+      expect(administrativeUpdateOperation.responses).toHaveProperty(status);
+    }
+    expect(
+      administrativeUpdateOperation.responses['409'].description,
+    ).toContain('EMPLOYEE_HAS_ACTIVE_ORDERS');
+    expect(
+      administrativeUpdateOperation.responses['409'].description,
+    ).toContain('LAST_ACTIVE_ADMIN_REQUIRED');
+    expect(
+      administrativeUpdateOperation.responses['409'].description,
+    ).toContain('LOGIN_EMAIL_ALREADY_EXISTS');
     expect(statusUpdateOperation.parameters).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
