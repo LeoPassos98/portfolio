@@ -16,6 +16,7 @@ import { OrderCreatePage } from './features/orders/pages/OrderCreatePage'
 import { OrderDetailsPage } from './features/orders/pages/OrderDetailsPage'
 import { OrderEditPage } from './features/orders/pages/OrderEditPage'
 import { OrdersPage } from './features/orders/pages/OrdersPage'
+import { ProfilePage } from './features/profile/pages/ProfilePage'
 import { HomePage } from './features/public/pages/HomePage'
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/new" element={<ClientCreatePage />} />
         <Route path="/clients/:clientId/edit" element={<ClientEditPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route element={<ProtectedRoute requiredProfile="admin" />}>
           <Route path="/employees" element={<EmployeesPage />} />
           <Route path="/employees/new" element={<EmployeeCreatePage />} />

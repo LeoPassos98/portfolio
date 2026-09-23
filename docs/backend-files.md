@@ -12,7 +12,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área                     | Responsabilidade                                                                                                        | Arquivos |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, Dashboard, ordens e endpoint raiz atual           |        4 |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual   |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador                  |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        7 |
@@ -20,6 +20,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                      |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       18 |
+| Meu perfil               | Autoatendimento autenticado de dados pessoais e senha sem identificador escolhido pelo cliente                          |        7 |
 | Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros  |       12 |
 | Dashboard                | Situação atual e desempenho temporal globais ou por Funcionário, com escopo autenticado, DTOs e validação                |        8 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
@@ -29,7 +30,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, bootstrap, clientes, funcionários, Dashboard e ordens |       20 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       21 |
 
 ## Sumário
 
@@ -41,6 +42,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Guards de acesso](#guards-de-acesso)
 - [Clientes](#clientes)
 - [Funcionários](#funcionários)
+- [Meu perfil](#meu-perfil)
 - [Ordens de Serviço](#ordens-de-serviço)
 - [Dashboard](#dashboard)
 - [Segurança de credenciais](#segurança-de-credenciais)
@@ -68,7 +70,7 @@ Também configura logger, confiança limitada no proxy de produção, CORS, sess
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, ordens e sessão.
+Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, perfil, ordens e sessão.
 
 Registra o `CsrfGuard` global e fornece o endpoint raiz atual.
 
@@ -453,6 +455,42 @@ Declara com Zod estrito o body da redefinição administrativa de senha, exigind
 ### 18. `backend/src/employees/employee-administrative-update.schema.ts`
 
 Declara o body estrito da edição administrativa conjunta, reunindo cadastro e situação do Funcionário com e-mail, perfil e situação da conta opcional, sem incluir senha ou criação de acesso.
+
+---
+
+## Meu perfil
+
+Expõe o autoatendimento pessoal para qualquer conta autenticada com primeiro acesso concluído, sem reutilizar nem flexibilizar as rotas administrativas de Funcionários.
+
+Diretório principal: `backend/src/profile/`
+
+### 1. `backend/src/profile/profile-update.schema.ts`
+
+Reutiliza as regras cadastrais de nome e telefone em um body Zod estrito que rejeita identificadores, e-mails, perfil, situações e qualquer campo adicional.
+
+### 2. `backend/src/profile/profile-password-update.schema.ts`
+
+Valida senha atual, nova senha pela política compartilhada de 8 a 128 caracteres e confirmação idêntica, sem normalizar credenciais e sem aceitar campos extras.
+
+### 3. `backend/src/profile/profile-response.dto.ts`
+
+Documenta a projeção segura de nome, telefone, e-mail de contato, perfil e situações do Funcionário e da conta, sem IDs, credenciais, sessão ou dados internos.
+
+### 4. `backend/src/profile/profile.service.ts`
+
+Consulta e atualiza nome e telefone exclusivamente pelo `funcionarioId` do principal autenticado. Na troca voluntária, verifica a senha atual com `PasswordService`, grava novo hash sem alterar `deveAlterarSenha` e revoga todas as sessões da conta.
+
+### 5. `backend/src/profile/profile.controller.ts`
+
+Expõe `GET /profile`, `PUT /profile` e `PUT /profile/password` com `SessionGuard`, `FirstAccessCompletedGuard`, validação Zod, documentação OpenAPI e CSRF global nas mutações. Não recebe `employeeId` do cliente e limpa o cookie atual após a troca de senha.
+
+### 6. `backend/src/profile/profile.module.ts`
+
+Compõe o controller e o serviço de autoatendimento com autenticação, banco, senha e store server-side de sessões.
+
+### 7. `backend/src/profile/profile.controller.spec.ts`
+
+Exercita consulta, atualização pessoal, senha, revogação de sessões e isolamento dos endpoints administrativos pela aplicação NestJS e pelo PostgreSQL reais.
 
 ---
 

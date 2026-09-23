@@ -17,7 +17,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state                |        1 |
 | Estilos e tema          | Estilos globais e tokens visuais                                                  |        1 |
 | Componentes UI          | Elementos reutilizáveis da interface                                              |        7 |
-| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        6 |
+| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        8 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              |        4 |
 | Área pública            | Home mínima e ponto de entrada público da aplicação                               |        1 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
@@ -25,6 +25,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
 | Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor       |        8 |
 | Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
+| Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado        |        5 |
 
 ## Sumário
 
@@ -41,6 +42,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Ordens de Serviço](#ordens-de-serviço)
 - [Clientes](#clientes)
 - [Funcionários](#funcionários)
+- [Meu perfil](#meu-perfil)
 
 ---
 
@@ -54,11 +56,11 @@ Diretório principal: `frontend/`
 
 Carrega a fonte e os estilos globais e monta `App` no DOM.
 
-Compõe os providers de server state, autenticação, feedback de sucesso e navegação.
+Compõe os providers globais de server state, autenticação, notificações e navegação.
 
 ### 2. `frontend/src/App.tsx`
 
-Declara as rotas da SPA, incluindo a Home pública em `/`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
+Declara as rotas da SPA, incluindo a Home pública em `/` e o autoatendimento autenticado em `/profile`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
 
 ### 3. `frontend/vite.config.ts`
 
@@ -104,7 +106,7 @@ Diretório principal: `frontend/src/`
 
 ### 1. `frontend/src/index.css`
 
-Importa o Tailwind CSS e define tokens de tipografia, raio e cores.
+Importa o Tailwind CSS, define tokens de tipografia, raio e cores e mantém as animações discretas de entrada, saída e progresso das notificações, com redução de movimento para as transições.
 
 ---
 
@@ -168,17 +170,25 @@ Expõe proteção reutilizável contra abandono de formulários alterados a part
 
 Intercepta links internos compatíveis, mantém o destino pendente até confirmação e registra o aviso nativo de `beforeunload`.
 
-### 4. `frontend/src/components/feedback/SuccessFeedbackContext.ts`
+### 4. `frontend/src/components/feedback/notificationConfig.ts`
 
-Declara o contrato e o Context tipado da API global de feedback de sucesso, mantendo Provider e consumidores no mesmo contrato.
+Centraliza a duração compartilhada, o limite máximo visível e o breve tempo de saída das notificações.
 
-### 5. `frontend/src/components/feedback/SuccessFeedbackProvider.tsx`
+### 5. `frontend/src/components/feedback/NotificationContext.ts`
 
-Mantém o toast de sucesso textual, não bloqueante e dispensável, expondo a API global que será chamada por mutations confirmadas.
+Declara os tipos semânticos, os dados renderizados e o contrato do Context global de notificações.
 
-### 6. `frontend/src/components/feedback/useSuccessFeedback.ts`
+### 6. `frontend/src/components/feedback/Notification.tsx`
 
-Expõe o hook de consumo seguro de `showSuccess` e `dismissSuccess` para fluxos futuros de mutation bem-sucedida.
+Renderiza cada notificação com identificação visual e textual, fechamento acessível, anel de progresso e temporizador próprio. Pausa e retoma o tempo restante por hover, foco ou aba oculta, sem intervalos frequentes.
+
+### 7. `frontend/src/components/feedback/NotificationProvider.tsx`
+
+Mantém a pilha global no topo da viewport, com a notificação mais recente primeiro e limite de quatro itens. Expõe operações de sucesso, erro, alerta e informação e preserva apenas as quatro notificações mais recentes.
+
+### 8. `frontend/src/components/feedback/useNotifications.ts`
+
+Expõe o consumo seguro da API global de notificações e impede uso fora do `NotificationProvider`.
 
 ---
 
@@ -194,7 +204,7 @@ Centraliza telas de autenticação em uma superfície sobre o fundo da aplicaç�
 
 ### 2. `frontend/src/components/layout/AppLayout.tsx`
 
-Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. Expõe logout no cabeçalho desktop e no menu de perfil mobile, com estado pendente e erro acessível compartilhados.
+Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo.
 
 Preserva a rolagem própria da sidebar e do drawer mobile. Também encerra a sessão real antes de voltar ao Login.
 
@@ -252,7 +262,7 @@ Declara o Context tipado da autenticação real, com sessão, bootstrap, ações
 
 Restaura a sessão por `/auth/session` e mantém a fonte global de autenticação e a fronteira entre identidade e server state.
 
-Expõe login, troca de senha, logout, nova tentativa de bootstrap, sincronização de nome e perfil do usuário autenticado por `employeeId` e limpeza central após `AUTH_UNAUTHENTICATED`. A sincronização ignora outro Funcionário e sessão já invalidada. Limpa todo o cache TanStack antes de expor uma identidade autenticada no login, depois do logout confirmado e quando a identidade deixa de ser válida, incluindo o `401` suprimido da checagem de sessão.
+Expõe login, troca de senha, logout, nova tentativa de bootstrap, sincronização de nome e perfil do usuário autenticado por `employeeId` e limpeza central após `AUTH_UNAUTHENTICATED` ou revogação conhecida. A sincronização ignora outro Funcionário e sessão já invalidada. Limpa todo o cache TanStack antes de expor uma identidade autenticada no login, depois do logout confirmado e quando a identidade deixa de ser válida, removendo também o marcador local de sessão conhecida na limpeza explícita.
 
 ### 7. `frontend/src/features/auth/hooks/useAuthSession.ts`
 
@@ -523,3 +533,31 @@ Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e 
 ### 12. `frontend/src/features/employees/api/employeeQueryKeys.ts`
 
 Centraliza as query keys de listagem e detalhe de Funcionários, com os parâmetros de filtro e busca usados pela query real.
+
+---
+
+## Meu perfil
+
+Oferece autoatendimento pessoal para Administrador e Funcionário na rota autenticada `/profile`, separado da árvore administrativa `/employees`.
+
+Diretório principal: `frontend/src/features/profile/`
+
+### 1. `frontend/src/features/profile/types/profile.ts`
+
+Define o modelo seguro exibido pela tela: nome, telefone, e-mail de contato, perfil e situações do Funcionário e da conta.
+
+### 2. `frontend/src/features/profile/schemas/profileSchema.ts`
+
+Reutiliza as regras de nome e telefone de Funcionários e valida separadamente senha atual, nova senha e confirmação para os dois formulários independentes.
+
+### 3. `frontend/src/features/profile/api/profileApi.ts`
+
+Concentra leitura, atualização pessoal e troca voluntária de senha nos endpoints `/profile`, traduzindo o contrato HTTP e invalidando o CSRF após a revogação das sessões.
+
+### 4. `frontend/src/features/profile/api/profileQueryKeys.ts`
+
+Centraliza a query key do perfil autenticado para leitura e atualização coerentes do cache.
+
+### 5. `frontend/src/features/profile/pages/ProfilePage.tsx`
+
+Exibe os dados pessoais e estados somente leitura, salva nome e telefone apenas por ação explícita, sincroniza imediatamente o nome do header com a resposta persistida e comunica o sucesso pela pilha global. Mantém a seção de Segurança independente, protege alterações pendentes e, após trocar a senha, limpa a sessão local, notifica o usuário e redireciona ao Login.

@@ -12,6 +12,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { EmployeesModule } from './employees/employees.module.js';
 import { OrdersModule } from './orders/orders.module.js';
+import { ProfileModule } from './profile/profile.module.js';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { OrdersModule } from './orders/orders.module.js';
     ClientsModule,
     EmployeesModule,
     OrdersModule,
+    ProfileModule,
     SessionModule,
   ],
   controllers: [AppController],

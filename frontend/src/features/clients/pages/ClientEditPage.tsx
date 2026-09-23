@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { EmptyState } from '../../../components/feedback/EmptyState'
-import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
+import { useNotifications } from '../../../components/feedback/useNotifications'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -88,7 +88,7 @@ type ClientEditFormProps = {
 function ClientEditForm({ canChangeClientStatus, client }: ClientEditFormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { showSuccess } = useSuccessFeedback()
+  const { showSuccess } = useNotifications()
   const [isSavePending, setIsSavePending] = useState(false)
   const [isDeleteConfirmationOpen, setIsDeleteConfirmationOpen] =
     useState(false)

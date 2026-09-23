@@ -3,7 +3,7 @@ import { isAxiosError } from "axios";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import { EmptyState } from "../../../components/feedback/EmptyState";
-import { useSuccessFeedback } from "../../../components/feedback/useSuccessFeedback";
+import { useNotifications } from "../../../components/feedback/useNotifications";
 import { AppLayout } from "../../../components/layout/AppLayout";
 import { Button } from "../../../components/ui/Button";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -106,7 +106,7 @@ function OrderHistorySkeleton() {
 function OrderDetailsPage() {
   const session = useAuthSession();
   const queryClient = useQueryClient();
-  const { showSuccess } = useSuccessFeedback();
+  const { showSuccess } = useNotifications();
   const { orderId } = useParams<{ orderId: string }>();
   const [selectedSnapshot, setSelectedSnapshot] = useState<{
     orderId: string;

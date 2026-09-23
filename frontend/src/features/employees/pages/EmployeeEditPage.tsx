@@ -6,7 +6,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router'
 import { ConfirmationDialog } from '../../../components/feedback/ConfirmationDialog'
 import { EmptyState } from '../../../components/feedback/EmptyState'
-import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
+import { useNotifications } from '../../../components/feedback/useNotifications'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -100,7 +100,7 @@ function EmployeeEditPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { clearSession, session, synchronizeCurrentUser } = useAuth()
-  const { showSuccess } = useSuccessFeedback()
+  const { showSuccess } = useNotifications()
   const [pendingAdministrativeUpdate, setPendingAdministrativeUpdate] =
     useState<EmployeeAdministrativeUpdateFormValues | null>(null)
   const [formError, setFormError] = useState<string | null>(null)

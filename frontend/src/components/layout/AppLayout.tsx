@@ -1,5 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { NavLink, useNavigate } from 'react-router'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { Link, NavLink, useNavigate } from 'react-router'
 import { useAuth } from '../../features/auth/hooks/useAuth'
 import { useAuthSession } from '../../features/auth/hooks/useAuthSession'
 import { AppBrand } from './AppBrand'
@@ -26,6 +32,8 @@ type NavigationOptions = {
   closeMenu?: boolean
   isCollapsed?: boolean
 }
+
+type UserMenuSurface = 'desktop' | 'mobile'
 
 function DashboardIcon() {
   return (
@@ -157,7 +165,8 @@ function getUserInitials(name: string) {
 function AppLayout({ children }: AppLayoutProps) {
   const session = useAuthSession()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const [activeProfileMenu, setActiveProfileMenu] =
+    useState<UserMenuSurface | null>(null)
   const [isMobileHeaderHidden, setIsMobileHeaderHidden] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     getInitialSidebarState,
@@ -165,7 +174,6 @@ function AppLayout({ children }: AppLayoutProps) {
   const drawerRef = useRef<HTMLElement>(null)
   const mobileMenuButtonRef = useRef<HTMLButtonElement>(null)
   const mobileScrollPositionRef = useRef(0)
-  const logoutButtonRef = useRef<HTMLButtonElement>(null)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -177,6 +185,18 @@ function AppLayout({ children }: AppLayoutProps) {
   const profileLabel =
     currentUser?.profile === 'admin' ? 'Administradora' : 'Funcionário'
   const userInitials = currentUser ? getUserInitials(currentUser.name) : ''
+  const handleDesktopProfileMenuOpenChange = useCallback(
+    (isOpen: boolean) => {
+      setActiveProfileMenu(isOpen ? 'desktop' : null)
+    },
+    [],
+  )
+  const handleMobileProfileMenuOpenChange = useCallback((isOpen: boolean) => {
+    setActiveProfileMenu(isOpen ? 'mobile' : null)
+    if (isOpen) {
+      setIsMenuOpen(false)
+    }
+  }, [])
 
   function toggleSidebar() {
     setIsSidebarCollapsed((isCollapsed) => {
@@ -197,19 +217,7 @@ function AppLayout({ children }: AppLayoutProps) {
       const nextState = !isOpen
 
       if (nextState) {
-        setIsProfileMenuOpen(false)
-      }
-
-      return nextState
-    })
-  }
-
-  function toggleProfileMenu() {
-    setIsProfileMenuOpen((isOpen) => {
-      const nextState = !isOpen
-
-      if (nextState) {
-        setIsMenuOpen(false)
+        setActiveProfileMenu(null)
       }
 
       return nextState
@@ -226,7 +234,7 @@ function AppLayout({ children }: AppLayoutProps) {
 
     try {
       await logout()
-      setIsProfileMenuOpen(false)
+      setActiveProfileMenu(null)
       navigate('/login', { replace: true })
     } catch {
       setLogoutError('Não foi possível encerrar a sessão. Tente novamente.')
@@ -255,7 +263,7 @@ function AppLayout({ children }: AppLayoutProps) {
       if (
         window.innerWidth >= 768 ||
         isMenuOpen ||
-        isProfileMenuOpen ||
+        activeProfileMenu !== null ||
         currentScrollPosition <= 8
       ) {
         setIsMobileHeaderHidden(false)
@@ -278,7 +286,7 @@ function AppLayout({ children }: AppLayoutProps) {
     window.addEventListener('scroll', handleScroll, { passive: true })
 
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [isMenuOpen, isProfileMenuOpen])
+  }, [activeProfileMenu, isMenuOpen])
 
   useEffect(() => {
     if (!isMenuOpen) {
@@ -334,12 +342,6 @@ function AppLayout({ children }: AppLayoutProps) {
     }
   }, [isMenuOpen])
 
-  useEffect(() => {
-    if (isProfileMenuOpen) {
-      logoutButtonRef.current?.focus()
-    }
-  }, [isProfileMenuOpen])
-
   const renderNavigation = ({
     closeMenu = false,
     isCollapsed = false,
@@ -387,34 +389,18 @@ function AppLayout({ children }: AppLayoutProps) {
             <AppBrand to="/dashboard" ariaLabel="Ir para o Dashboard" />
           </div>
 
-          <div className="absolute right-0 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-bg text-sm font-bold text-neutral">
-              {userInitials}
-            </div>
-            <div className="text-right">
-              <p className="text-foreground text-sm font-medium">
-                {currentUser.name}
-              </p>
-              <p className="text-neutral text-xs">{profileLabel}</p>
-            </div>
-            <div className="relative">
-              <button
-                type="button"
-                className="text-foreground rounded-ui px-3 py-2 text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-                disabled={isLoggingOut}
-                onClick={() => void handleLogout()}
-              >
-                {isLoggingOut ? 'Saindo...' : 'Sair'}
-              </button>
-              {logoutError ? (
-                <p
-                  role="alert"
-                  className="bg-surface absolute right-0 top-full z-40 mt-2 w-64 rounded-ui border border-neutral-bg px-3 py-2 text-sm text-error shadow-md"
-                >
-                  {logoutError}
-                </p>
-              ) : null}
-            </div>
+          <div className="absolute right-0">
+            <UserMenu
+              currentUserName={currentUser.name}
+              isLoggingOut={isLoggingOut}
+              isOpen={activeProfileMenu === 'desktop'}
+              logoutError={logoutError}
+              profileLabel={profileLabel}
+              surface="desktop"
+              userInitials={userInitials}
+              onLogout={() => void handleLogout()}
+              onOpenChange={handleDesktopProfileMenuOpenChange}
+            />
           </div>
         </div>
       </header>
@@ -462,53 +448,19 @@ function AppLayout({ children }: AppLayoutProps) {
             <AppBrand to="/dashboard" ariaLabel="Ir para o Dashboard" />
           </div>
 
-          <div className="relative ml-auto">
-            <button
-              type="button"
-              aria-controls="mobile-profile-menu"
-              aria-expanded={isProfileMenuOpen}
-              aria-haspopup="menu"
-              aria-label={`Abrir menu de perfil de ${currentUser.name}, ${profileLabel}`}
-              className="text-foreground flex h-10 items-center gap-2 rounded-ui px-1 hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              onClick={toggleProfileMenu}
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-bg text-xs font-bold text-neutral">
-                {userInitials}
-              </span>
-              <span className="hidden text-left min-[420px]:block">
-                <span className="block text-xs font-medium">
-                  {currentUser.name}
-                </span>
-                <span className="text-neutral block text-[11px]">
-                  {profileLabel}
-                </span>
-              </span>
-            </button>
-
-            {isProfileMenuOpen ? (
-              <div
-                id="mobile-profile-menu"
-                role="menu"
-                aria-label="Menu de perfil"
-                className="bg-surface absolute right-0 top-full z-50 mt-2 w-48 rounded-ui border border-neutral-bg p-2 shadow-md"
-              >
-                <button
-                  ref={logoutButtonRef}
-                  type="button"
-                  role="menuitem"
-                  className="text-foreground w-full rounded-ui px-3 py-2 text-left text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-                  disabled={isLoggingOut}
-                  onClick={() => void handleLogout()}
-                >
-                  {isLoggingOut ? 'Saindo...' : 'Sair'}
-                </button>
-                {logoutError ? (
-                  <p role="alert" className="px-3 pt-2 text-sm text-error">
-                    {logoutError}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
+          <div className="ml-auto">
+            <UserMenu
+              compact
+              currentUserName={currentUser.name}
+              isLoggingOut={isLoggingOut}
+              isOpen={activeProfileMenu === 'mobile'}
+              logoutError={logoutError}
+              profileLabel={profileLabel}
+              surface="mobile"
+              userInitials={userInitials}
+              onLogout={() => void handleLogout()}
+              onOpenChange={handleMobileProfileMenuOpenChange}
+            />
           </div>
         </div>
       </header>
@@ -566,6 +518,159 @@ function AppLayout({ children }: AppLayoutProps) {
           {children}
         </main>
       </div>
+    </div>
+  )
+}
+
+type UserMenuProps = {
+  compact?: boolean
+  currentUserName: string
+  isLoggingOut: boolean
+  isOpen: boolean
+  logoutError: string | null
+  onLogout: () => void
+  onOpenChange: (isOpen: boolean) => void
+  profileLabel: string
+  surface: UserMenuSurface
+  userInitials: string
+}
+
+function UserMenu({
+  compact = false,
+  currentUserName,
+  isLoggingOut,
+  isOpen,
+  logoutError,
+  onLogout,
+  onOpenChange,
+  profileLabel,
+  surface,
+  userInitials,
+}: UserMenuProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const firstMenuItemRef = useRef<HTMLAnchorElement>(null)
+  const menuId = `${surface}-profile-menu`
+
+  useEffect(() => {
+    if (!isOpen) {
+      return
+    }
+
+    firstMenuItemRef.current?.focus()
+
+    function handleMenuKeyboard(event: KeyboardEvent) {
+      if (event.key !== 'Escape') {
+        return
+      }
+
+      event.preventDefault()
+      onOpenChange(false)
+      buttonRef.current?.focus()
+    }
+
+    function handleOutsideClick(event: MouseEvent) {
+      if (
+        event.target instanceof Node &&
+        !rootRef.current?.contains(event.target)
+      ) {
+        onOpenChange(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleMenuKeyboard)
+    document.addEventListener('mousedown', handleOutsideClick)
+
+    return () => {
+      document.removeEventListener('keydown', handleMenuKeyboard)
+      document.removeEventListener('mousedown', handleOutsideClick)
+    }
+  }, [isOpen, onOpenChange])
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-controls={menuId}
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={`${isOpen ? 'Fechar' : 'Abrir'} menu de usuário de ${currentUserName}, ${profileLabel}`}
+        className="text-foreground flex h-11 items-center gap-2 rounded-ui px-2 hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        onClick={() => onOpenChange(!isOpen)}
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-neutral-bg text-xs font-bold text-neutral">
+          {userInitials}
+        </span>
+        <span
+          className={
+            compact ? 'hidden text-left min-[420px]:block' : 'text-right'
+          }
+        >
+          <span
+            className={
+              compact
+                ? 'block text-xs font-medium'
+                : 'block text-sm font-medium'
+            }
+          >
+            {currentUserName}
+          </span>
+          <span
+            className={
+              compact
+                ? 'text-neutral block text-[11px]'
+                : 'text-neutral block text-xs'
+            }
+          >
+            {profileLabel}
+          </span>
+        </span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          className="h-4 w-4 shrink-0 text-neutral"
+        >
+          <path d="m6 8 4 4 4-4" />
+        </svg>
+      </button>
+
+      {isOpen ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label="Menu do usuário"
+          className="bg-surface absolute right-0 top-full z-50 mt-2 w-52 rounded-ui border border-neutral-bg p-2 shadow-md"
+        >
+          <Link
+            ref={firstMenuItemRef}
+            to="/profile"
+            role="menuitem"
+            className="text-foreground block w-full rounded-ui px-3 py-2 text-left text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            onClick={() => onOpenChange(false)}
+          >
+            Meu perfil
+          </Link>
+          <div role="separator" className="my-2 border-t border-neutral-bg" />
+          <button
+            type="button"
+            role="menuitem"
+            className="text-foreground w-full rounded-ui px-3 py-2 text-left text-sm font-medium hover:bg-neutral-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isLoggingOut}
+            onClick={onLogout}
+          >
+            {isLoggingOut ? 'Saindo...' : 'Sair'}
+          </button>
+          {logoutError ? (
+            <p role="alert" className="px-3 pt-2 text-sm text-error">
+              {logoutError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
-import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
+import { useNotifications } from '../../../components/feedback/useNotifications'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
 import type { SearchableSelectOption } from '../../../components/ui/SearchableSelect'
@@ -65,7 +65,7 @@ function OrderCreationForm({
 }: OrderCreationFormProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { showSuccess } = useSuccessFeedback()
+  const { showSuccess } = useNotifications()
   const createMutation = useMutation({
     mutationFn: createOrder,
   })

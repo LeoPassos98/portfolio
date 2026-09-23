@@ -3,7 +3,7 @@ import { isAxiosError } from "axios";
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { EmptyState } from "../../../components/feedback/EmptyState";
-import { useSuccessFeedback } from "../../../components/feedback/useSuccessFeedback";
+import { useNotifications } from "../../../components/feedback/useNotifications";
 import { AppLayout } from "../../../components/layout/AppLayout";
 import { Button } from "../../../components/ui/Button";
 import type { SearchableSelectOption } from "../../../components/ui/SearchableSelect";
@@ -81,7 +81,7 @@ function EditFormContent({
 }: EditFormContentProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { showSuccess } = useSuccessFeedback();
+  const { showSuccess } = useNotifications();
   const session = useAuthSession();
   const updateMutation = useMutation({
     mutationFn: ({

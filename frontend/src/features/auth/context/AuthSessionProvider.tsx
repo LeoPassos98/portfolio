@@ -122,6 +122,8 @@ function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const clearSession = useCallback(() => {
     queryClient.clear()
     setSession(null)
+    clearKnownSession()
+    setSessionExpiredMessage(false)
   }, [])
 
   const synchronizeCurrentUser = useCallback(

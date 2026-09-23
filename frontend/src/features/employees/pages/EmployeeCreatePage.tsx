@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router'
-import { useSuccessFeedback } from '../../../components/feedback/useSuccessFeedback'
+import { useNotifications } from '../../../components/feedback/useNotifications'
 import { useUnsavedChangesGuard } from '../../../components/feedback/useUnsavedChangesGuard'
 import { AppLayout } from '../../../components/layout/AppLayout'
 import { Button } from '../../../components/ui/Button'
@@ -21,7 +21,7 @@ import {
 function EmployeeCreatePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { showSuccess } = useSuccessFeedback()
+  const { showSuccess } = useNotifications()
   const [formError, setFormError] = useState<string | null>(null)
   const {
     register,
