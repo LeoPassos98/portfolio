@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PasswordService } from '../auth/password/password.service.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { Perfil, type Prisma } from '../generated/prisma/client.js';
 import type { AdminBootstrapInput } from './admin-bootstrap.schema.js';
 
@@ -50,6 +51,7 @@ export class AdminBootstrapService {
           telefone: input.telefone,
           email: input.email,
           ativo: true,
+          environmentId: PRINCIPAL_ENVIRONMENT_ID,
         },
         select: { id: true },
       });
@@ -60,6 +62,7 @@ export class AdminBootstrapService {
           perfil: Perfil.ADMINISTRADOR,
           ativo: true,
           deveAlterarSenha: true,
+          environmentId: PRINCIPAL_ENVIRONMENT_ID,
           funcionarioId: funcionario.id,
         },
         select: { id: true, emailLogin: true },

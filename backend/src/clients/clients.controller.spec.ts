@@ -18,6 +18,7 @@ import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { setupOpenApi } from '../common/openapi/openapi.setup.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { StatusOrdemServico } from '../generated/prisma/client.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 
@@ -34,6 +35,7 @@ type UserFixture = {
 
 type ClientFixture = {
   id: string;
+  environmentId: string;
   nome: string;
   telefone: string;
   documento: string | null;
@@ -49,7 +51,9 @@ type ClientFixture = {
   criadoEm: Date;
 };
 
-type ClientFixtureOptions = Partial<Omit<ClientFixture, 'id' | 'criadoEm'>>;
+type ClientFixtureOptions = Partial<
+  Omit<ClientFixture, 'id' | 'environmentId' | 'criadoEm'>
+>;
 
 function getSessionId(cookie: string | undefined): string {
   if (!cookie) {
@@ -153,6 +157,7 @@ describe('ClientsController', () => {
     const suffix = crypto.randomUUID();
     const funcionario = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Funcionário ${suffix}`,
         telefone: '11999999999',
         email: `funcionario-${suffix}@example.test`,
@@ -160,6 +165,7 @@ describe('ClientsController', () => {
     });
     const usuario = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin: `usuario-${suffix}@example.test`,
         senhaHash: 'test-only-password-hash',
         perfil,
@@ -180,6 +186,7 @@ describe('ClientsController', () => {
     const suffix = crypto.randomUUID();
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: options.nome ?? `Cliente ${suffix}`,
         telefone: options.telefone ?? '11988887777',
         documento:
@@ -210,6 +217,7 @@ describe('ClientsController', () => {
   ) {
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${crypto.randomUUID()}`,
         descricao: 'Ordem usada apenas como fixture de teste.',
         valor: '10.00',
@@ -890,6 +898,7 @@ describe('ClientsController', () => {
     const client = await createClientFixture({ nome: 'Cliente com OS' });
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${crypto.randomUUID()}`,
         descricao: 'OS preservada durante a alteração de situação.',
         valor: '10.00',
@@ -910,9 +919,10 @@ describe('ClientsController', () => {
     const persistedOrder = await database.ordemServico.findUniqueOrThrow({
       where: { id: order.id },
     });
+    const { environmentId: _environmentId, ...expectedClient } = client;
 
     expect(response.body).toEqual({
-      ...client,
+      ...expectedClient,
       ativo: false,
       criadoEm: client.criadoEm.toISOString(),
     });
@@ -1447,12 +1457,13 @@ describe('ClientsController', () => {
       cidade: 'São Paulo',
       uf: 'SP',
     });
+    const { environmentId: _environmentId, ...expectedClient } = client;
 
     await agent
       .get(`/clients/${client.id}`)
       .expect(HttpStatus.OK)
       .expect({
-        ...client,
+        ...expectedClient,
         criadoEm: client.criadoEm.toISOString(),
       });
   });
@@ -1504,6 +1515,7 @@ describe('ClientsController', () => {
     const client = await createClientFixture({ nome: 'Cliente com ordem' });
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${crypto.randomUUID()}`,
         descricao: 'Ordem usada apenas como fixture de leitura.',
         valor: '10.00',

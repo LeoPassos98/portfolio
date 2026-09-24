@@ -9,6 +9,7 @@ import { AppModule } from '../app.module.js';
 import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { PasswordService } from './password/password.service.js';
 import { SessionStoreService } from './session/session-store.service.js';
 
@@ -150,6 +151,7 @@ describe('AuthController', () => {
     const suffix = crypto.randomUUID();
     const funcionario = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Funcionário ${suffix}`,
         telefone: '11999999999',
         email: `funcionario-${suffix}@example.test`,
@@ -158,6 +160,7 @@ describe('AuthController', () => {
     const email = `usuario-${suffix}@example.test`;
     const usuario = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin: email,
         senhaHash: await passwordService.hash(password),
         perfil: 'FUNCIONARIO',

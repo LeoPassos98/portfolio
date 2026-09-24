@@ -11,6 +11,7 @@ import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { setupOpenApi } from '../common/openapi/openapi.setup.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { PasswordService } from '../auth/password/password.service.js';
 
@@ -69,6 +70,15 @@ function getSessionId(cookie: string | undefined): string {
   }
 
   return sessionId;
+}
+
+function userByEmployeeId(funcionarioId: string) {
+  return {
+    environmentId_funcionarioId: {
+      environmentId: PRINCIPAL_ENVIRONMENT_ID,
+      funcionarioId,
+    },
+  } as const;
 }
 
 describe('EmployeesController', () => {
@@ -157,6 +167,7 @@ describe('EmployeesController', () => {
     const suffix = crypto.randomUUID();
     const employee = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: options.nome ?? `Funcionário ${suffix}`,
         telefone: options.telefone ?? '11999999999',
         email: options.email ?? `funcionario-${suffix}@example.test`,
@@ -171,6 +182,7 @@ describe('EmployeesController', () => {
 
     const usuario = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin:
           options.conta.emailLogin ?? `usuario-${suffix}@example.test`,
         senhaHash: options.conta.senhaHash ?? 'test-only-password-hash',
@@ -195,6 +207,7 @@ describe('EmployeesController', () => {
     const accountEmployee = await createEmployeeFixture();
     const user = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin: `auth-${crypto.randomUUID()}@example.test`,
         senhaHash: 'test-only-password-hash',
         perfil,
@@ -353,6 +366,7 @@ describe('EmployeesController', () => {
   ) {
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Cliente ${crypto.randomUUID()}`,
         telefone: '11999991111',
         documento: null,
@@ -369,6 +383,7 @@ describe('EmployeesController', () => {
     clientIds.push(client.id);
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${crypto.randomUUID()}`,
         descricao: 'OS de teste da situação do funcionário.',
         valor: '100.00',
@@ -438,7 +453,7 @@ describe('EmployeesController', () => {
     });
     await expect(
       database.usuario.findUnique({
-        where: { funcionarioId: persisted.id },
+        where: userByEmployeeId(persisted.id),
       }),
     ).resolves.toBeNull();
     expect(response.body).not.toHaveProperty('senha');
@@ -647,7 +662,7 @@ describe('EmployeesController', () => {
       )
       .expect(HttpStatus.CREATED);
     const persisted = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: employee.id },
+      where: userByEmployeeId(employee.id),
     });
     userIds.push(persisted.id);
 
@@ -699,7 +714,7 @@ describe('EmployeesController', () => {
       )
       .expect(HttpStatus.CREATED);
     const persisted = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: employee.id },
+      where: userByEmployeeId(employee.id),
     });
     userIds.push(persisted.id);
 
@@ -742,7 +757,7 @@ describe('EmployeesController', () => {
     });
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toMatchObject({ ativo: false, deveAlterarSenha: true });
   });
@@ -761,7 +776,7 @@ describe('EmployeesController', () => {
       )
       .expect(HttpStatus.CREATED);
     const persisted = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: employee.id },
+      where: userByEmployeeId(employee.id),
     });
     userIds.push(persisted.id);
 
@@ -785,7 +800,7 @@ describe('EmployeesController', () => {
       )
       .expect(HttpStatus.CREATED);
     const firstAccount = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: firstEmployee.id },
+      where: userByEmployeeId(firstEmployee.id),
     });
     userIds.push(firstAccount.id);
 
@@ -809,7 +824,7 @@ describe('EmployeesController', () => {
     );
     await expect(
       database.usuario.findUnique({
-        where: { funcionarioId: secondEmployee.id },
+        where: userByEmployeeId(secondEmployee.id),
       }),
     ).resolves.toBeNull();
     await expect(
@@ -1011,7 +1026,7 @@ describe('EmployeesController', () => {
     const [persistedEmployee, persistedAccount] = await Promise.all([
       database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ]);
     userIds.push(persistedAccount.id);
@@ -1295,7 +1310,7 @@ describe('EmployeesController', () => {
         message: 'Employee access account not found',
       });
     await expect(
-      database.usuario.findUnique({ where: { funcionarioId: employee.id } }),
+      database.usuario.findUnique({ where: userByEmployeeId(employee.id) }),
     ).resolves.toBeNull();
   });
 
@@ -1792,7 +1807,7 @@ describe('EmployeesController', () => {
         message: 'Employee access account not found',
       });
     await expect(
-      database.usuario.findUnique({ where: { funcionarioId: employee.id } }),
+      database.usuario.findUnique({ where: userByEmployeeId(employee.id) }),
     ).resolves.toBeNull();
   });
 
@@ -2022,7 +2037,7 @@ describe('EmployeesController', () => {
     const [persistedEmployee, persistedAccount] = await Promise.all([
       database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ]);
 
@@ -2076,7 +2091,7 @@ describe('EmployeesController', () => {
       .expect(HttpStatus.OK)
       .expect(response.body);
     await expect(
-      database.usuario.findUnique({ where: { funcionarioId: employee.id } }),
+      database.usuario.findUnique({ where: userByEmployeeId(employee.id) }),
     ).resolves.toBeNull();
   });
 
@@ -2095,6 +2110,7 @@ describe('EmployeesController', () => {
     });
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: 'Cliente Relacionado',
         telefone: '11999991111',
         documento: null,
@@ -2111,6 +2127,7 @@ describe('EmployeesController', () => {
     clientIds.push(client.id);
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${crypto.randomUUID()}`,
         descricao: 'Ordem relacionada ao funcionário',
         valor: '100.00',
@@ -2121,6 +2138,7 @@ describe('EmployeesController', () => {
     orderIds.push(order.id);
     const history = await database.historicoOrdemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         versao: 1,
         descricao: order.descricao,
         valor: order.valor,
@@ -2136,7 +2154,7 @@ describe('EmployeesController', () => {
     });
     historyIds.push(history.id);
     const accountBefore = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: employee.id },
+      where: userByEmployeeId(employee.id),
     });
 
     const response = await agent
@@ -2148,7 +2166,7 @@ describe('EmployeesController', () => {
       await Promise.all([
         database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
         database.usuario.findUniqueOrThrow({
-          where: { funcionarioId: employee.id },
+          where: userByEmployeeId(employee.id),
         }),
         database.ordemServico.findUniqueOrThrow({ where: { id: order.id } }),
         database.historicoOrdemServico.findUniqueOrThrow({
@@ -2377,7 +2395,7 @@ describe('EmployeesController', () => {
     });
     const targetSession = await createSessionForUser(employee.usuario!.id);
     const accountBefore = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: employee.id },
+      where: userByEmployeeId(employee.id),
     });
 
     const response = await agent
@@ -2400,7 +2418,7 @@ describe('EmployeesController', () => {
       await Promise.all([
         database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
         database.usuario.findUniqueOrThrow({
-          where: { funcionarioId: employee.id },
+          where: userByEmployeeId(employee.id),
         }),
         verificationPool!.query(
           'SELECT "sid" FROM "session" WHERE "sid" = $1',
@@ -2445,7 +2463,7 @@ describe('EmployeesController', () => {
     const [employeeBefore, accountBefore] = await Promise.all([
       database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ]);
 
@@ -2475,7 +2493,7 @@ describe('EmployeesController', () => {
     ).resolves.toEqual(employeeBefore);
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toEqual(accountBefore);
   });
@@ -2491,7 +2509,7 @@ describe('EmployeesController', () => {
     const [employeeBefore, accountBefore] = await Promise.all([
       database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ]);
 
@@ -2519,7 +2537,7 @@ describe('EmployeesController', () => {
     ).resolves.toEqual(employeeBefore);
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toEqual(accountBefore);
   });
@@ -2533,7 +2551,7 @@ describe('EmployeesController', () => {
     const [employeeBefore, accountBefore] = await Promise.all([
       database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ]);
 
@@ -2562,7 +2580,7 @@ describe('EmployeesController', () => {
     ).resolves.toEqual(employeeBefore);
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toEqual(accountBefore);
   });
@@ -2576,7 +2594,7 @@ describe('EmployeesController', () => {
     const [employeeBefore, accountBefore] = await Promise.all([
       database.funcionario.findUniqueOrThrow({ where: { id: employee.id } }),
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ]);
 
@@ -2604,7 +2622,7 @@ describe('EmployeesController', () => {
     ).resolves.toEqual(employeeBefore);
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toEqual(accountBefore);
     await expect(
@@ -2646,7 +2664,7 @@ describe('EmployeesController', () => {
     });
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toMatchObject({ perfil: 'FUNCIONARIO', ativo: true });
     await expect(
@@ -2693,7 +2711,7 @@ describe('EmployeesController', () => {
       .expect(HttpStatus.OK)
       .expect(repeatedActive.body);
     await expect(
-      database.usuario.findUnique({ where: { funcionarioId: employee.id } }),
+      database.usuario.findUnique({ where: userByEmployeeId(employee.id) }),
     ).resolves.toBeNull();
   });
 
@@ -2722,7 +2740,7 @@ describe('EmployeesController', () => {
             where: { id: employee.id },
           }),
           database.usuario.findUniqueOrThrow({
-            where: { funcionarioId: employee.id },
+            where: userByEmployeeId(employee.id),
           }),
           database.ordemServico.findUniqueOrThrow({ where: { id: order.id } }),
         ]);
@@ -2769,7 +2787,7 @@ describe('EmployeesController', () => {
     });
     const otherSession = await createSessionForUser(otherEmployee.usuario!.id);
     const accountBefore = await database.usuario.findUniqueOrThrow({
-      where: { funcionarioId: employee.id },
+      where: userByEmployeeId(employee.id),
     });
 
     const deactivated = await agent
@@ -2780,7 +2798,7 @@ describe('EmployeesController', () => {
     const [persistedAccount, targetSessions, otherSessions] = await Promise.all(
       [
         database.usuario.findUniqueOrThrow({
-          where: { funcionarioId: employee.id },
+          where: userByEmployeeId(employee.id),
         }),
         verificationPool!.query(
           'SELECT "sid" FROM "session" WHERE "sid" = ANY($1)',
@@ -2822,7 +2840,7 @@ describe('EmployeesController', () => {
     });
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toMatchObject({
       ...accountBefore,
@@ -2850,7 +2868,7 @@ describe('EmployeesController', () => {
     });
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toMatchObject({ ativo: false, perfil: 'ADMINISTRADOR' });
     await expect(
@@ -2883,7 +2901,7 @@ describe('EmployeesController', () => {
     ).resolves.toMatchObject({ ativo: true });
     await expect(
       database.usuario.findUniqueOrThrow({
-        where: { funcionarioId: employee.id },
+        where: userByEmployeeId(employee.id),
       }),
     ).resolves.toMatchObject({ ativo: true, perfil: 'ADMINISTRADOR' });
     await expect(
@@ -3620,7 +3638,7 @@ describe('EmployeesController', () => {
       });
     await expect(
       database.usuario.findUnique({
-        where: { funcionarioId: employeeWithoutAccount.id },
+        where: userByEmployeeId(employeeWithoutAccount.id),
       }),
     ).resolves.toBeNull();
   });
@@ -3986,7 +4004,7 @@ describe('EmployeesController', () => {
       });
     await expect(
       database.usuario.findUnique({
-        where: { funcionarioId: employeeWithoutAccount.id },
+        where: userByEmployeeId(employeeWithoutAccount.id),
       }),
     ).resolves.toBeNull();
   });

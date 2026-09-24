@@ -8,6 +8,7 @@ import {
   type Prisma as PrismaTypes,
 } from '../generated/prisma/client.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import type { ClientCreateInput } from './client-create.schema.js';
 import type { ClientListQuery } from './client-list-query.schema.js';
 import type { ClientStatusUpdateInput } from './client-status-update.schema.js';
@@ -117,6 +118,7 @@ export class ClientsService {
         data: {
           ...input,
           ativo: true,
+          environmentId: PRINCIPAL_ENVIRONMENT_ID,
         },
         select: clientDetailSelect,
       });

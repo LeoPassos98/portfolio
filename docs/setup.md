@@ -133,6 +133,10 @@ A migration inicial inclui constraints `CHECK (valor >= 0)` em `ordem_servico` e
 
 Elas existem porque o Prisma Schema não representa esse tipo de constraint diretamente.
 
+A migration de fundação de `Environment` cria o PRINCIPAL permanente, associa os dados existentes a ele e transforma o contador de OS em um registro por Environment sem recalcular `ultimo_numero`. Ela deve ser aplicada com `npx prisma migrate deploy`, como na etapa 4; não exige seed, reset nem logout global.
+
+As constraints `CHECK` que vinculam tipo e expiração, o índice parcial que permite no máximo um PRINCIPAL e o trigger que impede excluir o PRINCIPAL ou alterar seu tipo permanecem explícitos no SQL porque não são representados integralmente pelo Prisma Schema. A tabela `session` continua sem `environment_id`; a identidade persistida permanece `usuarioId`.
+
 Ao alterar `schema.prisma`, valide e gere novamente o cliente:
 
 ```bash

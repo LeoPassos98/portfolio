@@ -17,6 +17,7 @@ import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { setupOpenApi } from '../common/openapi/openapi.setup.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import {
   StatusOrdemServico,
   Visibilidade,
@@ -74,7 +75,7 @@ describe('OrdersController', () => {
 
   beforeEach(async () => {
     const counter = await database.contadorOrdemServico.findUniqueOrThrow({
-      where: { id: 1 },
+      where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
       select: { ultimoNumero: true },
     });
     counterValueBeforeTest = counter.ultimoNumero;
@@ -108,7 +109,7 @@ describe('OrdersController', () => {
         where: { id: { in: funcionarioIds } },
       });
     await database.contadorOrdemServico.update({
-      where: { id: 1 },
+      where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
       data: { ultimoNumero: counterValueBeforeTest },
     });
     clientIds.length = 0;
@@ -136,6 +137,7 @@ describe('OrdersController', () => {
     const suffix = crypto.randomUUID();
     const funcionario = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: options.nome ?? `Funcionário ${suffix}`,
         telefone: '11999999999',
         email: `funcionario-${suffix}@example.test`,
@@ -144,6 +146,7 @@ describe('OrdersController', () => {
     });
     const usuario = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin: `login-${suffix}@example.test`,
         senhaHash: 'test-only-hash',
         perfil: options.perfil ?? 'FUNCIONARIO',
@@ -176,6 +179,7 @@ describe('OrdersController', () => {
     const suffix = crypto.randomUUID();
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Cliente ${suffix}`,
         telefone: '11988887777',
         cep: '01001000',
@@ -252,6 +256,7 @@ describe('OrdersController', () => {
     const suffix = crypto.randomUUID();
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: options.clientName ?? `Cliente ${suffix}`,
         telefone: '11988887777',
         cep: '01001000',
@@ -264,6 +269,7 @@ describe('OrdersController', () => {
     });
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: options.numero ?? `OS-${suffix}`,
         descricao: options.descricao ?? 'Descrição da ordem.',
         valor: options.valor ?? '123.40',
@@ -323,6 +329,7 @@ describe('OrdersController', () => {
   ) {
     const history = await database.historicoOrdemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         versao: options.versao,
         descricao:
           options.descricao ?? `Descrição da versão ${options.versao}.`,
@@ -446,7 +453,7 @@ describe('OrdersController', () => {
       const client = await createClientFixture();
       const counterBefore =
         await database.contadorOrdemServico.findUniqueOrThrow({
-          where: { id: 1 },
+          where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
         });
 
       await administrator.agent
@@ -458,7 +465,7 @@ describe('OrdersController', () => {
 
       const counterAfter =
         await database.contadorOrdemServico.findUniqueOrThrow({
-          where: { id: 1 },
+          where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
         });
       expect(counterAfter.ultimoNumero).toBe(counterBefore.ultimoNumero);
     },
@@ -527,7 +534,7 @@ describe('OrdersController', () => {
       const inactive = missingId ? null : await createClientFixture(false);
       const counterBefore =
         await database.contadorOrdemServico.findUniqueOrThrow({
-          where: { id: 1 },
+          where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
         });
 
       const response = await employee.agent
@@ -544,7 +551,7 @@ describe('OrdersController', () => {
 
       const counterAfter =
         await database.contadorOrdemServico.findUniqueOrThrow({
-          where: { id: 1 },
+          where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
         });
       expect(counterAfter.ultimoNumero).toBe(counterBefore.ultimoNumero);
     },
@@ -667,7 +674,7 @@ describe('OrdersController', () => {
     const employee = await createAgent();
     const client = await createClientFixture();
     const counter = await database.contadorOrdemServico.findUniqueOrThrow({
-      where: { id: 1 },
+      where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
     });
     const requestCount = 12;
 
@@ -703,7 +710,7 @@ describe('OrdersController', () => {
     expect(persistedCount).toBe(requestCount);
     const updatedCounter =
       await database.contadorOrdemServico.findUniqueOrThrow({
-        where: { id: 1 },
+        where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
       });
     expect(updatedCounter.ultimoNumero).toBe(
       counter.ultimoNumero + requestCount,
@@ -713,9 +720,10 @@ describe('OrdersController', () => {
        FROM pg_indexes
        WHERE schemaname = 'public'
          AND tablename = 'ordem_servico'
-         AND indexname = 'ordem_servico_numero_key'`,
+         AND indexname = 'ordem_servico_environment_id_numero_key'`,
     );
     expect(uniqueIndex.rows[0]?.indexdef).toContain('UNIQUE INDEX');
+    expect(uniqueIndex.rows[0]?.indexdef).toContain('(environment_id, numero)');
   });
 
   it('observes a client deactivation that holds the row lock before creation validates it', async () => {

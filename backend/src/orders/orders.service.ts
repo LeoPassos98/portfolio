@@ -13,6 +13,7 @@ import {
 } from '../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.interface.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { OrderDetailResponse } from './order-detail-response.dto.js';
 import type { OrderCreateInput } from './order-create.schema.js';
 import { OrderHistoryItemResponse } from './order-history-item-response.dto.js';
@@ -71,7 +72,6 @@ export const ORDER_RESPONSIBLE_CHANGE_FORBIDDEN_ERROR = {
   message: 'Employee cannot change the responsible employee',
 } as const;
 
-const ORDER_COUNTER_ID = 1;
 // The creation burst defines the upper bound; updates keep the request version fixed on every retry.
 const MAX_SERIALIZABLE_TRANSACTION_ATTEMPTS = 25;
 
@@ -386,7 +386,7 @@ export class OrdersService {
     await this.lockActiveResponsible(transaction, responsavelId);
 
     const counter = await transaction.contadorOrdemServico.update({
-      where: { id: ORDER_COUNTER_ID },
+      where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
       data: { ultimoNumero: { increment: 1 } },
       select: { ultimoNumero: true },
     });
@@ -394,6 +394,7 @@ export class OrdersService {
 
     return transaction.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero,
         clienteId: input.clienteId,
         responsavelId,
@@ -472,6 +473,7 @@ export class OrdersService {
 
     await transaction.historicoOrdemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         ordemServicoId: current.id,
         versao: current.versao,
         descricao: current.descricao,
@@ -670,7 +672,9 @@ export class OrdersService {
 
     return (
       /HistoricoOrdemServico|historico_ordem_servico/.test(metadata) &&
-      /ordemServicoId|ordem_servico_id/.test(metadata) &&
+      /ordemServicoId|ordem_servico_id|historico_environment_ordem_versao_key/.test(
+        metadata,
+      ) &&
       /versao/.test(metadata)
     );
   }

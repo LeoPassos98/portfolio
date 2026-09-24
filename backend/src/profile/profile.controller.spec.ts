@@ -10,6 +10,7 @@ import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { PasswordService } from '../auth/password/password.service.js';
 import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -109,6 +110,7 @@ describe('ProfileController', () => {
     const suffix = crypto.randomUUID();
     const employee = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Pessoa ${suffix}`,
         telefone: '11999999999',
         email: `contato-${suffix}@example.test`,
@@ -117,6 +119,7 @@ describe('ProfileController', () => {
     const emailLogin = `login-${suffix}@example.test`;
     const user = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin,
         senhaHash: await passwordService.hash(password),
         perfil,

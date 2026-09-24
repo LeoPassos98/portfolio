@@ -30,57 +30,91 @@ enum Visibilidade {
   @@map("visibilidade")
 }
 
-model Cliente {
-  id          String         @id @default(uuid()) @db.Uuid
-  nome        String         @db.Text
-  telefone    String         @db.Text
-  documento   String?        @unique @db.Text
-  email       String?        @db.Text
-  cep         String         @db.Text
-  logradouro  String         @db.Text
-  numero      String         @db.Text
-  complemento String?        @db.Text
-  bairro      String         @db.Text
-  cidade      String         @db.Text
-  uf          String         @db.Text
-  ativo       Boolean        @default(true)
-  criadoEm    DateTime       @default(now()) @map("criado_em") @db.Timestamptz(6)
-  ordens      OrdemServico[]
+enum TipoEnvironment {
+  PRINCIPAL
+  DEMO
 
+  @@map("tipo_environment")
+}
+
+model Environment {
+  id                     String                  @id @default(uuid()) @db.Uuid
+  tipo                   TipoEnvironment
+  criadoEm               DateTime                @default(now()) @map("criado_em") @db.Timestamptz(6)
+  expiresAt              DateTime?               @map("expires_at") @db.Timestamptz(6)
+  clientes               Cliente[]
+  funcionarios           Funcionario[]
+  usuarios               Usuario[]
+  ordensServico          OrdemServico[]
+  historicosOrdemServico HistoricoOrdemServico[]
+  contadorOrdemServico   ContadorOrdemServico?
+
+  @@map("environment")
+}
+
+model Cliente {
+  id            String         @id @default(uuid()) @db.Uuid
+  environmentId String         @map("environment_id") @db.Uuid
+  nome          String         @db.Text
+  telefone      String         @db.Text
+  documento     String?        @db.Text
+  email         String?        @db.Text
+  cep           String         @db.Text
+  logradouro    String         @db.Text
+  numero        String         @db.Text
+  complemento   String?        @db.Text
+  bairro        String         @db.Text
+  cidade        String         @db.Text
+  uf            String         @db.Text
+  ativo         Boolean        @default(true)
+  criadoEm      DateTime       @default(now()) @map("criado_em") @db.Timestamptz(6)
+  environment   Environment    @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  ordens        OrdemServico[]
+
+  @@unique([environmentId, id])
+  @@unique([environmentId, documento])
   @@map("cliente")
 }
 
 model Funcionario {
   id                        String                  @id @default(uuid()) @db.Uuid
+  environmentId             String                  @map("environment_id") @db.Uuid
   nome                      String                  @db.Text
   telefone                  String                  @db.Text
   email                     String                  @db.Text
   ativo                     Boolean                 @default(true)
   criadoEm                  DateTime                @default(now()) @map("criado_em") @db.Timestamptz(6)
+  environment               Environment             @relation(fields: [environmentId], references: [id], onDelete: Restrict)
   usuario                   Usuario?
   ordensComoResponsavel     OrdemServico[]          @relation("ResponsavelAtual")
   historicosComoResponsavel HistoricoOrdemServico[] @relation("ResponsavelNoSnapshot")
 
+  @@unique([environmentId, id])
   @@map("funcionario")
 }
 
 model Usuario {
   id                  String                  @id @default(uuid()) @db.Uuid
+  environmentId       String                  @map("environment_id") @db.Uuid
   emailLogin          String                  @unique @map("email_login") @db.Text
   senhaHash           String                  @map("senha_hash") @db.Text
   perfil              Perfil
   ativo               Boolean                 @default(true)
   deveAlterarSenha    Boolean                 @default(true) @map("deve_alterar_senha")
-  funcionarioId       String                  @unique @map("funcionario_id") @db.Uuid
-  funcionario         Funcionario             @relation(fields: [funcionarioId], references: [id], onDelete: Restrict)
+  funcionarioId       String                  @map("funcionario_id") @db.Uuid
+  environment         Environment             @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  funcionario         Funcionario             @relation(fields: [environmentId, funcionarioId], references: [environmentId, id], onDelete: Restrict, map: "usuario_environment_funcionario_fkey")
   historicosAlterados HistoricoOrdemServico[] @relation("AlteradoPorUsuario")
 
+  @@unique([environmentId, id])
+  @@unique([environmentId, funcionarioId])
   @@map("usuario")
 }
 
 model OrdemServico {
   id            String                  @id @default(uuid()) @db.Uuid
-  numero        String                  @unique @db.Text
+  environmentId String                  @map("environment_id") @db.Uuid
+  numero        String                  @db.Text
   descricao     String                  @db.Text
   valor         Decimal                 @db.Decimal(12, 2)
   observacoes   String?                 @db.Text
@@ -93,24 +127,29 @@ model OrdemServico {
   canceladoEm   DateTime?               @map("cancelado_em") @db.Timestamptz(6)
   clienteId     String                  @map("cliente_id") @db.Uuid
   responsavelId String                  @map("responsavel_id") @db.Uuid
-  cliente       Cliente                 @relation(fields: [clienteId], references: [id], onDelete: Restrict)
-  responsavel   Funcionario             @relation("ResponsavelAtual", fields: [responsavelId], references: [id], onDelete: Restrict)
+  environment   Environment             @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  cliente       Cliente                 @relation(fields: [environmentId, clienteId], references: [environmentId, id], onDelete: Restrict, map: "ordem_servico_environment_cliente_fkey")
+  responsavel   Funcionario             @relation("ResponsavelAtual", fields: [environmentId, responsavelId], references: [environmentId, id], onDelete: Restrict, map: "ordem_servico_environment_responsavel_fkey")
   historicos    HistoricoOrdemServico[]
 
+  @@unique([environmentId, id])
+  @@unique([environmentId, numero])
   @@index([clienteId])
   @@index([responsavelId])
   @@map("ordem_servico")
 }
 
 model ContadorOrdemServico {
-  id           Int @id @default(1)
-  ultimoNumero Int @default(0) @map("ultimo_numero")
+  environmentId String      @id @map("environment_id") @db.Uuid
+  ultimoNumero  Int         @default(0) @map("ultimo_numero")
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
 
   @@map("contador_ordem_servico")
 }
 
 model HistoricoOrdemServico {
   id                   String             @id @default(uuid()) @db.Uuid
+  environmentId        String             @map("environment_id") @db.Uuid
   versao               Int
   descricao            String             @db.Text
   valor                Decimal            @db.Decimal(12, 2)
@@ -123,11 +162,14 @@ model HistoricoOrdemServico {
   ordemServicoId       String             @map("ordem_servico_id") @db.Uuid
   responsavelId        String             @map("responsavel_id") @db.Uuid
   alteradoPorUsuarioId String             @map("alterado_por_usuario_id") @db.Uuid
-  ordemServico         OrdemServico       @relation(fields: [ordemServicoId], references: [id], onDelete: Restrict)
-  responsavel          Funcionario        @relation("ResponsavelNoSnapshot", fields: [responsavelId], references: [id], onDelete: Restrict)
-  alteradoPorUsuario   Usuario            @relation("AlteradoPorUsuario", fields: [alteradoPorUsuarioId], references: [id], onDelete: Restrict)
+  environment          Environment        @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  ordemServico         OrdemServico       @relation(fields: [environmentId, ordemServicoId], references: [environmentId, id], onDelete: Restrict, map: "historico_environment_ordem_fkey")
+  responsavel          Funcionario        @relation("ResponsavelNoSnapshot", fields: [environmentId, responsavelId], references: [environmentId, id], onDelete: Restrict, map: "historico_environment_responsavel_fkey")
+  alteradoPorUsuario   Usuario            @relation("AlteradoPorUsuario", fields: [environmentId, alteradoPorUsuarioId], references: [environmentId, id], onDelete: Restrict, map: "historico_environment_autor_fkey")
 
-  @@unique([ordemServicoId, versao])
+  @@unique([environmentId, ordemServicoId, versao], map: "historico_environment_ordem_versao_key")
+  @@index([environmentId, responsavelId], map: "historico_environment_responsavel_idx")
+  @@index([environmentId, alteradoPorUsuarioId], map: "historico_environment_autor_idx")
   @@map("historico_ordem_servico")
 }
 

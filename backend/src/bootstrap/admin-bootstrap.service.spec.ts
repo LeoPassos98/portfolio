@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Test, type TestingModule } from '@nestjs/testing';
 import { PasswordService } from '../auth/password/password.service.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { Perfil } from '../generated/prisma/client.js';
 import { AdminBootstrapModule } from './admin-bootstrap.module.js';
 import {
@@ -143,6 +144,7 @@ describe('AdminBootstrapService', () => {
     const existingInput = createInput();
     const existingFuncionario = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: existingInput.nome,
         telefone: existingInput.telefone,
         email: existingInput.email,

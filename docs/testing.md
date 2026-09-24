@@ -10,9 +10,9 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                  |
-| Arquivos catalogados         | 19 arquivos `*.spec.ts` na suíte principal e o smoke e2e separado `backend/test/app.e2e-spec.ts`          |
+| Arquivos catalogados         | 21 arquivos `*.spec.ts` na suíte principal e o smoke e2e separado `backend/test/app.e2e-spec.ts`          |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo |
-| Último resultado consolidado | **453 testes aprovados** após configurar com segurança o proxy reverso de produção                         |
+| Último resultado consolidado | **484 testes aprovados** após introduzir e validar a fundação de Environment                               |
 
 ## Executar agora
 
@@ -56,6 +56,7 @@ git diff --check
 - [Arquitetura dos bancos PostgreSQL](#arquitetura-dos-bancos-postgresql)
 - [Catálogo de testes automatizados](#catálogo-de-testes-automatizados)
   - [Aplicação, configuração e HTTP](#aplicação-configuração-e-http)
+  - [Banco e Environment](#banco-e-environment)
   - [Credenciais, sessão e guards](#credenciais-sessão-e-guards)
   - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Autenticação HTTP](#autenticação-http)
@@ -70,7 +71,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **453 testes** executada após configurar com segurança o proxy reverso de produção. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
+Salvo a exceção indicada no smoke e2e, os arquivos `*.spec.ts` deste catálogo foram aprovados como parte da suíte de **484 testes** executada após introduzir a fundação de Environment. Os resultados são cumulativos: não representam a quantidade criada por arquivo ou família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -87,7 +88,15 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/common/validation/zod-validation.pipe.spec.ts`](../backend/src/common/validation/zod-validation.pipe.spec.ts) | Aceita entrada parseada, preserva transformações Zod e devolve `BadRequestException` com as issues.                                              | DTOs normalizam dados e expõem erros de schema consistentes na camada HTTP.             | Vitest, Zod e `ZodValidationPipe` isolado.                         |
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas; sempre responde `statusCode`, `code` e `message`. | O contrato público de erro permanece estável sem vazar detalhes internos.               | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
-Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 453 testes selecionados por `npm test`.
+Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 484 testes selecionados por `npm test`.
+
+### Banco e Environment
+
+| Arquivo                                                                                                    | Finalidade e cenários relevantes                                                                                                                                                       | Regra ou risco comprovado                                                                                                                  | Infraestrutura importante                                        |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| [`backend/src/database/environment-integrity.spec.ts`](../backend/src/database/environment-integrity.spec.ts) | Confirma o PRINCIPAL único, sem expiração, não excluível e sem mudança de tipo; permite excluir DEMO sem dependências; valida contador por Environment, vínculos obrigatórios, documento e número escopados, e-mail de login global e rejeição das seis relações cruzadas. | PostgreSQL preserva a permanência do PRINCIPAL e as invariantes tenant-aware sem confiar em UUIDs globais ou em filtros da aplicação; `session` fica fora do vínculo. | Vitest, `pg`, PostgreSQL `portfolio_test`, savepoints e rollback. |
+
+Os Environments `DEMO` criados por esta suíte são fixtures transacionais exclusivas para provar constraints. Eles sofrem rollback após cada cenário e não correspondem a provisionamento ou funcionalidade de demonstração.
 
 ### Credenciais, sessão e guards
 
@@ -333,3 +342,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | Pré-deploy — bootstrap do primeiro Administrador | **450 testes** |
 | Deploy Northflank — proxy reverso seguro         | **453 testes** |
 | Meu perfil — autoatendimento e senha             | **481 testes** |
+| Environment — fundação e integridade da Fase 1   | **484 testes** |

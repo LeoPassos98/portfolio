@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual   |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador                  |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, migrations e acesso PostgreSQL injetável                                          |        7 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, migrations e acesso PostgreSQL injetável                   |        9 |
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                 |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                      |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
@@ -30,7 +30,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, senhas, autenticação, guards, sessões, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       21 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       22 |
 
 ## Sumário
 
@@ -144,7 +144,7 @@ Recebe `DATABASE_URL` para o banco da aplicação e `SHADOW_DATABASE_URL` para a
 
 ### 2. `backend/prisma/schema.prisma`
 
-Define os modelos físicos PostgreSQL do domínio, o contador singleton da numeração de OS e a tabela de infraestrutura `session`, seus enums e relações, além do generator `prisma-client` com saída local.
+Define `Environment`, o vínculo obrigatório das entidades tenant-aware, as relações compostas que expressam a integridade por ambiente, o contador de OS por Environment e a tabela de infraestrutura `session` sem vínculo de tenant. Também mantém os enums e o generator `prisma-client` com saída local.
 
 ### 3. `backend/src/database/database.module.ts`
 
@@ -156,19 +156,29 @@ Instancia o Prisma Client com o adapter PostgreSQL e recebe a URL pelo `ConfigSe
 
 Gerencia a conexão no ciclo de vida do NestJS e registra apenas eventos seguros de conexão e desconexão.
 
-### 5. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
+### 5. `backend/src/environments/principal-environment.ts`
+
+Declara o identificador server-side estável do Environment PRINCIPAL criado pela migration. É a ponte restrita da Fase 1 para escritas existentes; não recebe valor do cliente e deverá ser substituída pelo Environment autenticado na Fase 2.
+
+### 6. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
 
 Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índices, constraints de integridade e as chaves estrangeiras restritivas.
 
-### 6. `backend/prisma/migrations/20260901002105_add_session_store/migration.sql`
+### 7. `backend/prisma/migrations/20260901002105_add_session_store/migration.sql`
 
 Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com `sid` como chave primária, `sess` JSON, `expire` timestamp e índice de expiração.
 
-### 7. `backend/prisma/migrations/20260908190000_add_order_counter/migration.sql`
+### 8. `backend/prisma/migrations/20260908190000_add_order_counter/migration.sql`
 
 Cria o contador singleton da numeração de OS, com constraints para o identificador único e valor não negativo.
 
 Inicializa `ultimo_numero` pelo maior número de uma OS existente no formato `OS-<número>`, preservando dados anteriores à migration.
+
+### 9. `backend/prisma/migrations/20260923213000_add_environment_foundation/migration.sql`
+
+Introduz `Environment` e o PRINCIPAL permanente, protege no PostgreSQL sua exclusão e mudança de tipo, valida as relações legadas, faz backfill de todas as entidades tenant-aware e converte o contador global em um contador por Environment sem recalcular `ultimo_numero`.
+
+Também substitui as FKs simples pelas compostas, move documento e número da OS para unicidade por Environment, mantém o e-mail de login global, torna os vínculos obrigatórios somente após o backfill e preserva `session` sem alteração.
 
 ---
 
@@ -805,3 +815,9 @@ Executa o bootstrap contra PostgreSQL `portfolio_test`, cobrindo criação e has
 ### 18. `backend/src/common/http/trust-proxy.config.spec.ts`
 
 Verifica a confiança de exatamente um hop de proxy em produção e a preservação do padrão do Express em desenvolvimento e teste.
+
+### 19. `backend/src/database/environment-integrity.spec.ts`
+
+Valida no PostgreSQL o PRINCIPAL permanente, o contador por Environment, a nulabilidade obrigatória dos vínculos, as unicidades globais e por ambiente e todas as FKs compostas contra relações cross-environment.
+
+Usa transações revertidas ao final de cada cenário; os Environments auxiliares existem somente durante o teste e não habilitam demonstrações na aplicação.

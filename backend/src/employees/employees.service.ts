@@ -11,6 +11,7 @@ import {
 import { PasswordService } from '../auth/password/password.service.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import type { EmployeeAdministrativeUpdateInput } from './employee-administrative-update.schema.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
@@ -154,6 +155,7 @@ export class EmployeesService {
       data: {
         ...employeeData,
         ativo: status === 'active',
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
       },
       select: employeeDetailSelect,
     });
@@ -220,7 +222,12 @@ export class EmployeesService {
     } catch (error: unknown) {
       if (this.isUniqueConstraintError(error)) {
         const account = await this.database.usuario.findUnique({
-          where: { funcionarioId: employeeId },
+          where: {
+            environmentId_funcionarioId: {
+              environmentId: PRINCIPAL_ENVIRONMENT_ID,
+              funcionarioId: employeeId,
+            },
+          },
           select: { id: true },
         });
 
@@ -530,6 +537,7 @@ export class EmployeesService {
         senhaHash,
         perfil: profileByInput[profile],
         ativo: employee.ativo,
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         funcionarioId: employee.id,
       },
       select: {

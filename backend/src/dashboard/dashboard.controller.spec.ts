@@ -9,6 +9,7 @@ import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { setupOpenApi } from '../common/openapi/openapi.setup.js';
 import { DatabaseService } from '../database/database.service.js';
+import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import {
   StatusOrdemServico,
   Visibilidade,
@@ -117,6 +118,7 @@ describe('DashboardController', () => {
     const suffix = crypto.randomUUID();
     const employee = await database.funcionario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Funcionário ${suffix}`,
         telefone: '11999999999',
         email: `funcionario-${suffix}@example.test`,
@@ -130,6 +132,7 @@ describe('DashboardController', () => {
 
     const user = await database.usuario.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         emailLogin: `login-${suffix}@example.test`,
         senhaHash: 'test-only-hash',
         perfil: options.perfil ?? 'FUNCIONARIO',
@@ -166,6 +169,7 @@ describe('DashboardController', () => {
     const suffix = crypto.randomUUID();
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Cliente ${suffix}`,
         telefone: '11988887777',
         cep: '01001000',
@@ -178,6 +182,7 @@ describe('DashboardController', () => {
     });
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${suffix}`,
         descricao: 'Descrição da ordem.',
         valor: '100.00',
@@ -197,6 +202,7 @@ describe('DashboardController', () => {
     const suffix = crypto.randomUUID();
     const client = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: `Cliente de desempenho ${suffix}`,
         telefone: '11988887777',
         cep: '01001000',
@@ -227,6 +233,7 @@ describe('DashboardController', () => {
       : await createPerformanceClientFixture();
     const order = await database.ordemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         numero: `OS-${crypto.randomUUID()}`,
         descricao: 'Ordem usada nas métricas temporais.',
         valor: options.valor ?? '100.00',
@@ -265,6 +272,7 @@ describe('DashboardController', () => {
     });
     const activeClient = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: 'Cliente ativo',
         telefone: '11999999999',
         cep: '01001000',
@@ -278,6 +286,7 @@ describe('DashboardController', () => {
     });
     const inactiveClient = await database.cliente.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         nome: 'Cliente inativo',
         telefone: '11999999998',
         cep: '01001000',
@@ -581,6 +590,7 @@ describe('DashboardController', () => {
     });
     const reopenedSnapshot = await database.historicoOrdemServico.create({
       data: {
+        environmentId: PRINCIPAL_ENVIRONMENT_ID,
         versao: 1,
         descricao: 'Versão concluída antes da reabertura.',
         valor: '300.00',
@@ -805,9 +815,7 @@ describe('DashboardController', () => {
       )
       .expect(HttpStatus.OK);
     await employee.agent
-      .get(
-        `/dashboard/performance?employeeId=${otherEmployee.id}&${interval}`,
-      )
+      .get(`/dashboard/performance?employeeId=${otherEmployee.id}&${interval}`)
       .expect(HttpStatus.FORBIDDEN)
       .expect({
         statusCode: HttpStatus.FORBIDDEN,
