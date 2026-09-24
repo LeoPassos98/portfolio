@@ -12,8 +12,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área                     | Responsabilidade                                                                                                                                       | Arquivos |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoints temporários                                |        4 |
-| Diagnóstico temporário   | Observação restrita a Administrador dos endereços IP expostos pelo Express e pelos headers encaminhados                                                 |        2 |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual                                  |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                                |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                                               |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, migrations e acesso PostgreSQL injetável                                                  |        9 |
@@ -31,12 +30,11 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                            |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                     |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                      |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       24 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       23 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
-- [Diagnóstico temporário](#diagnóstico-temporário)
 - [Bootstrap operacional](#bootstrap-operacional)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
@@ -72,7 +70,7 @@ Também configura logger, confiança limitada no proxy de produção, CORS, sess
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz, com configuração global validada, os módulos de banco, autenticação, clientes, funcionários, perfil, ordens e sessão, e o controller do diagnóstico temporário de IP.
+Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, perfil, ordens e sessão.
 
 Registra o `CsrfGuard` global e fornece o endpoint raiz atual.
 
@@ -83,22 +81,6 @@ Expõe temporariamente a rota raiz `GET /`, delega sua resposta a `AppService` e
 ### 4. `backend/src/app.service.ts`
 
 Fornece a resposta temporária do endpoint raiz consumido por `AppController`.
-
----
-
-## Diagnóstico temporário
-
-Expõe os valores brutos de IP observados na requisição para validar o encaminhamento do Northflank, sem alterar a configuração de proxy.
-
-Diretório principal: `backend/src/debug/`
-
-### 1. `backend/src/debug/request-ip-debug.controller.ts`
-
-Expõe `GET /debug/request-ip` somente para Administrador autenticado e retorna apenas `request.socket.remoteAddress`, `request.ip`, `request.ips`, `x-forwarded-for` e, quando presente, `x-real-ip`.
-
-### 2. `backend/src/debug/request-ip-debug.controller.spec.ts`
-
-Comprova por HTTP que a rota rejeita acesso sem autenticação e de Funcionário, permite Administrador e não interpreta os valores encaminhados.
 
 ---
 

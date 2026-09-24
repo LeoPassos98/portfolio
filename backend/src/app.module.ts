@@ -10,7 +10,6 @@ import { ClientsModule } from './clients/clients.module.js';
 import { validateEnvironment } from './config/environment.validation.js';
 import { DatabaseModule } from './database/database.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
-import { RequestIpDebugController } from './debug/request-ip-debug.controller.js';
 import { EmployeesModule } from './employees/employees.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { ProfileModule } from './profile/profile.module.js';
@@ -30,7 +29,7 @@ import { ProfileModule } from './profile/profile.module.js';
     ProfileModule,
     SessionModule,
   ],
-  controllers: [AppController, RequestIpDebugController],
+  controllers: [AppController],
   providers: [
     AppService,
     {
