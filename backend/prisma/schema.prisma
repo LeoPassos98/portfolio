@@ -37,11 +37,32 @@ enum TipoEnvironment {
   @@map("tipo_environment")
 }
 
+enum DemoStatus {
+  PENDENTE
+  PROVISIONANDO
+  PRONTA
+  FALHA
+
+  @@map("demo_status")
+}
+
+enum DemoDataMode {
+  EXEMPLO
+  VAZIO
+
+  @@map("demo_data_mode")
+}
+
 model Environment {
   id                     String                  @id @default(uuid()) @db.Uuid
   tipo                   TipoEnvironment
   criadoEm               DateTime                @default(now()) @map("criado_em") @db.Timestamptz(6)
   expiresAt              DateTime?               @map("expires_at") @db.Timestamptz(6)
+  demoStatus             DemoStatus?             @map("demo_status")
+  demoDataMode           DemoDataMode?           @map("demo_data_mode")
+  tutorialEnabled        Boolean?                @map("tutorial_enabled")
+  originIpHash           String?                 @map("origin_ip_hash") @db.VarChar(64)
+  provisionedAt          DateTime?               @map("provisioned_at") @db.Timestamptz(6)
   clientes               Cliente[]
   funcionarios           Funcionario[]
   usuarios               Usuario[]
@@ -49,6 +70,8 @@ model Environment {
   historicosOrdemServico HistoricoOrdemServico[]
   contadorOrdemServico   ContadorOrdemServico?
 
+  @@index([tipo, expiresAt], map: "environment_tipo_expires_at_idx")
+  @@index([originIpHash, expiresAt], map: "environment_origin_ip_hash_expires_at_idx")
   @@map("environment")
 }
 

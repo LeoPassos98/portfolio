@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual                                  |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                                |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                                               |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, migrations e acesso PostgreSQL injetável                                                  |        9 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, ciclo de vida da DEMO, migrations e acesso PostgreSQL injetável                           |       10 |
 | Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                                                |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                     |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                       |       16 |
@@ -144,7 +144,7 @@ Recebe `DATABASE_URL` para o banco da aplicação e `SHADOW_DATABASE_URL` para a
 
 ### 2. `backend/prisma/schema.prisma`
 
-Define `Environment`, o vínculo obrigatório das entidades tenant-aware, as relações compostas que expressam a integridade por ambiente, o contador de OS por Environment e a tabela de infraestrutura `session` sem vínculo de tenant. Também mantém os enums e o generator `prisma-client` com saída local.
+Define `Environment`, seus estados e configuração persistida de DEMO, o vínculo obrigatório das entidades tenant-aware, as relações compostas que expressam a integridade por ambiente, o contador de OS por Environment e a tabela de infraestrutura `session` sem vínculo de tenant. Também mantém os enums, os índices consultáveis pelo ciclo de vida e o generator `prisma-client` com saída local.
 
 ### 3. `backend/src/database/database.module.ts`
 
@@ -179,6 +179,12 @@ Inicializa `ultimo_numero` pelo maior número de uma OS existente no formato `OS
 Introduz `Environment` e o PRINCIPAL permanente, protege no PostgreSQL sua exclusão e mudança de tipo, valida as relações legadas, faz backfill de todas as entidades tenant-aware e converte o contador global em um contador por Environment sem recalcular `ultimo_numero`.
 
 Também substitui as FKs simples pelas compostas, move documento e número da OS para unicidade por Environment, mantém o e-mail de login global, torna os vínculos obrigatórios somente após o backfill e preserva `session` sem alteração.
+
+### 10. `backend/prisma/migrations/20260924150000_add_demo_environment_lifecycle/migration.sql`
+
+Adiciona os enums e campos persistidos da DEMO, aborta diante de DEMOs preexistentes sem configuração reconciliada e preserva o PRINCIPAL existente com os novos campos nulos.
+
+Impõe no PostgreSQL campos obrigatórios por tipo, expiração fixa de 24 horas, hash hexadecimal minúsculo, coerência de `provisionedAt`, transições de status e imutabilidade da configuração. Também cria os índices por tipo/expiração e hash de origem/expiração.
 
 ---
 
@@ -818,12 +824,12 @@ Verifica a confiança de exatamente um hop de proxy em produção e a preservaç
 
 ### 19. `backend/src/database/environment-integrity.spec.ts`
 
-Valida no PostgreSQL o PRINCIPAL permanente, o contador por Environment, a nulabilidade obrigatória dos vínculos, as unicidades globais e por ambiente e todas as FKs compostas contra relações cross-environment.
+Valida no PostgreSQL o PRINCIPAL permanente, os campos e índices da DEMO, a expiração fixa, o hash de origem, a coerência do provisionamento, a máquina de estados e a imutabilidade da configuração. Também preserva a cobertura do contador por Environment, das unicidades e das FKs compostas contra relações cross-environment.
 
 Usa transações revertidas ao final de cada cenário; os Environments auxiliares existem somente durante o teste e não habilitam demonstrações na aplicação.
 
 ### 20. `backend/src/environments/environment-isolation.spec.ts`
 
-Exercita duas fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha.
+Exercita fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha. As fixtures DEMO respeitam a configuração obrigatória e a expiração fixa, inclusive no cenário que expira naturalmente durante o teste.
 
 Também comprova que a sessão armazena somente `usuarioId`, que o contexto autenticado deriva o Environment do banco, que a recorrência calculada por SQL raw e as métricas por funcionário não recebem dados externos, que números e documentos podem se repetir entre Environments e que as validações de serviço rejeitam associações cruzadas antes das FKs compostas.

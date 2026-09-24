@@ -20,6 +20,8 @@ import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { DatabaseService } from '../database/database.service.js';
 import {
+  DemoDataMode,
+  DemoStatus,
   Perfil,
   StatusOrdemServico,
   TipoEnvironment,
@@ -40,6 +42,7 @@ type EnvironmentFixture = {
   adminUserId: string;
   email: string;
   password: string;
+  expiresAt: Date;
 };
 
 type AuthenticatedAgent = {
@@ -140,16 +143,24 @@ describe('Environment application isolation', () => {
 
   async function createEnvironmentFixture(
     label: string,
+    expiresInMs = 86_400_000,
   ): Promise<EnvironmentFixture> {
     const id = crypto.randomUUID();
     const suffix = crypto.randomUUID();
     const normalizedLabel = label.toLowerCase();
     const password = `senha-${label}-segura`;
+    const expiresAt = new Date(Date.now() + expiresInMs);
+    const criadoEm = new Date(expiresAt.getTime() - 86_400_000);
     const environment = await database.environment.create({
       data: {
         id,
         tipo: TipoEnvironment.DEMO,
-        expiresAt: new Date(Date.now() + 3_600_000),
+        criadoEm,
+        expiresAt,
+        demoStatus: DemoStatus.PENDENTE,
+        demoDataMode: DemoDataMode.EXEMPLO,
+        tutorialEnabled: true,
+        originIpHash: 'a'.repeat(64),
         contadorOrdemServico: { create: { ultimoNumero: 0 } },
       },
     });
@@ -182,6 +193,7 @@ describe('Environment application isolation', () => {
       adminUserId: user.id,
       email,
       password,
+      expiresAt,
     };
   }
 
@@ -276,13 +288,17 @@ describe('Environment application isolation', () => {
   }
 
   it('discovers Environment globally at login but persists only usuarioId in the session', async () => {
-    const [agentA, agentB] = await Promise.all([
+    const expiringEnvironment = await createEnvironmentFixture(
+      'expiring',
+      3_000,
+    );
+    const [agentA, expiringAgent] = await Promise.all([
       authenticate(environmentA),
-      authenticate(environmentB),
+      authenticate(expiringEnvironment),
     ]);
-    const [sessionA, sessionB] = await Promise.all([
+    const [sessionA, expiringSession] = await Promise.all([
       agentA.agent.get('/auth/session').expect(HttpStatus.OK),
-      agentB.agent.get('/auth/session').expect(HttpStatus.OK),
+      expiringAgent.agent.get('/auth/session').expect(HttpStatus.OK),
     ]);
     const persistedSessions = await verificationPool.query<{
       sess: Record<string, unknown>;
@@ -291,13 +307,13 @@ describe('Environment application isolation', () => {
        FROM "session"
        WHERE "sess" ->> 'usuarioId' = ANY($1::text[])
        ORDER BY "sess" ->> 'usuarioId'`,
-      [[environmentA.adminUserId, environmentB.adminUserId]],
+      [[environmentA.adminUserId, expiringEnvironment.adminUserId]],
     );
 
     expect(sessionA.body.id).toBe(environmentA.adminUserId);
-    expect(sessionB.body.id).toBe(environmentB.adminUserId);
+    expect(expiringSession.body.id).toBe(expiringEnvironment.adminUserId);
     expect(sessionA.body).not.toHaveProperty('environmentId');
-    expect(sessionB.body).not.toHaveProperty('environmentId');
+    expect(expiringSession.body).not.toHaveProperty('environmentId');
     expect(persistedSessions.rows).toHaveLength(2);
     for (const { sess } of persistedSessions.rows) {
       expect(Object.keys(sess).sort()).toEqual([
@@ -308,11 +324,13 @@ describe('Environment application isolation', () => {
       expect(sess).not.toHaveProperty('environmentId');
     }
 
-    await database.environment.update({
-      where: { id: environmentB.id },
-      data: { expiresAt: new Date(Date.now() - 1_000) },
-    });
-    await agentB.agent
+    await new Promise((resolve) =>
+      setTimeout(
+        resolve,
+        Math.max(0, expiringEnvironment.expiresAt.getTime() - Date.now() + 50),
+      ),
+    );
+    await expiringAgent.agent
       .get('/auth/session')
       .expect(HttpStatus.UNAUTHORIZED)
       .expect(({ body }) => {
