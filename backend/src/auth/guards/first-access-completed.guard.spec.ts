@@ -17,6 +17,7 @@ describe('FirstAccessCompletedGuard', () => {
     const request = {
       authenticatedUser: {
         id: 'usuario-id',
+        environmentId: 'environment-id',
         perfil: 'FUNCIONARIO',
         funcionarioId: 'funcionario-id',
         deveAlterarSenha: true,
@@ -45,6 +46,7 @@ describe('FirstAccessCompletedGuard', () => {
     const request = {
       authenticatedUser: {
         id: 'usuario-id',
+        environmentId: 'environment-id',
         perfil: 'FUNCIONARIO',
         funcionarioId: 'funcionario-id',
         deveAlterarSenha: false,

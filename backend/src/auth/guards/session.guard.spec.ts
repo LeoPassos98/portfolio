@@ -39,6 +39,7 @@ describe('SessionGuard', () => {
   it('rejects a request without usuarioId', async () => {
     const authService = {
       getAuthenticatedUser: vi.fn(),
+      isAuthenticationContextValid: vi.fn(),
       toAuthenticatedUser: vi.fn(),
     } as unknown as AuthService;
     const guard = new SessionGuard(authService);
@@ -53,17 +54,24 @@ describe('SessionGuard', () => {
     const request = createRequest('usuario-id');
     const usuario = {
       id: 'usuario-id',
+      environmentId: 'environment-id',
       perfil: 'FUNCIONARIO',
       funcionarioId: 'funcionario-id',
-      funcionario: { nome: 'Maria da Silva' },
+      funcionario: {
+        nome: 'Maria da Silva',
+        environmentId: 'environment-id',
+      },
+      environment: { tipo: 'PRINCIPAL', expiresAt: null },
       deveAlterarSenha: true,
       ativo: true,
       senhaHash: 'hash-que-nao-pode-ser-exposto',
     };
     const authService = {
       getAuthenticatedUser: vi.fn().mockResolvedValue(usuario),
+      isAuthenticationContextValid: vi.fn().mockReturnValue(true),
       toAuthenticatedUser: vi.fn(() => ({
         id: 'usuario-id',
+        environmentId: 'environment-id',
         perfil: 'FUNCIONARIO',
         funcionarioId: 'funcionario-id',
         funcionarioNome: 'Maria da Silva',
@@ -77,6 +85,7 @@ describe('SessionGuard', () => {
     expect(authService.getAuthenticatedUser).toHaveBeenCalledWith('usuario-id');
     expect(request.authenticatedUser).toEqual({
       id: 'usuario-id',
+      environmentId: 'environment-id',
       perfil: 'FUNCIONARIO',
       funcionarioId: 'funcionario-id',
       funcionarioNome: 'Maria da Silva',
@@ -92,9 +101,14 @@ describe('SessionGuard', () => {
       'finds an inactive user',
       {
         id: 'usuario-id',
+        environmentId: 'environment-id',
         perfil: 'FUNCIONARIO',
         funcionarioId: 'funcionario-id',
-        funcionario: { nome: 'Maria da Silva' },
+        funcionario: {
+          nome: 'Maria da Silva',
+          environmentId: 'environment-id',
+        },
+        environment: { tipo: 'PRINCIPAL', expiresAt: null },
         deveAlterarSenha: false,
         ativo: false,
       },
@@ -103,6 +117,7 @@ describe('SessionGuard', () => {
     const request = createRequest('usuario-id');
     const authService = {
       getAuthenticatedUser: vi.fn().mockResolvedValue(usuario),
+      isAuthenticationContextValid: vi.fn().mockReturnValue(false),
       toAuthenticatedUser: vi.fn(),
     } as unknown as AuthService;
     const guard = new SessionGuard(authService);

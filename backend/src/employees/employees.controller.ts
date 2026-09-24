@@ -7,6 +7,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -24,6 +25,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Perfil } from '../generated/prisma/client.js';
 import { FirstAccessCompletedGuard } from '../auth/guards/first-access-completed.guard.js';
 import { RoleGuard } from '../auth/guards/role.guard.js';
@@ -145,8 +147,12 @@ export class EmployeesController {
   create(
     @Body(new ZodValidationPipe(employeeCreateSchema))
     input: EmployeeCreateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.create(input);
+    return this.employeesService.create(
+      request.authenticatedUser!.environmentId,
+      input,
+    );
   }
 
   @Post(':id/account')
@@ -213,8 +219,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeAccessCreateSchema))
     input: EmployeeAccessCreateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.createAccess(id, input);
+    return this.employeesService.createAccess(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Patch(':id/account/status')
@@ -263,8 +274,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeAccessStatusUpdateSchema))
     input: EmployeeAccessStatusUpdateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.updateAccessStatus(id, input);
+    return this.employeesService.updateAccessStatus(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Patch(':id/account/profile')
@@ -313,8 +329,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeAccessProfileUpdateSchema))
     input: EmployeeAccessProfileUpdateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.updateAccessProfile(id, input);
+    return this.employeesService.updateAccessProfile(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Patch(':id/account/login-email')
@@ -368,8 +389,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeAccessLoginEmailUpdateSchema))
     input: EmployeeAccessLoginEmailUpdateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.updateAccessLoginEmail(id, input);
+    return this.employeesService.updateAccessLoginEmail(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Patch(':id/account/password')
@@ -426,8 +452,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeAccessPasswordResetSchema))
     input: EmployeeAccessPasswordResetInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.resetAccessPassword(id, input);
+    return this.employeesService.resetAccessPassword(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Put(':id/administrative')
@@ -503,8 +534,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeAdministrativeUpdateSchema))
     input: EmployeeAdministrativeUpdateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.updateAdministrative(id, input);
+    return this.employeesService.updateAdministrative(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Put(':id')
@@ -546,8 +582,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeUpdateSchema))
     input: EmployeeUpdateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.update(id, input);
+    return this.employeesService.update(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Patch(':id/status')
@@ -591,8 +632,13 @@ export class EmployeesController {
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
     @Body(new ZodValidationPipe(employeeStatusUpdateSchema))
     input: EmployeeStatusUpdateInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.updateStatus(id, input);
+    return this.employeesService.updateStatus(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Get()
@@ -615,8 +661,12 @@ export class EmployeesController {
   findAll(
     @Query(new ZodValidationPipe(employeeListQuerySchema))
     query: EmployeeListQuery,
+    @Req() request: Request,
   ): Promise<EmployeeListItemResponse[]> {
-    return this.employeesService.findAll(query);
+    return this.employeesService.findAll(
+      request.authenticatedUser!.environmentId,
+      query,
+    );
   }
 
   @Get(':id')
@@ -632,7 +682,11 @@ export class EmployeesController {
   })
   findOne(
     @Param(new ZodValidationPipe(employeeIdSchema)) { id }: EmployeeIdInput,
+    @Req() request: Request,
   ): Promise<EmployeeDetailResponse> {
-    return this.employeesService.findOne(id);
+    return this.employeesService.findOne(
+      request.authenticatedUser!.environmentId,
+      id,
+    );
   }
 }

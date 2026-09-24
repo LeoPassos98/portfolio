@@ -11,7 +11,6 @@ import {
 import { PasswordService } from '../auth/password/password.service.js';
 import { SessionStoreService } from '../auth/session/session-store.service.js';
 import { DatabaseService } from '../database/database.service.js';
-import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import type { EmployeeAdministrativeUpdateInput } from './employee-administrative-update.schema.js';
 import type { EmployeeCreateInput } from './employee-create.schema.js';
 import type { EmployeeAccessCreateInput } from './employee-access-create.schema.js';
@@ -147,15 +146,15 @@ export class EmployeesService {
     private readonly passwordService: PasswordService,
   ) {}
 
-  async create({
-    status,
-    ...employeeData
-  }: EmployeeCreateInput): Promise<EmployeeDetailResponse> {
+  async create(
+    environmentId: string,
+    { status, ...employeeData }: EmployeeCreateInput,
+  ): Promise<EmployeeDetailResponse> {
     const employee = await this.database.funcionario.create({
       data: {
         ...employeeData,
         ativo: status === 'active',
-        environmentId: PRINCIPAL_ENVIRONMENT_ID,
+        environmentId,
       },
       select: employeeDetailSelect,
     });
@@ -164,12 +163,13 @@ export class EmployeesService {
   }
 
   async update(
+    environmentId: string,
     id: string,
     { nome, telefone, email }: EmployeeUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     try {
       const employee = await this.database.funcionario.update({
-        where: { id },
+        where: { environmentId_id: { environmentId, id } },
         data: { nome, telefone, email },
         select: employeeDetailSelect,
       });
@@ -188,11 +188,16 @@ export class EmployeesService {
   }
 
   async updateAdministrative(
+    environmentId: string,
     id: string,
     input: EmployeeAdministrativeUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     try {
-      const employee = await this.executeAdministrativeUpdate(id, input);
+      const employee = await this.executeAdministrativeUpdate(
+        environmentId,
+        id,
+        input,
+      );
 
       return toEmployeeDetail(employee);
     } catch (error: unknown) {
@@ -205,6 +210,7 @@ export class EmployeesService {
   }
 
   async createAccess(
+    environmentId: string,
     employeeId: string,
     { loginEmail, profile, initialPassword }: EmployeeAccessCreateInput,
   ): Promise<EmployeeDetailResponse> {
@@ -212,6 +218,7 @@ export class EmployeesService {
 
     try {
       const employee = await this.executeAccessCreation(
+        environmentId,
         employeeId,
         loginEmail,
         profile,
@@ -224,7 +231,7 @@ export class EmployeesService {
         const account = await this.database.usuario.findUnique({
           where: {
             environmentId_funcionarioId: {
-              environmentId: PRINCIPAL_ENVIRONMENT_ID,
+              environmentId,
               funcionarioId: employeeId,
             },
           },
@@ -243,10 +250,15 @@ export class EmployeesService {
   }
 
   async updateStatus(
+    environmentId: string,
     id: string,
     { status }: EmployeeStatusUpdateInput,
   ): Promise<EmployeeDetailResponse> {
-    const transition = await this.executeStatusTransition(id, status);
+    const transition = await this.executeStatusTransition(
+      environmentId,
+      id,
+      status,
+    );
 
     if (transition.revokedUserId) {
       await this.sessionStoreService.revokeUserSessions(
@@ -258,10 +270,15 @@ export class EmployeesService {
   }
 
   async updateAccessStatus(
+    environmentId: string,
     id: string,
     { status }: EmployeeAccessStatusUpdateInput,
   ): Promise<EmployeeDetailResponse> {
-    const transition = await this.executeAccessStatusTransition(id, status);
+    const transition = await this.executeAccessStatusTransition(
+      environmentId,
+      id,
+      status,
+    );
 
     if (transition.revokedUserId) {
       await this.sessionStoreService.revokeUserSessions(
@@ -273,10 +290,15 @@ export class EmployeesService {
   }
 
   async updateAccessProfile(
+    environmentId: string,
     id: string,
     { profile }: EmployeeAccessProfileUpdateInput,
   ): Promise<EmployeeDetailResponse> {
-    const transition = await this.executeAccessProfileTransition(id, profile);
+    const transition = await this.executeAccessProfileTransition(
+      environmentId,
+      id,
+      profile,
+    );
 
     if (transition.revokedUserId) {
       await this.sessionStoreService.revokeUserSessions(
@@ -288,11 +310,13 @@ export class EmployeesService {
   }
 
   async updateAccessLoginEmail(
+    environmentId: string,
     employeeId: string,
     { loginEmail }: EmployeeAccessLoginEmailUpdateInput,
   ): Promise<EmployeeDetailResponse> {
     try {
       const transition = await this.executeAccessLoginEmailTransition(
+        environmentId,
         employeeId,
         loginEmail,
       );
@@ -314,11 +338,14 @@ export class EmployeesService {
   }
 
   async resetAccessPassword(
+    environmentId: string,
     employeeId: string,
     { temporaryPassword }: EmployeeAccessPasswordResetInput,
   ): Promise<EmployeeDetailResponse> {
     const employee = await this.database.funcionario.findUnique({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       select: employeeStatusSelect,
     });
 
@@ -332,7 +359,9 @@ export class EmployeesService {
 
     const senhaHash = await this.passwordService.hash(temporaryPassword);
     const account = await this.database.usuario.update({
-      where: { id: employee.usuario.id },
+      where: {
+        environmentId_id: { environmentId, id: employee.usuario.id },
+      },
       data: { senhaHash, deveAlterarSenha: true },
       select: { funcionario: { select: employeeDetailSelect } },
     });
@@ -342,12 +371,13 @@ export class EmployeesService {
     return toEmployeeDetail(account.funcionario);
   }
 
-  async findAll({
-    status,
-    search,
-  }: EmployeeListQuery): Promise<EmployeeListItemResponse[]> {
+  async findAll(
+    environmentId: string,
+    { status, search }: EmployeeListQuery,
+  ): Promise<EmployeeListItemResponse[]> {
     const phoneSearch = search?.replace(/\D/g, '');
     const where = {
+      environmentId,
       ...(status === 'active' ? { ativo: true } : {}),
       ...(status === 'inactive' ? { ativo: false } : {}),
       ...(search
@@ -391,9 +421,12 @@ export class EmployeesService {
     }));
   }
 
-  async findOne(id: string): Promise<EmployeeDetailResponse> {
+  async findOne(
+    environmentId: string,
+    id: string,
+  ): Promise<EmployeeDetailResponse> {
     const employee = await this.database.funcionario.findUnique({
-      where: { id },
+      where: { environmentId_id: { environmentId, id } },
       select: employeeDetailSelect,
     });
 
@@ -405,16 +438,19 @@ export class EmployeesService {
   }
 
   private async executeStatusTransition(
+    environmentId: string,
     id: string,
     status: EmployeeStatusUpdateInput['status'],
   ): Promise<EmployeeStatusTransition> {
     return this.executeSerializableTransaction(
-      (transaction) => this.transitionStatus(transaction, id, status),
+      (transaction) =>
+        this.transitionStatus(transaction, environmentId, id, status),
       'Employee status transition exhausted its retry limit.',
     );
   }
 
   private async executeAdministrativeUpdate(
+    environmentId: string,
     employeeId: string,
     input: EmployeeAdministrativeUpdateInput,
   ): Promise<
@@ -422,12 +458,18 @@ export class EmployeesService {
   > {
     return this.executeSerializableTransaction(
       (transaction) =>
-        this.updateAdministrativeInTransaction(transaction, employeeId, input),
+        this.updateAdministrativeInTransaction(
+          transaction,
+          environmentId,
+          employeeId,
+          input,
+        ),
       'Administrative employee update exhausted its retry limit.',
     );
   }
 
   private async executeAccessCreation(
+    environmentId: string,
     employeeId: string,
     loginEmail: string,
     profile: EmployeeAccessCreateInput['profile'],
@@ -439,6 +481,7 @@ export class EmployeesService {
       (transaction) =>
         this.createAccessInTransaction(
           transaction,
+          environmentId,
           employeeId,
           loginEmail,
           profile,
@@ -449,34 +492,52 @@ export class EmployeesService {
   }
 
   private async executeAccessStatusTransition(
+    environmentId: string,
     employeeId: string,
     status: EmployeeAccessStatusUpdateInput['status'],
   ): Promise<EmployeeStatusTransition> {
     return this.executeSerializableTransaction(
       (transaction) =>
-        this.transitionAccessStatus(transaction, employeeId, status),
+        this.transitionAccessStatus(
+          transaction,
+          environmentId,
+          employeeId,
+          status,
+        ),
       'Employee access status transition exhausted its retry limit.',
     );
   }
 
   private async executeAccessProfileTransition(
+    environmentId: string,
     employeeId: string,
     profile: EmployeeAccessProfileUpdateInput['profile'],
   ): Promise<EmployeeStatusTransition> {
     return this.executeSerializableTransaction(
       (transaction) =>
-        this.transitionAccessProfile(transaction, employeeId, profile),
+        this.transitionAccessProfile(
+          transaction,
+          environmentId,
+          employeeId,
+          profile,
+        ),
       'Employee access profile transition exhausted its retry limit.',
     );
   }
 
   private async executeAccessLoginEmailTransition(
+    environmentId: string,
     employeeId: string,
     loginEmail: string,
   ): Promise<EmployeeStatusTransition> {
     return this.executeSerializableTransaction(
       (transaction) =>
-        this.transitionAccessLoginEmail(transaction, employeeId, loginEmail),
+        this.transitionAccessLoginEmail(
+          transaction,
+          environmentId,
+          employeeId,
+          loginEmail,
+        ),
       'Employee access login email transition exhausted its retry limit.',
     );
   }
@@ -511,6 +572,7 @@ export class EmployeesService {
 
   private async createAccessInTransaction(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     loginEmail: string,
     profile: EmployeeAccessCreateInput['profile'],
@@ -519,7 +581,9 @@ export class EmployeesService {
     Prisma.FuncionarioGetPayload<{ select: typeof employeeDetailSelect }>
   > {
     const employee = await transaction.funcionario.findUnique({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       select: { id: true, ativo: true, usuario: { select: { id: true } } },
     });
 
@@ -537,7 +601,7 @@ export class EmployeesService {
         senhaHash,
         perfil: profileByInput[profile],
         ativo: employee.ativo,
-        environmentId: PRINCIPAL_ENVIRONMENT_ID,
+        environmentId,
         funcionarioId: employee.id,
       },
       select: {
@@ -550,13 +614,16 @@ export class EmployeesService {
 
   private async updateAdministrativeInTransaction(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     input: EmployeeAdministrativeUpdateInput,
   ): Promise<
     Prisma.FuncionarioGetPayload<{ select: typeof employeeStatusSelect }>
   > {
     const currentEmployee = await transaction.funcionario.findUnique({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       select: { id: true },
     });
 
@@ -565,7 +632,9 @@ export class EmployeesService {
     }
 
     await transaction.funcionario.update({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       data: {
         nome: input.nome,
         telefone: input.telefone,
@@ -575,6 +644,7 @@ export class EmployeesService {
 
     let transition = await this.transitionStatus(
       transaction,
+      environmentId,
       employeeId,
       input.status,
     );
@@ -583,6 +653,7 @@ export class EmployeesService {
     if (input.account) {
       transition = await this.transitionAccessProfile(
         transaction,
+        environmentId,
         employeeId,
         input.account.profile,
       );
@@ -590,6 +661,7 @@ export class EmployeesService {
 
       transition = await this.transitionAccessStatus(
         transaction,
+        environmentId,
         employeeId,
         input.account.status,
       );
@@ -597,6 +669,7 @@ export class EmployeesService {
 
       transition = await this.transitionAccessLoginEmail(
         transaction,
+        environmentId,
         employeeId,
         input.account.loginEmail,
       );
@@ -619,11 +692,12 @@ export class EmployeesService {
 
   private async transitionStatus(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     id: string,
     status: EmployeeStatusUpdateInput['status'],
   ): Promise<EmployeeStatusTransition> {
     const employee = await transaction.funcionario.findUnique({
-      where: { id },
+      where: { environmentId_id: { environmentId, id } },
       select: employeeStatusSelect,
     });
 
@@ -639,25 +713,27 @@ export class EmployeesService {
     }
 
     if (status === 'inactive' && employee.ativo) {
-      await this.ensureNoActiveOrders(transaction, id);
+      await this.ensureNoActiveOrders(transaction, environmentId, id);
     }
 
     if (
       shouldDeactivateAccount &&
       employee.usuario?.perfil === Perfil.ADMINISTRADOR
     ) {
-      await this.ensureAnotherActiveAdministrator(transaction);
+      await this.ensureAnotherActiveAdministrator(transaction, environmentId);
     }
 
     if (shouldDeactivateAccount) {
       await transaction.usuario.update({
-        where: { id: employee.usuario!.id },
+        where: {
+          environmentId_id: { environmentId, id: employee.usuario!.id },
+        },
         data: { ativo: false },
       });
     }
 
     const updatedEmployee = await transaction.funcionario.update({
-      where: { id },
+      where: { environmentId_id: { environmentId, id } },
       data: { ativo: status === 'active' },
       select: employeeStatusSelect,
     });
@@ -670,11 +746,14 @@ export class EmployeesService {
 
   private async transitionAccessStatus(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     status: EmployeeAccessStatusUpdateInput['status'],
   ): Promise<EmployeeStatusTransition> {
     const employee = await transaction.funcionario.findUnique({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       select: employeeStatusSelect,
     });
 
@@ -702,11 +781,13 @@ export class EmployeesService {
     }
 
     if (!shouldBeActive && employee.usuario.perfil === Perfil.ADMINISTRADOR) {
-      await this.ensureAnotherActiveAdministrator(transaction);
+      await this.ensureAnotherActiveAdministrator(transaction, environmentId);
     }
 
     const updatedAccount = await transaction.usuario.update({
-      where: { id: employee.usuario.id },
+      where: {
+        environmentId_id: { environmentId, id: employee.usuario.id },
+      },
       data: { ativo: shouldBeActive },
       select: {
         funcionario: { select: employeeStatusSelect },
@@ -721,11 +802,14 @@ export class EmployeesService {
 
   private async transitionAccessProfile(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     profile: EmployeeAccessProfileUpdateInput['profile'],
   ): Promise<EmployeeStatusTransition> {
     const employee = await transaction.funcionario.findUnique({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       select: employeeStatusSelect,
     });
 
@@ -748,11 +832,13 @@ export class EmployeesService {
       employee.usuario.perfil === Perfil.ADMINISTRADOR &&
       updatedProfile === Perfil.FUNCIONARIO
     ) {
-      await this.ensureAnotherActiveAdministrator(transaction);
+      await this.ensureAnotherActiveAdministrator(transaction, environmentId);
     }
 
     const updatedAccount = await transaction.usuario.update({
-      where: { id: employee.usuario.id },
+      where: {
+        environmentId_id: { environmentId, id: employee.usuario.id },
+      },
       data: { perfil: updatedProfile },
       select: {
         funcionario: { select: employeeStatusSelect },
@@ -767,11 +853,14 @@ export class EmployeesService {
 
   private async transitionAccessLoginEmail(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     loginEmail: string,
   ): Promise<EmployeeStatusTransition> {
     const employee = await transaction.funcionario.findUnique({
-      where: { id: employeeId },
+      where: {
+        environmentId_id: { environmentId, id: employeeId },
+      },
       select: employeeStatusSelect,
     });
 
@@ -788,7 +877,9 @@ export class EmployeesService {
     }
 
     const updatedAccount = await transaction.usuario.update({
-      where: { id: employee.usuario.id },
+      where: {
+        environmentId_id: { environmentId, id: employee.usuario.id },
+      },
       data: { emailLogin: loginEmail },
       select: {
         funcionario: { select: employeeStatusSelect },
@@ -803,10 +894,12 @@ export class EmployeesService {
 
   private async ensureNoActiveOrders(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
   ): Promise<void> {
     const activeOrder = await transaction.ordemServico.findFirst({
       where: {
+        environmentId,
         responsavelId: employeeId,
         status: {
           in: [StatusOrdemServico.AGUARDANDO, StatusOrdemServico.EM_ANDAMENTO],
@@ -822,9 +915,11 @@ export class EmployeesService {
 
   private async ensureAnotherActiveAdministrator(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
   ): Promise<void> {
     const activeAdministrators = await transaction.usuario.count({
       where: {
+        environmentId,
         perfil: Perfil.ADMINISTRADOR,
         ativo: true,
       },

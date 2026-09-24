@@ -75,6 +75,7 @@ export class ProfileController {
   })
   getProfile(@Req() request: Request): Promise<ProfileResponse> {
     return this.profileService.getProfile(
+      request.authenticatedUser!.environmentId,
       request.authenticatedUser!.funcionarioId,
     );
   }
@@ -109,6 +110,7 @@ export class ProfileController {
     @Req() request: Request,
   ): Promise<ProfileResponse> {
     return this.profileService.updateProfile(
+      request.authenticatedUser!.environmentId,
       request.authenticatedUser!.funcionarioId,
       input,
     );
@@ -162,6 +164,7 @@ export class ProfileController {
     const sessionCookie = request.session.cookie;
 
     await this.profileService.changePassword(
+      request.authenticatedUser!.environmentId,
       request.authenticatedUser!.id,
       input,
     );

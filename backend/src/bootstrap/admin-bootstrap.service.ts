@@ -39,7 +39,11 @@ export class AdminBootstrapService {
       await this.acquireBootstrapLock(transaction);
       this.logger.log('Confirmando ausência de usuários...');
 
-      if ((await transaction.usuario.count()) !== 0) {
+      if (
+        (await transaction.usuario.count({
+          where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
+        })) !== 0
+      ) {
         throw new AdminBootstrapAlreadyInitializedError();
       }
 

@@ -24,6 +24,7 @@ function createRequest(perfil: Perfil): Request {
   return {
     authenticatedUser: {
       id: 'usuario-id',
+      environmentId: 'environment-id',
       perfil,
       funcionarioId: 'funcionario-id',
       deveAlterarSenha: false,

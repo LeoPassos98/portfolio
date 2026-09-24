@@ -10,27 +10,27 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 ## Visão rápida
 
-| Área                     | Responsabilidade                                                                                                        | Arquivos |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual   |        4 |
-| Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador                  |        4 |
-| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, migrations e acesso PostgreSQL injetável                   |        9 |
-| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                 |       12 |
-| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                      |        4 |
-| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend        |       16 |
-| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais |       18 |
-| Meu perfil               | Autoatendimento autenticado de dados pessoais e senha sem identificador escolhido pelo cliente                          |        7 |
-| Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros  |       12 |
-| Dashboard                | Situação atual e desempenho temporal globais ou por Funcionário, com escopo autenticado, DTOs e validação                |        8 |
-| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                       |        4 |
-| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                  |        4 |
-| Proteção de origem       | CORS restritivo para o frontend configurado                                                                             |        1 |
-| Proxy reverso            | Confiança limitada ao hop anterior em produção para reconhecer o protocolo original                                    |        1 |
-| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                             |        1 |
-| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                      |        3 |
-| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                       |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       22 |
+| Área                     | Responsabilidade                                                                                                                                       | Arquivos |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------: |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual                                  |        4 |
+| Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                                |        4 |
+| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                                               |        2 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, migrations e acesso PostgreSQL injetável                                                  |        9 |
+| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                                                |       12 |
+| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                     |        4 |
+| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                       |       16 |
+| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais                                |       18 |
+| Meu perfil               | Autoatendimento autenticado de dados pessoais e senha sem identificador escolhido pelo cliente                                                         |        7 |
+| Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros                                 |       12 |
+| Dashboard                | Situação atual e desempenho temporal do Environment ou por Funcionário, com escopo autenticado, DTOs e validação                                       |        8 |
+| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                                                      |        4 |
+| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                                                 |        4 |
+| Proteção de origem       | CORS restritivo para o frontend configurado                                                                                                            |        1 |
+| Proxy reverso            | Confiança limitada ao hop anterior em produção para reconhecer o protocolo original                                                                    |        1 |
+| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                            |        1 |
+| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                     |        3 |
+| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                      |        1 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       23 |
 
 ## Sumário
 
@@ -104,7 +104,7 @@ Lê as cinco variáveis `BOOTSTRAP_ADMIN_*` e reutiliza os schemas oficiais de c
 
 ### 4. `backend/src/bootstrap/admin-bootstrap.service.ts`
 
-Obté um advisory lock transacional fixo no PostgreSQL, confirma a ausência total de usuários e cria atomicamente o Funcionário e a conta Administrador ativa com troca obrigatória de senha.
+Obtém um advisory lock transacional fixo no PostgreSQL, confirma a ausência de usuários no Environment PRINCIPAL e cria nele, atomicamente, o Funcionário e a conta Administrador ativa com troca obrigatória de senha.
 
 O lock serializa duas execuções concorrentes; a segunda só faz o `count()` depois do commit da primeira e recusa sem alteração. O hash usa o `PasswordService` Argon2id já compartilhado pela autenticação.
 
@@ -158,7 +158,7 @@ Gerencia a conexão no ciclo de vida do NestJS e registra apenas eventos seguros
 
 ### 5. `backend/src/environments/principal-environment.ts`
 
-Declara o identificador server-side estável do Environment PRINCIPAL criado pela migration. É a ponte restrita da Fase 1 para escritas existentes; não recebe valor do cliente e deverá ser substituída pelo Environment autenticado na Fase 2.
+Declara o identificador server-side estável do Environment PRINCIPAL criado pela migration. Seu uso runtime fica restrito ao bootstrap global; operações autenticadas usam o Environment derivado do usuário persistido.
 
 ### 6. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
 
@@ -200,7 +200,7 @@ Declara o schema Zod de login, removendo espaços externos e normalizando maiús
 
 ### 3. `backend/src/auth/auth.service.ts`
 
-Consulta o usuário e seu funcionário no PostgreSQL, exige conta ativa, delega a verificação ao `PasswordService` e projeta a resposta segura da sessão.
+Consulta globalmente por `emailLogin` no login e por `usuarioId` na reconstrução da sessão, carrega Funcionário e Environment, valida a coerência e a vigência desse contexto, delega a verificação ao `PasswordService` e projeta a resposta segura sem expor `environmentId` ao frontend.
 
 ### 4. `backend/src/auth/first-access-password.schema.ts`
 
@@ -222,7 +222,7 @@ Exporta o serviço e os guards de sessão, primeiro acesso e perfil para módulo
 
 ### 7. `backend/src/auth/authenticated-user.interface.ts`
 
-Define o principal seguro tipado disponível somente no request autenticado, sem hash de senha ou dados persistidos na sessão.
+Define o principal seguro tipado disponível somente no request autenticado, incluindo o `environmentId` derivado do banco sem hash de senha ou dados adicionais persistidos na sessão.
 
 ### 8. `backend/src/auth/authenticated-request.d.ts`
 
@@ -254,7 +254,7 @@ Diretório principal: `backend/src/auth/guards/`
 
 ### 1. `backend/src/auth/guards/session.guard.ts`
 
-Exige `session.usuarioId`, recarrega a conta ativa, destrói sessões inválidas e disponibiliza no request apenas o principal seguro da requisição.
+Exige `session.usuarioId`, recarrega a conta ativa com Funcionário e Environment, destrói sessões inválidas ou com contexto incoerente e disponibiliza no request o principal seguro com `environmentId` server-side.
 
 ### 2. `backend/src/auth/guards/first-access-completed.guard.ts`
 
@@ -298,7 +298,7 @@ Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Or
 
 ### 5. `backend/src/clients/clients.service.ts`
 
-Orquestra criação, edição, situação, exclusão e consultas de Clientes por `DatabaseService`.
+Orquestra criação, edição, situação, exclusão e consultas de Clientes por `DatabaseService`, sempre limitadas ao Environment autenticado.
 
 Normaliza dados, mantém novos clientes ativos e separa atualizações cadastrais de alterações de situação.
 
@@ -388,7 +388,7 @@ Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opc
 
 ### 5. `backend/src/employees/employees.service.ts`
 
-Cria, edita, altera as situações do cadastro e da conta, altera perfil e e-mail de login, redefine senha, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito.
+Cria, edita, altera as situações do cadastro e da conta, altera perfil e e-mail de login, redefine senha, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito e escopo obrigatório do Environment autenticado.
 
 Na edição administrativa conjunta, persiste cadastro, situação do Funcionário e campos da conta em uma única transação serializável. Reutiliza as transições de domínio existentes, inclui a revogação das sessões PostgreSQL no mesmo commit e devolve o estado final; qualquer conflito de OS, último Administrador, ativação inválida ou e-mail duplicado desfaz todo o conjunto.
 
@@ -396,7 +396,7 @@ Na criação de conta, reutiliza `PasswordService`, normaliza o e-mail de login,
 
 Na edição cadastral, atualiza exclusivamente nome, telefone e e-mail, sem alterar situação, conta ou relações.
 
-Na inativação, bloqueia OS ativas e a remoção do último Administrador ativo, altera funcionário e conta de forma atômica e revoga as sessões da conta inativada.
+Na inativação, bloqueia OS ativas e a remoção do último Administrador ativo do mesmo Environment, altera funcionário e conta de forma atômica e revoga as sessões somente após comprovar que a conta alvo pertence ao escopo autorizado.
 
 Na administração separada da conta, altera somente `Usuario.ativo`, permite suspender o acesso de Funcionário ativo mesmo com OS, preserva credencial, perfil e e-mail de login e revoga todas as sessões na inativação. A reativação exige `Funcionario.ativo`, não recupera sessões e mantém `senhaHash` e `deveAlterarSenha`. Transações serializáveis com retentativa de `P2034` e SQLSTATE `40001` protegem o último Administrador ativo e o invariante Funcionário × conta sob concorrência.
 
@@ -488,7 +488,7 @@ Documenta a projeção segura de nome, telefone, e-mail de contato, perfil e sit
 
 ### 4. `backend/src/profile/profile.service.ts`
 
-Consulta e atualiza nome e telefone exclusivamente pelo `funcionarioId` do principal autenticado. Na troca voluntária, verifica a senha atual com `PasswordService`, grava novo hash sem alterar `deveAlterarSenha` e revoga todas as sessões da conta.
+Consulta e atualiza nome e telefone exclusivamente pelo `funcionarioId`, `usuarioId` e `environmentId` do principal autenticado. Na troca voluntária, verifica a senha atual com `PasswordService`, grava novo hash sem alterar `deveAlterarSenha` e revoga todas as sessões da própria conta.
 
 ### 5. `backend/src/profile/profile.controller.ts`
 
@@ -646,9 +646,9 @@ Documenta os contratos discriminados de desempenho: métricas globais do Adminis
 
 ### 5. `backend/src/dashboard/dashboard.service.ts`
 
-Resolve o escopo a partir da sessão e agrega indicadores atuais e temporais no PostgreSQL. Administrador sem `employeeId` recebe totais globais; com identificador recebe o contexto, inclusive histórico, do Funcionário existente. Funcionário só consulta a própria responsabilidade atual e recebe `DASHBOARD_SCOPE_FORBIDDEN` ao tentar outro identificador.
+Resolve o escopo a partir da sessão e agrega indicadores atuais e temporais no PostgreSQL dentro do Environment autenticado. Administrador sem `employeeId` recebe os totais desse Environment; com identificador recebe o contexto, inclusive histórico, de um Funcionário do mesmo Environment. Funcionário só consulta a própria responsabilidade atual e recebe `DASHBOARD_SCOPE_FORBIDDEN` ao tentar outro identificador.
 
-O desempenho usa `concluidoEm`, `canceladoEm` e `criadoEm` conforme a métrica, com soma/média `Decimal` no banco e uma consulta SQL parametrizada para clientes distintos e recorrentes. As leituras correlatas ocorrem em transação `RepeatableRead`, preservando um snapshot lógico sem locks ou retentativas de escrita.
+O desempenho usa `concluidoEm`, `canceladoEm` e `criadoEm` conforme a métrica, com soma/média `Decimal` no banco e uma consulta SQL parametrizada para clientes distintos e recorrentes. O SQL raw filtra pelo mesmo Environment tanto a OS candidata quanto a existência anterior correlacionada. As leituras correlatas ocorrem em transação `RepeatableRead`, preservando um snapshot lógico sem locks ou retentativas de escrita.
 
 ### 6. `backend/src/dashboard/dashboard.controller.ts`
 
@@ -680,9 +680,9 @@ Expõe `POST /orders`, `PUT /orders/:id`, `GET /orders`, `GET /orders/responsibl
 
 ### 3. `backend/src/orders/orders.service.ts`
 
-Cria OS em transação interativa `Serializable`, com retry limitado, locks parametrizados de Cliente e responsável e incremento do contador na mesma unidade de commit. Administrador seleciona um Funcionário ativo; Funcionário recebe a própria identidade autenticada, independentemente do body.
+Cria OS em transação interativa `Serializable`, com retry limitado, locks de Cliente e responsável filtrados pelo Environment autenticado e incremento do contador desse Environment na mesma unidade de commit. Administrador seleciona um Funcionário ativo do mesmo Environment; Funcionário recebe a própria identidade autenticada, independentemente do body.
 
-Também monta a consulta Prisma contextual: Administrador lê todas; Funcionário lê as próprias ou públicas. Combina a policy no banco com status, busca, responsável e intervalo `criadoEm`, ordena por criação decrescente, converte `Decimal` para texto exato com duas casas e consulta snapshots pela autorização da versão atual. Deriva os responsáveis distintos diretamente das OS visíveis, sem consultar o diretório administrativo.
+Também monta a consulta Prisma contextual com o Environment como predicado obrigatório: Administrador lê todas desse escopo; Funcionário lê as próprias ou públicas. Combina a policy no banco com status, busca, responsável e intervalo `criadoEm`, ordena por criação decrescente, converte `Decimal` para texto exato com duas casas e consulta snapshots do mesmo Environment pela autorização da versão atual. Deriva os responsáveis distintos diretamente das OS visíveis, sem consultar o diretório administrativo.
 
 Atualiza a OS em transação `Serializable` sem lock pessimista sobre ela: aplica a policy de leitura na busca, valida a autorização da mutation antes de comparar a versão, aplica as regras de estado, revalida novo responsável ativo, detecta no-op e cria o snapshot pré-alteração antes do `updateMany` condicionado por `id + versao`. Assim, OS pública alheia retorna `ORDER_UPDATE_FORBIDDEN` antes de OCC, enquanto usuários autorizados continuam recebendo `ORDER_VERSION_CONFLICT` para versão stale. Mudanças reais incrementam a versão e atualizam as datas de conclusão ou cancelamento; conflitos concorrentes revertem snapshot e update.
 
@@ -810,7 +810,7 @@ Cobre conta opcional, atomicidade e rollback da edição conjunta, criação e r
 
 ### 17. `backend/src/bootstrap/admin-bootstrap.service.spec.ts`
 
-Executa o bootstrap contra PostgreSQL `portfolio_test`, cobrindo criação e hash reais, recusa imutável após qualquer usuário, configuração inválida sem escrita, rollback induzido por trigger temporário e duas transações concorrentes.
+Executa o bootstrap contra PostgreSQL `portfolio_test`, cobrindo criação e hash reais, recusa imutável após qualquer usuário do PRINCIPAL, configuração inválida sem escrita, rollback induzido por trigger temporário e duas transações concorrentes.
 
 ### 18. `backend/src/common/http/trust-proxy.config.spec.ts`
 
@@ -821,3 +821,9 @@ Verifica a confiança de exatamente um hop de proxy em produção e a preservaç
 Valida no PostgreSQL o PRINCIPAL permanente, o contador por Environment, a nulabilidade obrigatória dos vínculos, as unicidades globais e por ambiente e todas as FKs compostas contra relações cross-environment.
 
 Usa transações revertidas ao final de cada cenário; os Environments auxiliares existem somente durante o teste e não habilitam demonstrações na aplicação.
+
+### 20. `backend/src/environments/environment-isolation.spec.ts`
+
+Exercita duas fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha.
+
+Também comprova que a sessão armazena somente `usuarioId`, que o contexto autenticado deriva o Environment do banco, que a recorrência calculada por SQL raw e as métricas por funcionário não recebem dados externos, que números e documentos podem se repetir entre Environments e que as validações de serviço rejeitam associações cruzadas antes das FKs compostas.

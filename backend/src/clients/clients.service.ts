@@ -8,7 +8,6 @@ import {
   type Prisma as PrismaTypes,
 } from '../generated/prisma/client.js';
 import { DatabaseService } from '../database/database.service.js';
-import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import type { ClientCreateInput } from './client-create.schema.js';
 import type { ClientListQuery } from './client-list-query.schema.js';
 import type { ClientStatusUpdateInput } from './client-status-update.schema.js';
@@ -61,12 +60,13 @@ const clientDetailSelect = {
 export class ClientsService {
   constructor(private readonly database: DatabaseService) {}
 
-  async findAll({
-    status,
-    search,
-  }: ClientListQuery): Promise<ClientListItemResponse[]> {
+  async findAll(
+    environmentId: string,
+    { status, search }: ClientListQuery,
+  ): Promise<ClientListItemResponse[]> {
     const documentSearch = search?.replace(/\D/g, '');
     const where = {
+      environmentId,
       ...(status === 'active' ? { ativo: true } : {}),
       ...(status === 'inactive' ? { ativo: false } : {}),
       ...(search
@@ -99,9 +99,12 @@ export class ClientsService {
     });
   }
 
-  async findOne(id: string): Promise<ClientDetailResponse> {
+  async findOne(
+    environmentId: string,
+    id: string,
+  ): Promise<ClientDetailResponse> {
     const client = await this.database.cliente.findUnique({
-      where: { id },
+      where: { environmentId_id: { environmentId, id } },
       select: clientDetailSelect,
     });
 
@@ -112,13 +115,16 @@ export class ClientsService {
     return client;
   }
 
-  async create(input: ClientCreateInput): Promise<ClientDetailResponse> {
+  async create(
+    environmentId: string,
+    input: ClientCreateInput,
+  ): Promise<ClientDetailResponse> {
     try {
       return await this.database.cliente.create({
         data: {
           ...input,
           ativo: true,
-          environmentId: PRINCIPAL_ENVIRONMENT_ID,
+          environmentId,
         },
         select: clientDetailSelect,
       });
@@ -135,12 +141,13 @@ export class ClientsService {
   }
 
   async update(
+    environmentId: string,
     id: string,
     input: ClientUpdateInput,
   ): Promise<ClientDetailResponse> {
     try {
       return await this.database.cliente.update({
-        where: { id },
+        where: { environmentId_id: { environmentId, id } },
         data: input,
         select: clientDetailSelect,
       });
@@ -160,12 +167,13 @@ export class ClientsService {
   }
 
   async updateStatus(
+    environmentId: string,
     id: string,
     { status }: ClientStatusUpdateInput,
   ): Promise<ClientDetailResponse> {
     try {
       return await this.database.cliente.update({
-        where: { id },
+        where: { environmentId_id: { environmentId, id } },
         data: { ativo: status === 'active' },
         select: clientDetailSelect,
       });
@@ -181,9 +189,9 @@ export class ClientsService {
     }
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(environmentId: string, id: string): Promise<void> {
     const order = await this.database.ordemServico.findFirst({
-      where: { clienteId: id },
+      where: { environmentId, clienteId: id },
       select: { id: true },
     });
 
@@ -192,7 +200,9 @@ export class ClientsService {
     }
 
     try {
-      await this.database.cliente.delete({ where: { id } });
+      await this.database.cliente.delete({
+        where: { environmentId_id: { environmentId, id } },
+      });
     } catch (error: unknown) {
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2003') {

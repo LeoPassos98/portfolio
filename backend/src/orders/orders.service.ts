@@ -13,7 +13,6 @@ import {
 } from '../generated/prisma/client.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.interface.js';
 import { DatabaseService } from '../database/database.service.js';
-import { PRINCIPAL_ENVIRONMENT_ID } from '../environments/principal-environment.js';
 import { OrderDetailResponse } from './order-detail-response.dto.js';
 import type { OrderCreateInput } from './order-create.schema.js';
 import { OrderHistoryItemResponse } from './order-history-item-response.dto.js';
@@ -154,7 +153,12 @@ export class OrdersService {
 
     const order = await this.executeSerializableTransaction(
       (transaction) =>
-        this.createInTransaction(transaction, input, responsavelId),
+        this.createInTransaction(
+          transaction,
+          authenticatedUser.environmentId,
+          input,
+          responsavelId,
+        ),
       'Order creation exhausted its retry limit.',
     );
 
@@ -181,7 +185,11 @@ export class OrdersService {
 
       if (
         this.isSerializationConflictError(error) &&
-        (await this.hasPersistedVersionChanged(id, input.versao))
+        (await this.hasPersistedVersionChanged(
+          authenticatedUser.environmentId,
+          id,
+          input.versao,
+        ))
       ) {
         throw new ConflictException(ORDER_VERSION_CONFLICT_ERROR);
       }
@@ -293,7 +301,10 @@ export class OrdersService {
     }
 
     const history = await this.database.historicoOrdemServico.findMany({
-      where: { ordemServicoId: order.id },
+      where: {
+        environmentId: authenticatedUser.environmentId,
+        ordemServicoId: order.id,
+      },
       orderBy: [{ versao: 'desc' }, { id: 'desc' }],
       select: orderHistorySelect,
     });
@@ -321,10 +332,11 @@ export class OrdersService {
     authenticatedUser: AuthenticatedUser,
   ): Prisma.OrdemServicoWhereInput {
     if (authenticatedUser.perfil === Perfil.ADMINISTRADOR) {
-      return {};
+      return { environmentId: authenticatedUser.environmentId };
     }
 
     return {
+      environmentId: authenticatedUser.environmentId,
       OR: [
         { responsavelId: authenticatedUser.funcionarioId },
         { visibilidade: Visibilidade.PUBLICA },
@@ -377,16 +389,17 @@ export class OrdersService {
 
   private async createInTransaction(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     input: OrderCreateInput,
     responsavelId: string,
   ): Promise<
     Prisma.OrdemServicoGetPayload<{ select: typeof orderDetailSelect }>
   > {
-    await this.lockActiveClient(transaction, input.clienteId);
-    await this.lockActiveResponsible(transaction, responsavelId);
+    await this.lockActiveClient(transaction, environmentId, input.clienteId);
+    await this.lockActiveResponsible(transaction, environmentId, responsavelId);
 
     const counter = await transaction.contadorOrdemServico.update({
-      where: { environmentId: PRINCIPAL_ENVIRONMENT_ID },
+      where: { environmentId },
       data: { ultimoNumero: { increment: 1 } },
       select: { ultimoNumero: true },
     });
@@ -394,7 +407,7 @@ export class OrdersService {
 
     return transaction.ordemServico.create({
       data: {
-        environmentId: PRINCIPAL_ENVIRONMENT_ID,
+        environmentId,
         numero,
         clienteId: input.clienteId,
         responsavelId,
@@ -466,14 +479,18 @@ export class OrdersService {
     );
 
     if (responsibleChanged) {
-      await this.validateActiveResponsible(transaction, nextResponsibleId);
+      await this.validateActiveResponsible(
+        transaction,
+        authenticatedUser.environmentId,
+        nextResponsibleId,
+      );
     }
 
     const transitionDates = this.resolveTransitionDates(current, input.status);
 
     await transaction.historicoOrdemServico.create({
       data: {
-        environmentId: PRINCIPAL_ENVIRONMENT_ID,
+        environmentId: authenticatedUser.environmentId,
         ordemServicoId: current.id,
         versao: current.versao,
         descricao: current.descricao,
@@ -489,7 +506,11 @@ export class OrdersService {
     });
 
     const update = await transaction.ordemServico.updateMany({
-      where: { id: current.id, versao: input.versao },
+      where: {
+        environmentId: authenticatedUser.environmentId,
+        id: current.id,
+        versao: input.versao,
+      },
       data: {
         descricao: input.descricao,
         valor: nextValue,
@@ -508,7 +529,12 @@ export class OrdersService {
     }
 
     return transaction.ordemServico.findUniqueOrThrow({
-      where: { id: current.id },
+      where: {
+        environmentId_id: {
+          environmentId: authenticatedUser.environmentId,
+          id: current.id,
+        },
+      },
       select: orderDetailSelect,
     });
   }
@@ -576,10 +602,13 @@ export class OrdersService {
 
   private async validateActiveResponsible(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     responsibleId: string,
   ): Promise<void> {
     const responsible = await transaction.funcionario.findUnique({
-      where: { id: responsibleId },
+      where: {
+        environmentId_id: { environmentId, id: responsibleId },
+      },
       select: { ativo: true },
     });
 
@@ -616,6 +645,7 @@ export class OrdersService {
 
   private async lockActiveClient(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     clientId: string,
   ): Promise<void> {
     const clients = await transaction.$queryRaw<LockedActiveRecord[]>(
@@ -623,6 +653,7 @@ export class OrdersService {
         SELECT "id", "ativo"
         FROM "cliente"
         WHERE "id" = ${clientId}::uuid
+          AND "environment_id" = ${environmentId}::uuid
         FOR UPDATE
       `,
     );
@@ -639,6 +670,7 @@ export class OrdersService {
 
   private async lockActiveResponsible(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     responsibleId: string,
   ): Promise<void> {
     const employees = await transaction.$queryRaw<LockedActiveRecord[]>(
@@ -646,6 +678,7 @@ export class OrdersService {
         SELECT "id", "ativo"
         FROM "funcionario"
         WHERE "id" = ${responsibleId}::uuid
+          AND "environment_id" = ${environmentId}::uuid
         FOR UPDATE
       `,
     );
@@ -680,11 +713,12 @@ export class OrdersService {
   }
 
   private async hasPersistedVersionChanged(
+    environmentId: string,
     id: string,
     expectedVersion: number,
   ): Promise<boolean> {
     const order = await this.database.ordemServico.findUnique({
-      where: { id },
+      where: { environmentId_id: { environmentId, id } },
       select: { versao: true },
     });
 

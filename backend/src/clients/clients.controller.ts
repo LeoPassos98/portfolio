@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import {
@@ -29,6 +30,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { Perfil } from '../generated/prisma/client.js';
 import { FirstAccessCompletedGuard } from '../auth/guards/first-access-completed.guard.js';
 import { RoleGuard } from '../auth/guards/role.guard.js';
@@ -140,8 +142,12 @@ export class ClientsController {
   })
   create(
     @Body(new ZodValidationPipe(clientCreateSchema)) input: ClientCreateInput,
+    @Req() request: Request,
   ): Promise<ClientDetailResponse> {
-    return this.clientsService.create(input);
+    return this.clientsService.create(
+      request.authenticatedUser!.environmentId,
+      input,
+    );
   }
 
   @Get()
@@ -163,8 +169,12 @@ export class ClientsController {
   @ApiForbiddenResponse(passwordChangeRequiredResponse)
   findAll(
     @Query(new ZodValidationPipe(clientListQuerySchema)) query: ClientListQuery,
+    @Req() request: Request,
   ): Promise<ClientListItemResponse[]> {
-    return this.clientsService.findAll(query);
+    return this.clientsService.findAll(
+      request.authenticatedUser!.environmentId,
+      query,
+    );
   }
 
   @Get('cep/:cep')
@@ -206,8 +216,12 @@ export class ClientsController {
   })
   findOne(
     @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
+    @Req() request: Request,
   ): Promise<ClientDetailResponse> {
-    return this.clientsService.findOne(id);
+    return this.clientsService.findOne(
+      request.authenticatedUser!.environmentId,
+      id,
+    );
   }
 
   @Put(':id')
@@ -266,8 +280,13 @@ export class ClientsController {
   update(
     @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
     @Body(new ZodValidationPipe(clientUpdateSchema)) input: ClientUpdateInput,
+    @Req() request: Request,
   ): Promise<ClientDetailResponse> {
-    return this.clientsService.update(id, input);
+    return this.clientsService.update(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Patch(':id/status')
@@ -308,8 +327,13 @@ export class ClientsController {
     @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
     @Body(new ZodValidationPipe(clientStatusUpdateSchema))
     input: ClientStatusUpdateInput,
+    @Req() request: Request,
   ): Promise<ClientDetailResponse> {
-    return this.clientsService.updateStatus(id, input);
+    return this.clientsService.updateStatus(
+      request.authenticatedUser!.environmentId,
+      id,
+      input,
+    );
   }
 
   @Delete(':id')
@@ -338,7 +362,11 @@ export class ClientsController {
   })
   async remove(
     @Param(new ZodValidationPipe(clientIdSchema)) { id }: ClientIdInput,
+    @Req() request: Request,
   ): Promise<void> {
-    await this.clientsService.remove(id);
+    await this.clientsService.remove(
+      request.authenticatedUser!.environmentId,
+      id,
+    );
   }
 }

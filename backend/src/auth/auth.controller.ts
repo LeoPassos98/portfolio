@@ -226,6 +226,7 @@ export class AuthController {
 
     const usuarioAtualizado = await this.authService.changeFirstAccessPassword(
       usuario.id,
+      usuario.environmentId,
       input.password,
     );
 

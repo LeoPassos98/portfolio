@@ -45,10 +45,17 @@ export class DashboardService {
     return this.database.$transaction(
       async (transaction) => {
         if (scopedEmployeeId) {
-          return this.getEmployeeSituation(transaction, scopedEmployeeId);
+          return this.getEmployeeSituation(
+            transaction,
+            authenticatedUser.environmentId,
+            scopedEmployeeId,
+          );
         }
 
-        return this.getAdministratorSituation(transaction);
+        return this.getAdministratorSituation(
+          transaction,
+          authenticatedUser.environmentId,
+        );
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
@@ -68,12 +75,17 @@ export class DashboardService {
         if (scopedEmployeeId) {
           return this.getEmployeePerformance(
             transaction,
+            authenticatedUser.environmentId,
             scopedEmployeeId,
             query,
           );
         }
 
-        return this.getAdministratorPerformance(transaction, query);
+        return this.getAdministratorPerformance(
+          transaction,
+          authenticatedUser.environmentId,
+          query,
+        );
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
@@ -96,6 +108,7 @@ export class DashboardService {
 
   private async getAdministratorSituation(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
   ): Promise<AdministratorDashboardSituationResponse> {
     const [
       activeClients,
@@ -104,11 +117,13 @@ export class DashboardService {
       totalEmployees,
       orders,
     ] = await Promise.all([
-      transaction.cliente.count({ where: { ativo: true } }),
-      transaction.cliente.count(),
-      transaction.funcionario.count({ where: { ativo: true } }),
-      transaction.funcionario.count(),
-      this.countOrders(transaction),
+      transaction.cliente.count({ where: { environmentId, ativo: true } }),
+      transaction.cliente.count({ where: { environmentId } }),
+      transaction.funcionario.count({
+        where: { environmentId, ativo: true },
+      }),
+      transaction.funcionario.count({ where: { environmentId } }),
+      this.countOrders(transaction, environmentId),
     ]);
 
     return {
@@ -121,14 +136,17 @@ export class DashboardService {
 
   private async getEmployeeSituation(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
   ): Promise<EmployeeDashboardSituationResponse> {
     const [employee, orders] = await Promise.all([
       transaction.funcionario.findUnique({
-        where: { id: employeeId },
+        where: {
+          environmentId_id: { environmentId, id: employeeId },
+        },
         select: { id: true },
       }),
-      this.countOrders(transaction, employeeId),
+      this.countOrders(transaction, environmentId, employeeId),
     ]);
 
     if (!employee) {
@@ -140,25 +158,32 @@ export class DashboardService {
 
   private async getAdministratorPerformance(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     query: DashboardPerformanceQuery,
   ): Promise<AdministratorDashboardPerformanceResponse> {
     const createdDuring = this.createdDuring(query);
     const [completedOrders, cancelledOrders, newClients, newEmployees] =
       await Promise.all([
         transaction.ordemServico.aggregate({
-          where: this.completedOrdersWhere(query),
+          where: this.completedOrdersWhere(environmentId, query),
           _count: { id: true },
           _sum: { valor: true },
           _avg: { valor: true },
         }),
         transaction.ordemServico.count({
-          where: this.cancelledOrdersWhere(query),
+          where: this.cancelledOrdersWhere(environmentId, query),
         }),
         transaction.cliente.count({
-          where: createdDuring ? { criadoEm: createdDuring } : {},
+          where: {
+            environmentId,
+            ...(createdDuring ? { criadoEm: createdDuring } : {}),
+          },
         }),
         transaction.funcionario.count({
-          where: createdDuring ? { criadoEm: createdDuring } : {},
+          where: {
+            environmentId,
+            ...(createdDuring ? { criadoEm: createdDuring } : {}),
+          },
         }),
       ]);
 
@@ -179,25 +204,33 @@ export class DashboardService {
 
   private async getEmployeePerformance(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     query: DashboardPerformanceQuery,
   ): Promise<EmployeeDashboardPerformanceResponse> {
     const [employee, completedOrders, cancelledOrders, clientMetrics] =
       await Promise.all([
         transaction.funcionario.findUnique({
-          where: { id: employeeId },
+          where: {
+            environmentId_id: { environmentId, id: employeeId },
+          },
           select: { id: true },
         }),
         transaction.ordemServico.aggregate({
-          where: this.completedOrdersWhere(query, employeeId),
+          where: this.completedOrdersWhere(environmentId, query, employeeId),
           _count: { id: true },
           _sum: { valor: true },
           _avg: { valor: true },
         }),
         transaction.ordemServico.count({
-          where: this.cancelledOrdersWhere(query, employeeId),
+          where: this.cancelledOrdersWhere(environmentId, query, employeeId),
         }),
-        this.countEmployeeClientMetrics(transaction, employeeId, query),
+        this.countEmployeeClientMetrics(
+          transaction,
+          environmentId,
+          employeeId,
+          query,
+        ),
       ]);
 
     if (!employee) {
@@ -221,10 +254,12 @@ export class DashboardService {
   }
 
   private completedOrdersWhere(
+    environmentId: string,
     query: DashboardPerformanceQuery,
     responsavelId?: string,
   ): Prisma.OrdemServicoWhereInput {
     return {
+      environmentId,
       ...(responsavelId ? { responsavelId } : {}),
       status: StatusOrdemServico.CONCLUIDO,
       ...(query.from && query.before
@@ -234,10 +269,12 @@ export class DashboardService {
   }
 
   private cancelledOrdersWhere(
+    environmentId: string,
     query: DashboardPerformanceQuery,
     responsavelId?: string,
   ): Prisma.OrdemServicoWhereInput {
     return {
+      environmentId,
       ...(responsavelId ? { responsavelId } : {}),
       status: StatusOrdemServico.CANCELADO,
       ...(query.from && query.before
@@ -255,6 +292,7 @@ export class DashboardService {
 
   private async countEmployeeClientMetrics(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     employeeId: string,
     query: DashboardPerformanceQuery,
   ): Promise<{
@@ -281,12 +319,14 @@ export class DashboardService {
             SELECT 1
             FROM "ordem_servico" AS prior
             WHERE prior."cliente_id" = candidate."cliente_id"
+              AND prior."environment_id" = ${environmentId}::uuid
               AND prior."status" = 'CONCLUIDO'::"status_ordem_servico"
               AND prior."concluido_em" < candidate."concluido_em"
           )
         )::integer AS "recurringDistinctClients"
       FROM "ordem_servico" AS candidate
       WHERE candidate."status" = 'CONCLUIDO'::"status_ordem_servico"
+        AND candidate."environment_id" = ${environmentId}::uuid
         AND candidate."responsavel_id" = ${employeeId}::uuid
         ${periodCondition}
     `);
@@ -300,9 +340,13 @@ export class DashboardService {
 
   private async countOrders(
     transaction: Prisma.TransactionClient,
+    environmentId: string,
     responsavelId?: string,
   ): Promise<{ awaiting: number; inProgress: number; total: number }> {
-    const responsibleWhere = responsavelId ? { responsavelId } : {};
+    const responsibleWhere = {
+      environmentId,
+      ...(responsavelId ? { responsavelId } : {}),
+    };
     const [awaiting, inProgress, total] = await Promise.all([
       transaction.ordemServico.count({
         where: { ...responsibleWhere, status: StatusOrdemServico.AGUARDANDO },

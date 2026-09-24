@@ -35,7 +35,7 @@ export class SessionGuard implements CanActivate {
 
     const usuario = await this.authService.getAuthenticatedUser(usuarioId);
 
-    if (!usuario || !usuario.ativo) {
+    if (!usuario || !this.authService.isAuthenticationContextValid(usuario)) {
       await destroySession(request);
       throw new UnauthorizedException(UNAUTHENTICATED_ERROR);
     }

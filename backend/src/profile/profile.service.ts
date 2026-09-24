@@ -42,9 +42,14 @@ export class ProfileService {
     private readonly sessionStoreService: SessionStoreService,
   ) {}
 
-  async getProfile(funcionarioId: string): Promise<ProfileResponse> {
+  async getProfile(
+    environmentId: string,
+    funcionarioId: string,
+  ): Promise<ProfileResponse> {
     const employee = await this.database.funcionario.findUniqueOrThrow({
-      where: { id: funcionarioId },
+      where: {
+        environmentId_id: { environmentId, id: funcionarioId },
+      },
       select: profileSelect,
     });
 
@@ -52,11 +57,14 @@ export class ProfileService {
   }
 
   async updateProfile(
+    environmentId: string,
     funcionarioId: string,
     input: ProfileUpdateInput,
   ): Promise<ProfileResponse> {
     const employee = await this.database.funcionario.update({
-      where: { id: funcionarioId },
+      where: {
+        environmentId_id: { environmentId, id: funcionarioId },
+      },
       data: input,
       select: profileSelect,
     });
@@ -65,11 +73,12 @@ export class ProfileService {
   }
 
   async changePassword(
+    environmentId: string,
     usuarioId: string,
     input: ProfilePasswordUpdateInput,
   ): Promise<void> {
     const account = await this.database.usuario.findUnique({
-      where: { id: usuarioId },
+      where: { environmentId_id: { environmentId, id: usuarioId } },
       select: { senhaHash: true },
     });
 
@@ -89,7 +98,7 @@ export class ProfileService {
     const senhaHash = await this.passwordService.hash(input.newPassword);
 
     await this.database.usuario.update({
-      where: { id: usuarioId },
+      where: { environmentId_id: { environmentId, id: usuarioId } },
       data: { senhaHash },
     });
     await this.sessionStoreService.revokeUserSessions(usuarioId);
