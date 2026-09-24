@@ -124,6 +124,7 @@ describe('HttpExceptionFilter', () => {
       'database-password',
       'direct-user',
       'direct-password',
+      'demo-hmac-value',
     ];
     const error = new Error(
       [
@@ -133,6 +134,7 @@ describe('HttpExceptionFilter', () => {
         `SESSION_SECRET=${secrets[2]}`,
         `DATABASE_URL=postgresql://${secrets[3]}:${secrets[4]}@db/app`,
         `postgresql://${secrets[5]}:${secrets[6]}@db/audit`,
+        `DEMO_IP_HMAC_SECRET: ${secrets[7]}`,
       ].join('\n'),
     );
     const response = catchException(error);

@@ -10,27 +10,28 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 ## Visão rápida
 
-| Área                     | Responsabilidade                                                                                                                                       | Arquivos |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------: |
-| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens e endpoint raiz atual                                  |        4 |
-| Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                                |        4 |
-| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS e validação no bootstrap                                                                               |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, ciclo de vida da DEMO, migrations e acesso PostgreSQL injetável                           |       10 |
-| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                                                |       12 |
-| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                     |        4 |
-| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                       |       16 |
-| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais                                |       18 |
-| Meu perfil               | Autoatendimento autenticado de dados pessoais e senha sem identificador escolhido pelo cliente                                                         |        7 |
-| Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros                                 |       12 |
-| Dashboard                | Situação atual e desempenho temporal do Environment ou por Funcionário, com escopo autenticado, DTOs e validação                                       |        8 |
-| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                                                      |        4 |
-| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                                                 |        4 |
-| Proteção de origem       | CORS restritivo para o frontend configurado                                                                                                            |        1 |
-| Proxy reverso            | Confiança limitada ao hop anterior em produção para reconhecer o protocolo original                                                                    |        1 |
-| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                            |        1 |
-| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                     |        3 |
-| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                      |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, clientes, funcionários, perfil, Dashboard e ordens |       23 |
+| Área                     | Responsabilidade                                                                                                                                     | Arquivos |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------: |
+| Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens, fundação DEMO e endpoint raiz atual                 |        4 |
+| Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                              |        4 |
+| Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS, segredos e validação no bootstrap                                                                   |        2 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, ciclo de vida da DEMO, tentativas de geração, migrations e acesso PostgreSQL injetável  |       11 |
+| Fundação de geração DEMO | Canonicalização e HMAC da origem, persistência e rate limit transacional por janela móvel                                                            |        6 |
+| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                                              |       12 |
+| Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                   |        4 |
+| Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                     |       16 |
+| Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais                              |       18 |
+| Meu perfil               | Autoatendimento autenticado de dados pessoais e senha sem identificador escolhido pelo cliente                                                       |        7 |
+| Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros                               |       12 |
+| Dashboard                | Situação atual e desempenho temporal do Environment ou por Funcionário, com escopo autenticado, DTOs e validação                                     |        8 |
+| Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                                                    |        4 |
+| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                                               |        4 |
+| Proteção de origem       | CORS restritivo para o frontend configurado                                                                                                          |        1 |
+| Proxy reverso            | Confiança limitada ao hop anterior em produção para reconhecer o protocolo original                                                                  |        1 |
+| Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
+| Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
+| Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, DEMO, clientes, funcionários, perfil e operações |       26 |
 
 ## Sumário
 
@@ -38,6 +39,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Bootstrap operacional](#bootstrap-operacional)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
+- [Fundação de geração DEMO](#fundação-de-geração-demo)
 - [Autenticação](#autenticação)
 - [Guards de acesso](#guards-de-acesso)
 - [Clientes](#clientes)
@@ -70,7 +72,7 @@ Também configura logger, confiança limitada no proxy de produção, CORS, sess
 
 ### 2. `backend/src/app.module.ts`
 
-Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, perfil, ordens e sessão.
+Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, perfil, ordens, sessão e fundação de geração DEMO.
 
 Registra o `CsrfGuard` global e fornece o endpoint raiz atual.
 
@@ -118,13 +120,13 @@ Diretório principal: `backend/src/config/`
 
 ### 1. `backend/.env.example`
 
-Disponibiliza valores de referência para ambiente, porta, bancos PostgreSQL, segredo e duração da sessão.
+Disponibiliza valores de referência para ambiente, porta, bancos PostgreSQL, segredos distintos de sessão e HMAC da origem DEMO e duração da sessão.
 
 Também define a origem única permitida pelo CORS.
 
 ### 2. `backend/src/config/environment.validation.ts`
 
-Declara com Zod o schema das variáveis de ambiente e aplica defaults de ambiente, porta e duração de sessão.
+Declara com Zod o schema das variáveis de ambiente, exige ao menos 32 caracteres nos segredos de sessão e HMAC da origem DEMO e aplica defaults de ambiente, porta e duração de sessão.
 
 Interrompe o bootstrap com mensagens detalhadas quando a configuração é inválida.
 
@@ -144,7 +146,7 @@ Recebe `DATABASE_URL` para o banco da aplicação e `SHADOW_DATABASE_URL` para a
 
 ### 2. `backend/prisma/schema.prisma`
 
-Define `Environment`, seus estados e configuração persistida de DEMO, o vínculo obrigatório das entidades tenant-aware, as relações compostas que expressam a integridade por ambiente, o contador de OS por Environment e a tabela de infraestrutura `session` sem vínculo de tenant. Também mantém os enums, os índices consultáveis pelo ciclo de vida e o generator `prisma-client` com saída local.
+Define `Environment`, seus estados e configuração persistida de DEMO, as tentativas permitidas de geração por hash de origem, o vínculo obrigatório das entidades tenant-aware, as relações compostas que expressam a integridade por ambiente, o contador de OS por Environment e a tabela de infraestrutura `session` sem vínculo de tenant. Também mantém os enums, os índices consultáveis pelo ciclo de vida e o generator `prisma-client` com saída local.
 
 ### 3. `backend/src/database/database.module.ts`
 
@@ -185,6 +187,44 @@ Também substitui as FKs simples pelas compostas, move documento e número da OS
 Adiciona os enums e campos persistidos da DEMO, aborta diante de DEMOs preexistentes sem configuração reconciliada e preserva o PRINCIPAL existente com os novos campos nulos.
 
 Impõe no PostgreSQL campos obrigatórios por tipo, expiração fixa de 24 horas, hash hexadecimal minúsculo, coerência de `provisionedAt`, transições de status e imutabilidade da configuração. Também cria os índices por tipo/expiração e hash de origem/expiração.
+
+### 11. `backend/prisma/migrations/20260924210000_add_demo_generation_attempt/migration.sql`
+
+Cria a tabela independente `demo_generation_attempt` com UUID, hash de origem `VARCHAR(64)`, timestamp com fuso e precisão de microssegundos, constraint de hexadecimal minúsculo e índice composto por origem e criação.
+
+---
+
+## Fundação de geração DEMO
+
+Fornece identificação pseudonimizada de origem e admissão persistida de tentativas antes do futuro provisionamento, sem expor endpoint ou criar Environment.
+
+Diretório principal: `backend/src/demo/`
+
+### 1. `backend/src/demo/demo-origin.service.ts`
+
+Canonicaliza IPv4 e IPv6 com `ipaddr.js`, converte IPv4-mapped IPv6 ao IPv4 equivalente, rejeita entrada inválida ou com zone ID e calcula HMAC-SHA-256 hexadecimal com segredo obtido do `ConfigService`.
+
+### 2. `backend/src/demo/demo-generation-rate-limit.service.ts`
+
+Aplica uma janela móvel de 60 segundos e limite de três tentativas permitidas por hash. Cada origem recebe um advisory lock transacional de 64 bits derivado por SHA-256 com separação de domínio; a consulta e o timestamp inserido usam o relógio do PostgreSQL.
+
+Tentativas bloqueadas não são persistidas nem renovam a janela. Registros com mais de 60 segundos são ignorados semanticamente; a remoção física ficará para a integração posterior de cleanup.
+
+### 3. `backend/src/demo/demo.module.ts`
+
+Compõe e exporta os serviços de origem e rate limit para consumo futuro pela camada de geração DEMO, sem controller HTTP.
+
+### 4. `backend/src/demo/demo-origin.service.spec.ts`
+
+Cobre canonicalização, equivalência de IPv4-mapped IPv6, representações IPv6 equivalentes, rejeição fechada e propriedades do HMAC sem expor o segredo.
+
+### 5. `backend/src/demo/demo-generation-rate-limit.service.spec.ts`
+
+Exercita PostgreSQL real para validar as três permissões, bloqueio sem insert, retry, expiração sem espera longa, isolamento entre origens e concorrência sob locks por origem.
+
+### 6. `backend/src/database/demo-generation-attempt-integrity.spec.ts`
+
+Confirma no PostgreSQL a tabela independente de tentativas, os tipos físicos, o default temporal, a ordem do índice composto e a rejeição de hashes fora do formato hexadecimal minúsculo de 64 caracteres.
 
 ---
 

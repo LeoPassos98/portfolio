@@ -12,6 +12,7 @@ export const environmentSchema = z.object({
       message: 'must use the postgresql:// scheme',
     }),
   SESSION_SECRET: z.string().min(32),
+  DEMO_IP_HMAC_SECRET: z.string().min(32),
   SESSION_MAX_AGE_MS: z.coerce.number().int().positive().default(28_800_000),
   FRONTEND_ORIGIN: z.string().url(),
 });

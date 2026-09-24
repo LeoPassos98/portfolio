@@ -58,7 +58,7 @@ cp backend/.env.test.example backend/.env.test
 cp frontend/.env.example frontend/.env
 ```
 
-`backend/.env` contém as credenciais de banco e o segredo de sessão; `backend/.env.test` contém somente `TEST_DATABASE_URL`; nenhum dos dois deve ser versionado. `frontend/.env` define `VITE_API_URL`, a URL pública da API consumida pelo navegador.
+`backend/.env` contém as credenciais de banco, o segredo de sessão e o segredo HMAC da origem DEMO; `backend/.env.test` contém somente `TEST_DATABASE_URL`; nenhum dos dois deve ser versionado. `frontend/.env` define `VITE_API_URL`, a URL pública da API consumida pelo navegador.
 
 ### 3. Preparar o PostgreSQL
 
@@ -104,18 +104,19 @@ O backend expõe a Swagger UI em `http://localhost:3000/api/docs`. Para escolher
 
 ### Variáveis de ambiente
 
-| Arquivo             | Variáveis                                                 | Finalidade                                                           |
-| ------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
-| `backend/.env`      | `NODE_ENV`, `PORT`, `DATABASE_URL`, `SHADOW_DATABASE_URL` | Ambiente, conexão da aplicação e shadow database do Prisma Migrate.  |
-| `backend/.env`      | `SESSION_SECRET`, `SESSION_MAX_AGE_MS`, `FRONTEND_ORIGIN` | Assinatura e duração da sessão, além da origem autorizada pelo CORS. |
-| `backend/.env.test` | `TEST_DATABASE_URL`                                       | URL exclusiva de `portfolio_test` para Vitest e migrations de teste. |
-| `frontend/.env`     | `VITE_API_URL`                                            | URL do NestJS usada pelo Axios.                                      |
+| Arquivo             | Variáveis                                                 | Finalidade                                                                      |
+| ------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `backend/.env`      | `NODE_ENV`, `PORT`, `DATABASE_URL`, `SHADOW_DATABASE_URL` | Ambiente, conexão da aplicação e shadow database do Prisma Migrate.             |
+| `backend/.env`      | `SESSION_SECRET`, `SESSION_MAX_AGE_MS`, `FRONTEND_ORIGIN` | Assinatura e duração da sessão, além da origem autorizada pelo CORS.            |
+| `backend/.env`      | `DEMO_IP_HMAC_SECRET`                                     | HMAC irreversível do IP canônico usado pela proteção antiabuso da geração DEMO. |
+| `backend/.env.test` | `TEST_DATABASE_URL`                                       | URL exclusiva de `portfolio_test` para Vitest e migrations de teste.            |
+| `frontend/.env`     | `VITE_API_URL`                                            | URL do NestJS usada pelo Axios.                                                 |
 
 O backend valida seu ambiente com Zod no startup.
 
 Antes de carregar qualquer spec, o bootstrap do Vitest lê `.env` e `.env.test`, exige que `TEST_DATABASE_URL` aponte exatamente para `portfolio_test` e só então define `NODE_ENV=test` e `DATABASE_URL` para o processo. URLs que resolvam para `portfolio_dev`, `portfolio_shadow`, `postgres` ou outro nome falham antes de fixtures ou limpezas. `npm run test:db:prepare` repete essa validação e aplica apenas as migrations versionadas com `prisma migrate deploy`.
 
-`SESSION_MAX_AGE_MS` deve ser um inteiro positivo; o padrão é 28.800.000 ms (8 horas). `SESSION_SECRET` deve ser longo, secreto e exclusivo do ambiente.
+`SESSION_MAX_AGE_MS` deve ser um inteiro positivo; o padrão é 28.800.000 ms (8 horas). `SESSION_SECRET` e `DEMO_IP_HMAC_SECRET` exigem no mínimo 32 caracteres, devem usar valores aleatórios distintos e exclusivos de cada ambiente e nunca devem ser logados ou versionados.
 
 ### Deploy do frontend
 
@@ -134,6 +135,8 @@ A migration inicial inclui constraints `CHECK (valor >= 0)` em `ordem_servico` e
 Elas existem porque o Prisma Schema não representa esse tipo de constraint diretamente.
 
 A migration de fundação de `Environment` cria o PRINCIPAL permanente, associa os dados existentes a ele e transforma o contador de OS em um registro por Environment sem recalcular `ultimo_numero`. Ela deve ser aplicada com `npx prisma migrate deploy`, como na etapa 4; não exige seed, reset nem logout global.
+
+A migration de tentativas de geração DEMO cria a tabela antiabuso independente de `Environment`, com hash de origem validado e índice temporal composto. A janela móvel considera somente os últimos 60 segundos; registros mais antigos ficam semanticamente inativos e a remoção física será integrada ao cleanup futuro.
 
 As constraints `CHECK` que vinculam tipo e expiração, o índice parcial que permite no máximo um PRINCIPAL e o trigger que impede excluir o PRINCIPAL ou alterar seu tipo permanecem explícitos no SQL porque não são representados integralmente pelo Prisma Schema. A tabela `session` continua sem `environment_id`; a identidade persistida permanece `usuarioId`.
 
@@ -225,6 +228,7 @@ Não os execute novamente apenas para preparar um clone existente; para isso, us
 | Sessões PostgreSQL                | Sessão server-side persistida e revogável.                       | `cd backend && npm install express-session@1.19.0 connect-pg-simple@10.0.0`           |
 | OpenAPI                           | Swagger UI e contrato HTTP navegável.                            | `cd backend && npm install @nestjs/swagger@12.0.1`                                    |
 | Argon2id                          | Hash e verificação reutilizáveis de senhas.                      | `cd backend && npm install argon2@0.45.1`                                             |
+| `ipaddr.js`                       | Canonicalização robusta de IPs para o HMAC de origem DEMO.       | `cd backend && npm install ipaddr.js@1.9.1`                                           |
 
 ### Interface e formulários
 

@@ -93,7 +93,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     return value
       .replace(/\b(postgres(?:ql)?:\/\/)[^:\s/@]+:[^@\s/]+@/gi, '$1[REDACTED]@')
       .replace(
-        /(\b(?:password|SESSION_SECRET|DATABASE_URL)\b["']?\s*=\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi,
+        /(\b(?:password|SESSION_SECRET|DEMO_IP_HMAC_SECRET|DATABASE_URL)\b["']?\s*[:=]\s*)(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,;]+)/gi,
         '$1[REDACTED]',
       )
       .replace(

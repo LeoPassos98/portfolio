@@ -75,6 +75,15 @@ model Environment {
   @@map("environment")
 }
 
+model DemoGenerationAttempt {
+  id           String   @id @default(uuid()) @db.Uuid
+  originIpHash String   @map("origin_ip_hash") @db.VarChar(64)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([originIpHash, createdAt], map: "demo_generation_attempt_origin_ip_hash_created_at_idx")
+  @@map("demo_generation_attempt")
+}
+
 model Cliente {
   id            String         @id @default(uuid()) @db.Uuid
   environmentId String         @map("environment_id") @db.Uuid
