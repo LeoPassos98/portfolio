@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import type { Environment } from '../config/environment.validation.js';
 import { DatabaseService } from '../database/database.service.js';
+import { DemoAdmissionLockService } from './demo-admission-lock.service.js';
 import {
   DEMO_GENERATION_RATE_LIMIT,
   DEMO_GENERATION_WINDOW_SECONDS,
@@ -20,6 +21,7 @@ const originB = 'b'.repeat(64);
 const testOrigins = [originA, originB];
 let database: DatabaseService;
 let service: DemoGenerationRateLimitService;
+let admissionLocks: DemoAdmissionLockService;
 
 async function insertAttempt(
   originIpHash: string,
@@ -66,7 +68,8 @@ describe('DemoGenerationRateLimitService', () => {
       DATABASE_URL: databaseUrl,
     } as Environment);
     database = new DatabaseService(configService);
-    service = new DemoGenerationRateLimitService(database);
+    admissionLocks = new DemoAdmissionLockService();
+    service = new DemoGenerationRateLimitService(database, admissionLocks);
     await database.$connect();
   });
 
@@ -120,6 +123,43 @@ describe('DemoGenerationRateLimitService', () => {
       expect(blocked.retryAfterSeconds).toBeLessThanOrEqual(60);
     }
     await expect(countAttempts(originA)).resolves.toBe(3);
+  });
+
+  it('inspects the current window without inserting an attempt', async () => {
+    await insertAttempt(originA, 10);
+
+    await expect(service.inspect(originA)).resolves.toEqual({
+      allowed: true,
+      current: 1,
+      limit: DEMO_GENERATION_RATE_LIMIT,
+      windowSeconds: DEMO_GENERATION_WINDOW_SECONDS,
+    });
+    await expect(countAttempts(originA)).resolves.toBe(1);
+  });
+
+  it('uses the caller transaction without opening another transaction', async () => {
+    const transactionSpy = vi.spyOn(database, '$transaction');
+
+    await database.$transaction(async (transaction) => {
+      await admissionLocks.acquireOriginLock(transaction, originA);
+      await expect(
+        service.checkAndRegisterAttemptInTransaction(transaction, originA),
+      ).resolves.toMatchObject({ allowed: true, current: 1 });
+    });
+
+    expect(transactionSpy).toHaveBeenCalledTimes(1);
+    await expect(countAttempts(originA)).resolves.toBe(1);
+    transactionSpy.mockRestore();
+  });
+
+  it('acquires the origin admission lock in autonomous use', async () => {
+    const lockSpy = vi.spyOn(admissionLocks, 'acquireOriginLock');
+
+    await service.checkAndRegisterAttempt(originA);
+
+    expect(lockSpy).toHaveBeenCalledOnce();
+    expect(lockSpy).toHaveBeenCalledWith(expect.anything(), originA);
+    lockSpy.mockRestore();
   });
 
   it('calculates retryAfterSeconds from the oldest still-valid attempt', async () => {

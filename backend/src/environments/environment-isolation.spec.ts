@@ -157,10 +157,11 @@ describe('Environment application isolation', () => {
         tipo: TipoEnvironment.DEMO,
         criadoEm,
         expiresAt,
-        demoStatus: DemoStatus.PENDENTE,
+        demoStatus: DemoStatus.PRONTA,
         demoDataMode: DemoDataMode.EXEMPLO,
         tutorialEnabled: true,
         originIpHash: 'a'.repeat(64),
+        provisionedAt: criadoEm,
         contadorOrdemServico: { create: { ultimoNumero: 0 } },
       },
     });

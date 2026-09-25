@@ -16,8 +16,8 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                              |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS, segredos e validação no bootstrap                                                                   |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, ciclo de vida da DEMO, tentativas de geração, migrations e acesso PostgreSQL injetável  |       11 |
-| Fundação de geração DEMO | Canonicalização e HMAC da origem, persistência e rate limit transacional por janela móvel                                                            |        6 |
-| Autenticação             | Login, token CSRF, troca obrigatória de senha, logout e respostas da sessão autenticada                                                              |       12 |
+| Fundação de geração DEMO | Endpoint de acesso, credenciais, capacidade, locks, shell atômico, origem e rate limit                                                               |       15 |
+| Autenticação             | Login, token CSRF, troca obrigatória, logout e sessões, com acesso DEMO restrito ao estado PRONTA                                                    |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                   |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                     |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais                              |       18 |
@@ -31,7 +31,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, DEMO, clientes, funcionários, perfil e operações |       26 |
+| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, DEMO, clientes, funcionários, perfil e operações |       28 |
 
 ## Sumário
 
@@ -196,7 +196,7 @@ Cria a tabela independente `demo_generation_attempt` com UUID, hash de origem `V
 
 ## Fundação de geração DEMO
 
-Fornece identificação pseudonimizada de origem e admissão persistida de tentativas antes do futuro provisionamento, sem expor endpoint ou criar Environment.
+Fornece o endpoint público de geração de acesso, a identificação pseudonimizada da origem e a admissão concorrente do shell `PENDENTE`, sem executar provisionamento ou criar sessão autenticada.
 
 Diretório principal: `backend/src/demo/`
 
@@ -206,23 +206,59 @@ Canonicaliza IPv4 e IPv6 com `ipaddr.js`, converte IPv4-mapped IPv6 ao IPv4 equi
 
 ### 2. `backend/src/demo/demo-generation-rate-limit.service.ts`
 
-Aplica uma janela móvel de 60 segundos e limite de três tentativas permitidas por hash. Cada origem recebe um advisory lock transacional de 64 bits derivado por SHA-256 com separação de domínio; a consulta e o timestamp inserido usam o relógio do PostgreSQL.
+Inspeciona e registra a janela móvel de 60 segundos com limite de três tentativas. Pode operar autonomamente sob o lock da origem ou compor a transação do shell sem abrir outra transação; consulta e insert usam o relógio do PostgreSQL.
 
 Tentativas bloqueadas não são persistidas nem renovam a janela. Registros com mais de 60 segundos são ignorados semanticamente; a remoção física ficará para a integração posterior de cleanup.
 
-### 3. `backend/src/demo/demo.module.ts`
+### 3. `backend/src/demo/demo-admission-lock.service.ts`
 
-Compõe e exporta os serviços de origem e rate limit para consumo futuro pela camada de geração DEMO, sem controller HTTP.
+Deriva chaves `int64` por SHA-256 com domínios distintos e oferece advisory locks transacionais global e por origem. Operações que usam ambos mantêm a ordem global e depois origem, reutilizável pelo futuro primeiro login.
 
-### 4. `backend/src/demo/demo-origin.service.spec.ts`
+### 4. `backend/src/demo/demo-credentials.service.ts`
+
+Gera login e senha separadamente com `crypto.randomInt()`, alfabeto sem caracteres ambíguos e os comprimentos públicos aprovados, sem persistir a senha original.
+
+### 5. `backend/src/demo/demo-access.schema.ts`
+
+Declara com Zod estrito os campos `dataMode` e `tutorialEnabled` aceitos por `POST /demo/access`.
+
+### 6. `backend/src/demo/demo-access-response.dto.ts`
+
+Documenta a resposta pública de criação com login, senha efêmera e expirações de ativação e da DEMO, sem identificadores ou estado interno.
+
+### 7. `backend/src/demo/demo-capacity.service.ts`
+
+Lê no PostgreSQL, em ordem pública estável, PENDENTEs válidos por origem, DEMOs ativas por origem e capacidade ativa global. Retorna bloqueios tipados com contagem, limite e `retryAfterSeconds`.
+
+### 8. `backend/src/demo/demo-access.service.ts`
+
+Orquestra precheck, Argon2id fora da transação e admissão definitiva sob locks global e de origem. Registra a tentativa e cria Environment, Administrador, Usuario e contador atomicamente; colisões específicas de `emailLogin` refazem somente o login em até cinco transações.
+
+### 9. `backend/src/demo/demo.controller.ts`
+
+Expõe `POST /demo/access` sob o CSRF global, aplica o schema Zod, projeta somente o contrato público e traduz os quatro bloqueios de domínio para `429` ou `503` com `Retry-After` idêntico ao body e schemas OpenAPI globais.
+
+### 10. `backend/src/demo/demo.module.ts`
+
+Compõe controller, `PasswordModule` e serviços de origem, locks, capacidade, credenciais, rate limit e geração do shell.
+
+### 11. `backend/src/demo/demo-origin.service.spec.ts`
 
 Cobre canonicalização, equivalência de IPv4-mapped IPv6, representações IPv6 equivalentes, rejeição fechada e propriedades do HMAC sem expor o segredo.
 
-### 5. `backend/src/demo/demo-generation-rate-limit.service.spec.ts`
+### 12. `backend/src/demo/demo-generation-rate-limit.service.spec.ts`
 
-Exercita PostgreSQL real para validar as três permissões, bloqueio sem insert, retry, expiração sem espera longa, isolamento entre origens e concorrência sob locks por origem.
+Exercita PostgreSQL real para validar inspeção sem insert, composição transacional, lock autônomo, três permissões, bloqueio sem insert, retry, expiração, isolamento entre origens e concorrência.
 
-### 6. `backend/src/database/demo-generation-attempt-integrity.spec.ts`
+### 13. `backend/src/demo/demo-credentials.service.spec.ts`
+
+Valida formatos, comprimentos, alfabeto sem `0`, `o`, `1` e `l`, operações independentes de login e senha e ausência de `Math.random()`.
+
+### 14. `backend/src/demo/demo-access.controller.spec.ts`
+
+Exercita HTTP, CSRF, os dois modos de dados, shell mínimo, Argon2id, sessão anônima, quatro limites com retry, relógio PostgreSQL, concorrência, colisões com rollback e bloqueio de login e reconstrução de sessão para DEMO `PENDENTE`.
+
+### 15. `backend/src/database/demo-generation-attempt-integrity.spec.ts`
 
 Confirma no PostgreSQL a tabela independente de tentativas, os tipos físicos, o default temporal, a ordem do índice composto e a rejeição de hashes fora do formato hexadecimal minúsculo de 64 caracteres.
 
@@ -246,7 +282,7 @@ Declara o schema Zod de login, removendo espaços externos e normalizando maiús
 
 ### 3. `backend/src/auth/auth.service.ts`
 
-Consulta globalmente por `emailLogin` no login e por `usuarioId` na reconstrução da sessão, carrega Funcionário e Environment, valida a coerência e a vigência desse contexto, delega a verificação ao `PasswordService` e projeta a resposta segura sem expor `environmentId` ao frontend.
+Consulta globalmente por `emailLogin` no login e por `usuarioId` na reconstrução da sessão, carrega Funcionário e Environment e valida a coerência do contexto. O PRINCIPAL preserva sua regra permanente; uma DEMO exige `demoStatus = PRONTA` e expiração futura. A verificação de senha permanece no `PasswordService`, e a resposta não expõe `environmentId`.
 
 ### 4. `backend/src/auth/first-access-password.schema.ts`
 

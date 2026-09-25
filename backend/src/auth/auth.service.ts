@@ -3,7 +3,7 @@ import { PasswordService } from './password/password.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import { AuthSessionResponse } from './auth-session-response.dto.js';
 import type { AuthenticatedUser } from './authenticated-user.interface.js';
-import { TipoEnvironment } from '../generated/prisma/client.js';
+import { DemoStatus, TipoEnvironment } from '../generated/prisma/client.js';
 
 type UserWithFuncionario = {
   id: string;
@@ -19,6 +19,7 @@ type CurrentAuthenticatedUser = UserWithFuncionario & {
   environment: {
     tipo: TipoEnvironment;
     expiresAt: Date | null;
+    demoStatus: DemoStatus | null;
   };
 };
 
@@ -64,7 +65,9 @@ export class AuthService {
         ativo: true,
         deveAlterarSenha: true,
         funcionario: { select: { nome: true, environmentId: true } },
-        environment: { select: { tipo: true, expiresAt: true } },
+        environment: {
+          select: { tipo: true, expiresAt: true, demoStatus: true },
+        },
       },
     });
   }
@@ -125,6 +128,7 @@ export class AuthService {
     }
 
     return (
+      usuario.environment.demoStatus === DemoStatus.PRONTA &&
       usuario.environment.expiresAt !== null &&
       usuario.environment.expiresAt.getTime() > Date.now()
     );
