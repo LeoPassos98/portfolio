@@ -12,20 +12,20 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 | Área                    | Responsabilidade                                                                  | Arquivos |
 | ----------------------- | --------------------------------------------------------------------------------- | -------: |
-| Configuração e entrada  | Inicialização, rotas, providers, build e publicação estática do frontend          |        4 |
+| Configuração e entrada  | Metadados, inicialização, rotas, providers, build e publicação do frontend        |        5 |
 | Infraestrutura HTTP     | Cliente Axios compartilhado, ambiente e CSRF em memória                           |        1 |
 | Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state                |        1 |
 | Estilos e tema          | Estilos globais e tokens visuais                                                  |        1 |
 | Componentes UI          | Elementos reutilizáveis da interface                                              |        7 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        8 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              |        4 |
-| Área pública            | Home mínima e ponto de entrada público da aplicação                               |        1 |
+| Área pública            | Portfólio profissional e apresentação pública dos projetos                        |        2 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
 | Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              |        7 |
 | Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
-| Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor       |        8 |
+| Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor      |        8 |
 | Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
-| Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado        |        5 |
+| Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       |        5 |
 
 ## Sumário
 
@@ -52,21 +52,25 @@ Inicializa a aplicação, declara suas rotas e configura o ambiente de desenvolv
 
 Diretório principal: `frontend/`
 
-### 1. `frontend/src/main.tsx`
+### 1. `frontend/index.html`
+
+Define o documento base em português do Brasil, o favicon e os metadados essenciais que identificam Leonardo Passos e seu portfólio profissional no navegador e em mecanismos de busca.
+
+### 2. `frontend/src/main.tsx`
 
 Carrega a fonte e os estilos globais e monta `App` no DOM.
 
 Compõe os providers globais de server state, autenticação, notificações e navegação.
 
-### 2. `frontend/src/App.tsx`
+### 3. `frontend/src/App.tsx`
 
-Declara as rotas da SPA, incluindo a Home pública em `/` e o autoatendimento autenticado em `/profile`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
+Declara as rotas da SPA, incluindo a Home pública em `/`, o estudo de caso do Sistema de OS em `/projetos/sistema-os` e o autoatendimento autenticado em `/profile`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
 
-### 3. `frontend/vite.config.ts`
+### 4. `frontend/vite.config.ts`
 
 Configura desenvolvimento e build com os plugins de React e Tailwind CSS.
 
-### 4. `frontend/wrangler.jsonc`
+### 5. `frontend/wrangler.jsonc`
 
 Configura a publicação de `dist/` como Static Assets no Cloudflare Workers e o fallback de SPA para rotas do React Router.
 
@@ -214,19 +218,23 @@ Reserva uma marca geométrica reutilizável e navegável, sem definir o logo fin
 
 ### 4. `frontend/src/components/layout/PublicLayout.tsx`
 
-Estrutura páginas públicas com `header`, `main` e `footer`, marca para a Home e CTA contextual ao estado de sessão existente.
+Estrutura páginas públicas com marca profissional, navegação pelas seções do portfólio, `main` e rodapé. Preserva a navegação para as seções da Home quando usado por páginas internas do portfólio e oferece retorno ao sistema apenas para quem já tem sessão.
 
 ---
 
 ## Área pública
 
-Reúne a entrada pública mínima, separada das rotas de autenticação e da aplicação autenticada.
+Reúne o portfólio profissional público, separado das rotas de autenticação e da aplicação autenticada.
 
 Diretório principal: `frontend/src/features/public/`
 
 ### 1. `frontend/src/features/public/pages/HomePage.tsx`
 
-Renderiza a Home pública em `/` no `PublicLayout`, com a apresentação mínima do sistema e sem redirecionar automaticamente visitantes ou sessões válidas.
+Renderiza a Home profissional em `/` no `PublicLayout`, sem redirecionar automaticamente visitantes ou sessões válidas. Apresenta Leonardo e sua atuação, o projeto em destaque com tecnologias próprias, espaços identificados para futuros projetos, forma de trabalho e contato; o Sistema de OS conduz ao estudo de caso público e mantém uma ação separada para testar a aplicação.
+
+### 2. `frontend/src/features/public/pages/ServiceOrderProjectPage.tsx`
+
+Renderiza o estudo de caso público do Sistema de Gestão de Ordens de Serviço em `/projetos/sistema-os`. Organiza contexto, problema, solução, responsabilidade, escopo funcional e decisões técnicas, mantendo ações para acessar a aplicação e consultar o código-fonte.
 
 ---
 

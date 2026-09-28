@@ -18,6 +18,7 @@ import { OrderEditPage } from './features/orders/pages/OrderEditPage'
 import { OrdersPage } from './features/orders/pages/OrdersPage'
 import { ProfilePage } from './features/profile/pages/ProfilePage'
 import { HomePage } from './features/public/pages/HomePage'
+import { ServiceOrderProjectPage } from './features/public/pages/ServiceOrderProjectPage'
 
 function App() {
   const {
@@ -37,6 +38,10 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route
+        path="/projetos/sistema-os"
+        element={<ServiceOrderProjectPage />}
+      />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/first-access" element={<FirstAccessPage />} />
       <Route element={<ProtectedRoute />}>

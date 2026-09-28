@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg width="367.48" height="201.34" version="1.1" viewBox="0 0 367.48 201.34" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+ <defs>
+  <clipPath id="clipPath23-2">
+   <path d="m3573.3 2857.3-283.67-283.63h-504.68l536.4 536.34z"/>
+  </clipPath>
+  <clipPath id="clipPath20-5">
+   <path d="m3826.7 3110.7-473.01 472.92-138.44-8.846-179.17-178.96 537.03-538.68z"/>
+  </clipPath>
+  <clipPath id="clipPath17-9">
+   <path d="m2784.1 3648.1h-0.43l-821.22-821.23 251.96-252.73 1073.8 1074z"/>
+  </clipPath>
+  <clipPath id="clipPath14-2">
+   <path d="m797.26 2735.2 912.46 912.43h504.69l-1164.8-1164.8z"/>
+  </clipPath>
+  <clipPath id="clipPath11-4">
+   <path d="m1710.6 2574.1-537.24 537.2 253.57 253.56 788.36-790.76z"/>
+  </clipPath>
+  <linearGradient id="linearGradient174" x2="1" gradientTransform="matrix(789.56 -789.56 789.56 789.56 1300.1 3238.1)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#5384cc" offset="0"/>
+   <stop stop-color="#4253ad" offset=".58304"/>
+   <stop stop-color="#4344a3" offset="1"/>
+  </linearGradient>
+  <linearGradient id="linearGradient175" x2="1" gradientTransform="matrix(536.38 536.38 -536.38 536.38 1551.9 3237.4)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#3957af" offset="0"/>
+   <stop stop-color="#426abc" offset=".26906"/>
+   <stop stop-color="#70d0dc" offset="1"/>
+  </linearGradient>
+  <linearGradient id="linearGradient176" x2="1" gradientTransform="matrix(1073.8 1073.8 1073.8 -1073.8 2088.2 2700.3)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#4c3499" offset="0"/>
+   <stop stop-color="#5d4aa8" offset=".49979"/>
+   <stop stop-color="#8a6ebe" offset="1"/>
+  </linearGradient>
+  <linearGradient id="linearGradient177" x2="1" gradientTransform="matrix(537.85 -537.85 -537.85 -537.85 3162 3521.7)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#4f47a5" offset="0"/>
+   <stop stop-color="#6e45a6" offset=".43"/>
+   <stop stop-color="#974cac" offset="1"/>
+  </linearGradient>
+  <linearGradient id="linearGradient178" x2="1" gradientTransform="matrix(536.38 536.38 -536.38 536.38 2911.1 2447.5)" gradientUnits="userSpaceOnUse">
+   <stop stop-color="#e58fcd" offset="0"/>
+   <stop stop-color="#a948aa" offset=".58499"/>
+   <stop stop-color="#84349e" offset="1"/>
+  </linearGradient>
+ </defs>
+ <g transform="translate(-155.89 -208.21)">
+  <path transform="matrix(.13333 0 0 -.13333 32.987 725)" d="m3573.3 2857.3-283.67-283.63h-504.68l536.4 536.34 251.95-252.71" clip-path="url(#clipPath23-2)" fill="url(#linearGradient178)"/>
+  <path transform="matrix(.13333 0 0 -.13333 3.4453 748.76)" d="m1710.6 2574.1-537.24 537.2 253.57 253.56 788.36-790.76h-504.69" clip-path="url(#clipPath11-4)" fill="url(#linearGradient174)"/>
+  <path transform="matrix(.13333 0 0 -.13333 53.869 698.56)" d="m1426.1 3364 283.66 283.63h504.69l-1164.8-1164.8-252.33 252.33" clip-path="url(#clipPath14-2)" fill="url(#linearGradient175)"/>
+  <path transform="matrix(.14245 .0091205 -.0091205 -.14245 2.6136 742.26)" d="m3353.7 3583.6-138.66-8.8951-178.96-178.95 537.02-538.68 253.58 253.57z" clip-path="url(#clipPath20-5)" fill="url(#linearGradient177)"/>
+  <path transform="matrix(.13333 0 0 -.13333 9.2755 748.76)" d="m2784.1 3648.1h-0.43l-821.22-821.23 251.96-252.73 1073.8 1074h-504.06" clip-path="url(#clipPath17-9)" fill="url(#linearGradient176)"/>
+ </g>
+</svg>
