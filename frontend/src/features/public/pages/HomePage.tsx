@@ -158,8 +158,9 @@ function ProjectsSection() {
             Trabalho que transforma complexidade em experiência útil.
           </h2>
           <p className="text-neutral mt-4 text-lg leading-8">
-            Cada projeto registra o problema, as decisões de engenharia e o
-            resultado entregue — não apenas uma lista de tecnologias.
+            No projeto em destaque, React, NestJS e PostgreSQL aparecem junto
+            das decisões de arquitetura, publicação e segurança que sustentam
+            o sistema.
           </p>
         </div>
 

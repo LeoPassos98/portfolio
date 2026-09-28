@@ -292,6 +292,12 @@ function TechnicalDecisions() {
         "Contratos explícitos, regras centralizadas e persistência relacional protegem a coerência da operação.",
     },
     {
+      title: "Publicação",
+      technologies: "Cloudflare Workers e Northflank",
+      rationale:
+        "A interface é publicada como assets estáticos, enquanto a API NestJS opera em um serviço separado.",
+    },
+    {
       title: "Qualidade",
       technologies: "Vitest e validações de navegador",
       rationale:
@@ -374,7 +380,7 @@ function ServiceOrderProjectPage() {
       "Sistema de Gestão de Ordens de Serviço · Leonardo Passos";
 
     return () => {
-      document.title = "Leonardo Passos · Desenvolvedor full stack";
+      document.title = "Leonardo Passos · Desenvolvedor de Software";
     };
   }, []);
 
