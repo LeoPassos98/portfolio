@@ -10,9 +10,10 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                 |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                   |
-| Arquivos catalogados         | 27 arquivos `*.spec.ts` na suíte principal e o smoke e2e separado `backend/test/app.e2e-spec.ts`           |
+| Arquivos catalogados         | 27 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo  |
 | Último resultado consolidado | **547 testes aprovados** após adicionar a geração atômica do acesso DEMO e o bloqueio de PENDENTE no login |
+| Scripts operacionais         | **24 testes direcionados aprovados**, sem PostgreSQL; não integram nem revalidam o baseline de 547 testes |
 
 ## Executar agora
 
@@ -28,6 +29,15 @@ npm run build
 ```
 
 `npm test` executa antes `npm run test:db:prepare`: o comando valida `TEST_DATABASE_URL` e aplica as migrations versionadas exclusivamente em `portfolio_test`. Para configurar a URL local, copie `backend/.env.test.example` para `backend/.env.test`. A suíte falha fechada antes de acessar PostgreSQL se a URL não resolver para `portfolio_test`.
+
+Para validar somente a interface de migration de produção, sem preparar ou acessar banco:
+
+```bash
+cd backend
+npm run test:scripts -- test/scripts/migrate-production.spec.mjs
+```
+
+`test:scripts` usa `backend/vitest.config.scripts.ts`, seleciona somente `test/scripts/**/*.spec.mjs` e não carrega `test/setup.ts`. A suíte principal e seu contrato de banco permanecem separados.
 
 ### Arquitetura dos bancos PostgreSQL
 
@@ -56,6 +66,7 @@ git diff --check
 - [Arquitetura dos bancos PostgreSQL](#arquitetura-dos-bancos-postgresql)
 - [Catálogo de testes automatizados](#catálogo-de-testes-automatizados)
   - [Aplicação, configuração e HTTP](#aplicação-configuração-e-http)
+  - [Scripts operacionais](#scripts-operacionais)
   - [Banco e Environment](#banco-e-environment)
   - [Geração de acesso DEMO](#geração-de-acesso-demo)
   - [Credenciais, sessão e guards](#credenciais-sessão-e-guards)
@@ -90,6 +101,14 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas, inclusive o segredo HMAC da DEMO; sempre responde `statusCode`, `code` e `message`. | O contrato público e os logs permanecem estáveis sem vazar detalhes internos ou segredos.  | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
 Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 547 testes selecionados por `npm test`.
+
+### Scripts operacionais
+
+| Arquivo | Finalidade e cenários relevantes | Regra ou risco comprovado | Infraestrutura importante |
+| ------- | ------------------------------- | ------------------------- | ------------------------- |
+| [`backend/test/scripts/migrate-production.spec.mjs`](../backend/test/scripts/migrate-production.spec.mjs) | Rejeita URI ausente, vazia, em branco, malformada, sem host ou com outro protocolo; verifica comando fixo, URI administrativa exclusiva no subprocesso, remoção de `MIGRATION_DATABASE_URL`, ausência de fallback e preservação do environment pai. Cobre sucesso, códigos de falha Prisma, erro retornado/lançado ao iniciar, status inutilizável, término por sinal e mensagens sem segredos. | Migration de produção exige uma conexão operacional explícita e falha quando o subprocesso falha; credencial runtime não substitui a administrativa. | Vitest em configuração isolada, função de spawn e logger injetados, credenciais sintéticas e nenhum acesso a PostgreSQL ou execução real de Prisma. |
+
+Resultado conhecido: **24/24 testes aprovados** pelo comando direcionado acima. O baseline anterior de **547 testes** da suíte principal não foi reexecutado nem atualizado nesta validação. Os mocks comprovam o contrato do script; não comprovam permissões do banco, aplicação real das migrations ou configuração do Job no Northflank.
 
 ### Banco e Environment
 

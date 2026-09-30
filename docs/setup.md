@@ -12,6 +12,7 @@ Destina-se a pessoas e agentes que precisam executar o projeto localmente ou man
   - [Variáveis de ambiente](#variáveis-de-ambiente)
   - [Deploy do frontend](#deploy-do-frontend)
   - [Banco, Prisma e migrations](#banco-prisma-e-migrations)
+  - [Migrations de produção](#migrations-de-produção)
   - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Sessão, CSRF e CORS](#sessão-csrf-e-cors)
   - [Documentação HTTP, CEP e logs](#documentação-http-cep-e-logs)
@@ -149,6 +150,51 @@ npm run prisma:generate
 ```
 
 Use `npx prisma migrate dev --name <nome-da-migration>` somente ao criar uma migration local. Para aplicar as migrations já versionadas em um clone, use o comando da etapa 4.
+
+### Migrations de produção
+
+Em produção, a API e a manutenção do schema usam credenciais separadas:
+
+| Processo | Variável | Conexão |
+| -------- | -------- | ------- |
+| API runtime (`portfolio-api`) | `DATABASE_URL` | Credencial normal da aplicação, sem exigir ownership das tabelas. |
+| Job de migration (`portfolio-api-migrate`) | `MIGRATION_DATABASE_URL` | Credencial administrativa de manutenção; no Northflank, URI `_ADMIN` do addon PostgreSQL. |
+
+Forneça `MIGRATION_DATABASE_URL` pelo mecanismo de secrets somente ao Job/processo de migration. Não a configure no serviço `portfolio-api`, no ambiente normal do NestJS ou em `backend/.env`. A API não precisa dessa variável para iniciar e continua usando sua `DATABASE_URL` runtime.
+
+Com a variável operacional já injetada no Job, execute:
+
+```bash
+cd backend
+npm run migrate:prod
+```
+
+O comando falha antes de iniciar Prisma se `MIGRATION_DATABASE_URL` estiver ausente, vazia ou não for uma URL válida com protocolo `postgresql:`. Não existe fallback para `DATABASE_URL`. O script fornece a URI administrativa como `DATABASE_URL` somente no environment do subprocesso, remove dele `MIGRATION_DATABASE_URL` e preserva as variáveis do processo pai. Não persiste nem imprime a URI e mantém os logs operacionais normais do Prisma; falhas de inicialização, status inutilizável ou erro do Prisma resultam em falha do comando.
+
+Produção aplica somente migrations versionadas com `prisma migrate deploy`, nunca `migrate dev`. O comando não executa reset, push de schema, seed, SQL manual, criação de banco ou alteração de ownership. `prisma migrate resolve` não faz parte do fluxo normal: exige diagnóstico humano e uso consciente durante a recuperação de uma migration falha, sem automatização pelo script.
+
+A separação responde a um incidente em que código novo consultou `environment.demo_status` antes de o schema correspondente ter sido aplicado, produzindo `500` em `GET /auth/session`. A tentativa com a credencial runtime falhou por falta de ownership; a recuperação manual e a aplicação com conexão administrativa restabeleceram a sessão.
+
+O fluxo de deploy deve ser:
+
+```text
+Build → Migration Job → Deploy API
+```
+
+Se o Migration Job falhar, o deploy do backend não deve prosseguir. O Job deve usar o mesmo artefato/checkout que será publicado e disponibilizar o script, `prisma.config.ts`, schema, migrations versionadas e dependências necessárias, incluindo o Prisma CLI.
+
+Não há configuração declarativa do Northflank versionada neste repositório. A criação do Job e a sequência acima devem ser realizadas operacionalmente no painel:
+
+| Configuração no painel | Valor esperado |
+| ---------------------- | -------------- |
+| Job separado | `portfolio-api-migrate` |
+| Diretório de trabalho | `backend/` |
+| Comando | `npm run migrate:prod` |
+| Secret exclusivo do Job | `MIGRATION_DATABASE_URL=<URI _ADMIN>`; obter a URI administrativa do addon sem registrá-la em código ou logs. |
+| Condição para Deploy API | Migration Job concluído com exit code `0`. |
+| Credencial da API | Somente sua `DATABASE_URL` runtime. |
+
+`start:prod` continua sendo `node dist/main`; a migration pertence ao Job separado. A configuração no painel permanece pendente após a implementação do comando no repositório.
 
 ### Bootstrap do primeiro Administrador
 

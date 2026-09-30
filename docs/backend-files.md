@@ -15,7 +15,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens, fundação DEMO e endpoint raiz atual                 |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                              |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS, segredos e validação no bootstrap                                                                   |        2 |
-| Infraestrutura de banco  | Configuração Prisma, modelos físicos, Environment PRINCIPAL, ciclo de vida da DEMO, tentativas de geração, migrations e acesso PostgreSQL injetável  |       11 |
+| Infraestrutura de banco  | Configuração Prisma, modelos físicos, ciclo de vida DEMO, migrations, comando operacional e acesso PostgreSQL injetável                              |       12 |
 | Fundação de geração DEMO | Endpoint de acesso, credenciais, capacidade, locks, shell atômico, origem e rate limit                                                               |       15 |
 | Autenticação             | Login, token CSRF, troca obrigatória, logout e sessões, com acesso DEMO restrito ao estado PRONTA                                                    |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                   |        4 |
@@ -31,7 +31,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
-| Testes                   | Cobertura de aplicação, ambiente, HTTP, erros, banco, autenticação, sessões, isolamento, bootstrap, DEMO, clientes, funcionários, perfil e operações |       28 |
+| Testes                   | 29 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       30 |
 
 ## Sumário
 
@@ -136,7 +136,7 @@ Interrompe o bootstrap com mensagens detalhadas quando a configuração é invá
 
 Centraliza a configuração do Prisma e disponibiliza o acesso tipado ao PostgreSQL para os módulos NestJS que importarem `DatabaseModule`.
 
-Diretórios principais: `backend/prisma/` e `backend/src/database/`
+Diretórios principais: `backend/prisma/`, `backend/src/database/` e `backend/scripts/`
 
 ### 1. `backend/prisma.config.ts`
 
@@ -191,6 +191,10 @@ Impõe no PostgreSQL campos obrigatórios por tipo, expiração fixa de 24 horas
 ### 11. `backend/prisma/migrations/20260924210000_add_demo_generation_attempt/migration.sql`
 
 Cria a tabela independente `demo_generation_attempt` com UUID, hash de origem `VARCHAR(64)`, timestamp com fuso e precisão de microssegundos, constraint de hexadecimal minúsculo e índice composto por origem e criação.
+
+### 12. `backend/scripts/migrate-production.mjs`
+
+Executa exclusivamente `prisma migrate deploy` com `MIGRATION_DATABASE_URL` validada e convertida em `DATABASE_URL` somente no subprocesso. Exige a credencial operacional sem fallback, preserva o environment pai, mantém logs Prisma e retorna falha controlada sem revelar segredos quando a configuração ou execução falha.
 
 ---
 
@@ -909,3 +913,11 @@ Usa transações revertidas ao final de cada cenário; os Environments auxiliare
 Exercita fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha. As fixtures DEMO respeitam a configuração obrigatória e a expiração fixa, inclusive no cenário que expira naturalmente durante o teste.
 
 Também comprova que a sessão armazena somente `usuarioId`, que o contexto autenticado deriva o Environment do banco, que a recorrência calculada por SQL raw e as métricas por funcionário não recebem dados externos, que números e documentos podem se repetir entre Environments e que as validações de serviço rejeitam associações cruzadas antes das FKs compostas.
+
+### 21. `backend/test/scripts/migrate-production.spec.mjs`
+
+Valida a credencial administrativa obrigatória, ausência de fallback, isolamento do environment do subprocesso, comando exclusivo de deploy, códigos de saída e erros sem segredos usando spawn e logger simulados, sem banco ou execução real de migrations.
+
+### 22. `backend/vitest.config.scripts.ts`
+
+Seleciona os testes operacionais `test/scripts/**/*.spec.mjs` para `npm run test:scripts`, sem carregar o setup PostgreSQL da suíte principal.
