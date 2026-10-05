@@ -215,7 +215,7 @@ function ProjectsSection() {
                 <ArrowIcon />
               </Link>
               <Link
-                to="/login"
+                to="/demo"
                 className="border-neutral-bg text-foreground hover:border-primary hover:text-primary rounded-ui inline-flex items-center justify-center border px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 Testar aplicação

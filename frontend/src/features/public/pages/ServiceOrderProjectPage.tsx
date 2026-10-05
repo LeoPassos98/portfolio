@@ -44,7 +44,7 @@ function ProjectHero() {
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link
-                to="/login"
+                to="/demo"
                 className="bg-primary hover:bg-primary-hover rounded-ui inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 Testar aplicação
@@ -357,12 +357,12 @@ function ProjectCallToAction() {
             Conheça o fluxo funcionando na aplicação.
           </h2>
           <p className="mt-5 text-lg leading-8 text-slate-300">
-            O acesso atual leva à entrada do sistema. O fluxo público de
-            demonstração será conectado a esta ação quando estiver disponível.
+            Gere um acesso temporário e explore o sistema em um ambiente
+            isolado, com dados de exemplo ou começando do zero.
           </p>
         </div>
         <Link
-          to="/login"
+          to="/demo"
           className="bg-surface text-foreground hover:bg-info-bg rounded-ui inline-flex shrink-0 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-foreground"
         >
           Testar aplicação

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { isAxiosError } from 'axios'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate, useNavigate } from 'react-router'
+import { Navigate, useLocation, useNavigate } from 'react-router'
 import { Button } from '../../../components/ui/Button'
 import { Input } from '../../../components/ui/Input'
 import { Label } from '../../../components/ui/Label'
@@ -11,10 +11,21 @@ import { useAuth } from '../hooks/useAuth'
 import { loginSchema, type LoginFormData } from '../schemas/loginSchema'
 import type { HttpErrorResponse } from '../../../shared/lib/http/apiClient'
 
+function readDemoCredentials(state: unknown): LoginFormData | undefined {
+  if (!state || typeof state !== 'object' || !('demoCredentials' in state)) {
+    return undefined
+  }
+
+  const result = loginSchema.safeParse(state.demoCredentials)
+  return result.success ? result.data : undefined
+}
+
 function LoginPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const navigate = useNavigate()
+  const location = useLocation()
+  const demoCredentials = readDemoCredentials(location.state)
   const { login, session, sessionExpiredMessage } = useAuth()
 
   const {
@@ -23,6 +34,7 @@ function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: demoCredentials,
   })
 
   async function onSubmit(input: LoginFormData) {
@@ -61,6 +73,16 @@ function LoginPage() {
     <AuthLayout>
       <div className="space-y-6">
         <h1 className="text-foreground text-2xl font-bold">Entrar</h1>
+
+        {demoCredentials && (
+          <div className="border-warning/25 bg-warning-bg text-warning rounded-ui border p-4 text-sm leading-6">
+            <p className="font-semibold">Ambiente de demonstração</p>
+            <p className="mt-1">
+              Os dados abaixo foram gerados para este acesso temporário. Clique
+              em Entrar para ativar o ambiente.
+            </p>
+          </div>
+        )}
 
         {sessionExpiredMessage ? (
           <p role="alert" className="text-error text-sm">

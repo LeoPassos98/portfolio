@@ -20,6 +20,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        8 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              |        4 |
 | Área pública            | Portfólio profissional e apresentação pública dos projetos                        |        2 |
+| Ambiente DEMO           | Geração pública de credenciais temporárias e continuação explícita para o login   |        3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
 | Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              |        7 |
 | Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
@@ -37,6 +38,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Componentes de feedback](#componentes-de-feedback)
 - [Layouts](#layouts)
 - [Área pública](#área-pública)
+- [Ambiente DEMO](#ambiente-demo)
 - [Autenticação](#autenticação)
 - [Dashboard](#dashboard)
 - [Ordens de Serviço](#ordens-de-serviço)
@@ -64,7 +66,7 @@ Compõe os providers globais de server state, autenticação, notificações e n
 
 ### 3. `frontend/src/App.tsx`
 
-Declara as rotas da SPA, incluindo a Home pública em `/`, o estudo de caso do Sistema de OS em `/projetos/sistema-os` e o autoatendimento autenticado em `/profile`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
+Declara as rotas da SPA, incluindo a Home pública em `/`, o estudo de caso do Sistema de OS em `/projetos/sistema-os`, a geração pública de acesso em `/demo` e o autoatendimento autenticado em `/profile`, apresenta o bootstrap técnico da sessão e centraliza a proteção das áreas autenticadas e exclusivas de Administrador. URLs sem rota correspondente redirecionam para `/login`, que decide o destino de sessões válidas.
 
 ### 4. `frontend/vite.config.ts`
 
@@ -230,11 +232,33 @@ Diretório principal: `frontend/src/features/public/`
 
 ### 1. `frontend/src/features/public/pages/HomePage.tsx`
 
-Renderiza a Home profissional em `/` no `PublicLayout`, sem redirecionar automaticamente visitantes ou sessões válidas. Apresenta Leonardo e sua atuação, o projeto em destaque com tecnologias próprias, espaços identificados para futuros projetos, forma de trabalho e contato; o Sistema de OS conduz ao estudo de caso público e mantém uma ação separada para testar a aplicação.
+Renderiza a Home profissional em `/` no `PublicLayout`, sem redirecionar automaticamente visitantes ou sessões válidas. Apresenta Leonardo e sua atuação, o projeto em destaque com tecnologias próprias, espaços identificados para futuros projetos, forma de trabalho e contato; o Sistema de OS conduz ao estudo de caso público e mantém uma ação separada “Testar aplicação” para gerar credenciais em `/demo`.
 
 ### 2. `frontend/src/features/public/pages/ServiceOrderProjectPage.tsx`
 
-Renderiza o estudo de caso público do Sistema de Gestão de Ordens de Serviço em `/projetos/sistema-os`. Organiza contexto, problema, solução, responsabilidade, escopo funcional e decisões técnicas, mantendo ações para acessar a aplicação e consultar o código-fonte.
+Renderiza o estudo de caso público do Sistema de Gestão de Ordens de Serviço em `/projetos/sistema-os`. Organiza contexto, problema, solução, responsabilidade, escopo funcional e decisões técnicas, mantendo os dois CTAs “Testar aplicação” ligados ao fluxo real em `/demo` e a ação para consultar o código-fonte.
+
+---
+
+## Ambiente DEMO
+
+Oferece a entrada pública da demonstração em `/demo`, com escolha de dados e geração pontual por estado React local, sem login automático.
+
+Diretório principal: `frontend/src/features/demo/`
+
+### 1. `frontend/src/features/demo/api/demoApi.ts`
+
+Define `DemoDataMode` e a resposta de credenciais e prazos. Envia `POST /demo/access` pela instância `apiClient`, sempre com `tutorialEnabled: false`, reutilizando os interceptors de CSRF existentes.
+
+### 2. `frontend/src/features/demo/lib/demoAccessError.ts`
+
+Traduz os códigos reais de limite de pendências, ambientes ativos por origem, capacidade global e frequência de geração para mensagens públicas. Usa `details.retryAfterSeconds` ou o header `Retry-After` para informar uma espera aproximada, sem exibir mensagens internas do servidor.
+
+### 3. `frontend/src/features/demo/pages/DemoAccessPage.tsx`
+
+Compõe a página no `PublicLayout`, com seleção acessível de EXEMPLO (padrão) ou VAZIO, loading, erros e apresentação de credenciais somente após geração explícita. Exibe prazos no fuso do navegador por `Intl.DateTimeFormat`, instrução contextual warning e cópia individual com feedback global e fallback manual.
+
+Mantém a resposta apenas no estado local e transfere e-mail/senha para `/login` por navigation state. Não grava credenciais em URL ou browser storage. Para uma sessão já autenticada, bloqueia a geração e oferece retorno ao Dashboard ou ao primeiro acesso obrigatório, preservando a identidade existente.
 
 ---
 
@@ -247,6 +271,8 @@ Diretório principal: `frontend/src/features/auth/`
 ### 1. `frontend/src/features/auth/pages/LoginPage.tsx`
 
 Implementa login acessível com React Hook Form, validação, visibilidade de senha, feedback de falha e navegação conforme a sessão real retornada pelo backend.
+
+Aceita `demoCredentials` somente pelo navigation state, valida o formato com o schema existente e pré-preenche os campos com orientação contextual. Exige clique em Entrar; não persiste credenciais em URL ou storage. O redirecionamento de sucesso com `replace` descarta o state da tela de login e mantém o fluxo normal de autenticação.
 
 ### 2. `frontend/src/features/auth/schemas/loginSchema.ts`
 
