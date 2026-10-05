@@ -8,6 +8,8 @@ import { DemoController } from './demo.controller.js';
 import { DemoCredentialsService } from './demo-credentials.service.js';
 import { DemoGenerationRateLimitService } from './demo-generation-rate-limit.service.js';
 import { DemoOriginService } from './demo-origin.service.js';
+import { DemoProvisioningService } from './demo-provisioning.service.js';
+import { DemoSeedService } from './demo-seed.service.js';
 
 @Module({
   imports: [DatabaseModule, PasswordModule],
@@ -19,8 +21,11 @@ import { DemoOriginService } from './demo-origin.service.js';
     DemoCredentialsService,
     DemoOriginService,
     DemoGenerationRateLimitService,
+    DemoProvisioningService,
+    DemoSeedService,
   ],
   exports: [
+    DemoProvisioningService,
     DemoAdmissionLockService,
     DemoOriginService,
     DemoGenerationRateLimitService,

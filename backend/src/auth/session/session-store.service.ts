@@ -5,6 +5,7 @@ import session from 'express-session';
 import { Pool } from 'pg';
 import type { Environment } from '../../config/environment.validation.js';
 import { createSessionMiddleware } from './session.middleware.js';
+import { normalizeSessionPgConnectionString } from './session-pg-connection.js';
 
 @Injectable()
 export class SessionStoreService implements OnModuleDestroy {
@@ -25,7 +26,9 @@ export class SessionStoreService implements OnModuleDestroy {
       infer: true,
     });
 
-    this.pool = new Pool({ connectionString });
+    this.pool = new Pool({
+      connectionString: normalizeSessionPgConnectionString(connectionString),
+    });
     this.pool.on('error', () => {
       this.logger.error('Session store pool error');
     });

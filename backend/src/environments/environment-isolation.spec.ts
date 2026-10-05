@@ -20,11 +20,8 @@ import { HttpExceptionFilter } from '../common/errors/http-exception.filter.js';
 import { createCorsOptions } from '../common/http/cors.options.js';
 import { DatabaseService } from '../database/database.service.js';
 import {
-  DemoDataMode,
-  DemoStatus,
   Perfil,
   StatusOrdemServico,
-  TipoEnvironment,
   Visibilidade,
 } from '../generated/prisma/client.js';
 
@@ -151,19 +148,22 @@ describe('Environment application isolation', () => {
     const password = `senha-${label}-segura`;
     const expiresAt = new Date(Date.now() + expiresInMs);
     const criadoEm = new Date(expiresAt.getTime() - 86_400_000);
-    const environment = await database.environment.create({
-      data: {
-        id,
-        tipo: TipoEnvironment.DEMO,
-        criadoEm,
-        expiresAt,
-        demoStatus: DemoStatus.PRONTA,
-        demoDataMode: DemoDataMode.EXEMPLO,
-        tutorialEnabled: true,
-        originIpHash: 'a'.repeat(64),
-        provisionedAt: criadoEm,
-        contadorOrdemServico: { create: { ultimoNumero: 0 } },
-      },
+    const environment = { id };
+    // Preserve the real expiry instant even when the database timezone is not UTC.
+    await database.$transaction(async (transaction) => {
+      await transaction.$executeRaw`
+        INSERT INTO "environment" (
+          "id", "tipo", "criado_em", "expires_at", "demo_status", "demo_data_mode",
+          "tutorial_enabled", "origin_ip_hash", "provisioned_at"
+        ) VALUES (
+          ${id}::uuid, 'DEMO', to_timestamp(${criadoEm.getTime()} / 1000.0),
+          to_timestamp(${expiresAt.getTime()} / 1000.0), 'PRONTA', 'EXEMPLO',
+          TRUE, ${'a'.repeat(64)}, to_timestamp(${criadoEm.getTime()} / 1000.0)
+        )
+      `;
+      await transaction.contadorOrdemServico.create({
+        data: { environmentId: id, ultimoNumero: 0 },
+      });
     });
     const employee = await database.funcionario.create({
       data: {

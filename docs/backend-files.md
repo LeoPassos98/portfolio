@@ -16,7 +16,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                              |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS, segredos e validação no bootstrap                                                                   |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, ciclo de vida DEMO, migrations, comando operacional e acesso PostgreSQL injetável                              |       12 |
-| Fundação de geração DEMO | Endpoint de acesso, credenciais, capacidade, locks, shell atômico, origem e rate limit                                                               |       15 |
+| Fundação de geração DEMO | Geração de acesso, ativação atômica, seed, capacidade, locks, origem e rate limit                                                                     |       18 |
 | Autenticação             | Login, token CSRF, troca obrigatória, logout e sessões, com acesso DEMO restrito ao estado PRONTA                                                    |       12 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                   |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                     |       16 |
@@ -25,13 +25,13 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Ordens de Serviço        | Leitura contextual, filtros, opções de responsáveis, criação e atualização transacionais, snapshots, OCC, DTOs e erros                               |       12 |
 | Dashboard                | Situação atual e desempenho temporal do Environment ou por Funcionário, com escopo autenticado, DTOs e validação                                     |        8 |
 | Segurança de credenciais | Política, hash e verificação reutilizáveis de senhas com Argon2id                                                                                    |        4 |
-| Sessões server-side      | Middleware HTTP e store PostgreSQL com cookie assinado                                                                                               |        4 |
+| Sessões server-side      | Middleware HTTP, store PostgreSQL e normalização SSL restrita ao pool de sessão                                                                      |        5 |
 | Proteção de origem       | CORS restritivo para o frontend configurado                                                                                                          |        1 |
 | Proxy reverso            | Confiança limitada ao hop anterior em produção para reconhecer o protocolo original                                                                  |        1 |
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
-| Testes                   | 29 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       30 |
+| Testes                   | 30 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       31 |
 
 ## Sumário
 
@@ -200,7 +200,7 @@ Executa exclusivamente `prisma migrate deploy` com `MIGRATION_DATABASE_URL` vali
 
 ## Fundação de geração DEMO
 
-Fornece o endpoint público de geração de acesso, a identificação pseudonimizada da origem e a admissão concorrente do shell `PENDENTE`, sem executar provisionamento ou criar sessão autenticada.
+Fornece geração pública de acesso e admissão concorrente do shell `PENDENTE`. A ativação ocorre no login após verificar a senha; o provisionamento e a conclusão são atômicos e a sessão só nasce depois de PRONTA.
 
 Diretório principal: `backend/src/demo/`
 
@@ -216,7 +216,7 @@ Tentativas bloqueadas não são persistidas nem renovam a janela. Registros com 
 
 ### 3. `backend/src/demo/demo-admission-lock.service.ts`
 
-Deriva chaves `int64` por SHA-256 com domínios distintos e oferece advisory locks transacionais global e por origem. Operações que usam ambos mantêm a ordem global e depois origem, reutilizável pelo futuro primeiro login.
+Deriva chaves `int64` por SHA-256 com domínios distintos e oferece advisory locks transacionais global e por origem. Operações que usam ambos mantêm a ordem global e depois origem; o primeiro login retém ambos até o commit de PRONTA ou FALHA.
 
 ### 4. `backend/src/demo/demo-credentials.service.ts`
 
@@ -232,7 +232,7 @@ Documenta a resposta pública de criação com login, senha efêmera e expiraç�
 
 ### 7. `backend/src/demo/demo-capacity.service.ts`
 
-Lê no PostgreSQL, em ordem pública estável, PENDENTEs válidos por origem, DEMOs ativas por origem e capacidade ativa global. Retorna bloqueios tipados com contagem, limite e `retryAfterSeconds`.
+Lê no PostgreSQL, em ordem pública estável, PENDENTEs válidos por origem, DEMOs ativas por origem e capacidade ativa global. A inspeção ativa separada permite ativação sem aplicar novamente o limite de pendências. Retorna bloqueios tipados com contagem, limite e `retryAfterSeconds`.
 
 ### 8. `backend/src/demo/demo-access.service.ts`
 
@@ -244,7 +244,7 @@ Expõe `POST /demo/access` sob o CSRF global, aplica o schema Zod, projeta somen
 
 ### 10. `backend/src/demo/demo.module.ts`
 
-Compõe controller, `PasswordModule` e serviços de origem, locks, capacidade, credenciais, rate limit e geração do shell.
+Compõe controller, `PasswordModule` e serviços de origem, locks, capacidade, credenciais, rate limit, geração do shell, ativação e seed; exporta provisionamento para `AuthModule`.
 
 ### 11. `backend/src/demo/demo-origin.service.spec.ts`
 
@@ -260,11 +260,23 @@ Valida formatos, comprimentos, alfabeto sem `0`, `o`, `1` e `l`, operações ind
 
 ### 14. `backend/src/demo/demo-access.controller.spec.ts`
 
-Exercita HTTP, CSRF, os dois modos de dados, shell mínimo, Argon2id, sessão anônima, quatro limites com retry, relógio PostgreSQL, concorrência, colisões com rollback e bloqueio de login e reconstrução de sessão para DEMO `PENDENTE`.
+Exercita geração HTTP, CSRF, shell mínimo, credenciais, limites, colisões e rollback. Cobre primeiro login nos dois modos, senha errada sem ativação, prazos, capacidade ativa, concorrência com um único seed, falhas SQL recuperadas por SAVEPOINT e disputas pela última vaga sem perder FALHA. Inclui retry, PROVISIONANDO inesperado e falha de persistência da sessão sem reprovisionamento. Sessões injetadas em estados inválidos são destruídas.
 
 ### 15. `backend/src/database/demo-generation-attempt-integrity.spec.ts`
 
 Confirma no PostgreSQL a tabela independente de tentativas, os tipos físicos, o default temporal, a ordem do índice composto e a rejeição de hashes fora do formato hexadecimal minúsculo de 64 caracteres.
+
+### 16. `backend/src/demo/demo-seed.service.ts`
+
+Provisiona o shell existente dentro da transação do login. VAZIO não acrescenta entidades; EXEMPLO cria dois funcionários fictícios, seis clientes, oito ordens em estados variados e dez snapshots de versões anteriores, usando o administrador existente como autor e contador final oito.
+
+### 17. `backend/src/demo/demo-provisioning.service.ts`
+
+Serializa ativação e retry sob locks global → origem. PENDENTE exige janela de uma hora e vaga ativa; FALHA reutiliza sua vaga enquanto vigente. Abre SAVEPOINT após PROVISIONANDO: sucesso conclui PRONTA com `provisionedAt` pelo relógio PostgreSQL; falha reverte seed/conclusão e confirma FALHA na mesma transação externa, retendo a capacidade. A exception só é lançada após esse commit. Interrupção da transação externa reverte ao estado anterior, sem PROVISIONANDO abandonado. Releitura impede repetir seed; PROVISIONANDO preexistente retorna conflito.
+
+### 18. `backend/src/demo/demo-environment-time.ts`
+
+Lê criação e expiração por epoch para a autenticação e o provisionamento DEMO. Evita deslocamentos na decodificação de TIMESTAMPTZ do adapter quando o PostgreSQL usa fuso diferente de UTC; não altera configuração global do banco ou a URL Prisma.
 
 ---
 
@@ -286,7 +298,7 @@ Declara o schema Zod de login, removendo espaços externos e normalizando maiús
 
 ### 3. `backend/src/auth/auth.service.ts`
 
-Consulta globalmente por `emailLogin` no login e por `usuarioId` na reconstrução da sessão, carrega Funcionário e Environment e valida a coerência do contexto. O PRINCIPAL preserva sua regra permanente; uma DEMO exige `demoStatus = PRONTA` e expiração futura. A verificação de senha permanece no `PasswordService`, e a resposta não expõe `environmentId`.
+Consulta globalmente por `emailLogin`, valida o candidato e verifica a senha com `PasswordService` antes de ativar uma DEMO PENDENTE ou repetir uma FALHA. O PRINCIPAL preserva o comportamento anterior. Recarrega o contexto após o provisionamento; sessões continuam exigindo DEMO PRONTA e vigente, com expiração lida por epoch. A identidade persistida é somente `usuarioId`, e a resposta não expõe `environmentId`.
 
 ### 4. `backend/src/auth/first-access-password.schema.ts`
 
@@ -298,11 +310,11 @@ Expõe CSRF, login, troca de senha de primeiro acesso, logout e consulta da sess
 
 Vincula o token CSRF à sessão e documenta seu uso nas mutações.
 
-As rotas autenticadas usam `SessionGuard`. Login e troca de senha regeneram a sessão; logout a encerra no PostgreSQL.
+As rotas autenticadas usam `SessionGuard`. Login cria sessão somente após validação do contexto pronto, preserva os erros de ativação/capacidade e inclui `Retry-After` quando aplicável. Login e troca de senha regeneram a sessão; logout a encerra no PostgreSQL.
 
 ### 6. `backend/src/auth/auth.module.ts`
 
-Compõe controller, service e guards de autenticação com banco e infraestrutura de senhas.
+Compõe controller, service e guards de autenticação com banco, infraestrutura de senhas e `DemoModule`.
 
 Exporta o serviço e os guards de sessão, primeiro acesso e perfil para módulos de domínio protegidos.
 
@@ -622,7 +634,7 @@ Centraliza as opções do `express-session`: cookie `HttpOnly`, `SameSite=Lax`, 
 
 ### 2. `backend/src/auth/session/session-store.service.ts`
 
-Cria o pool e o store `connect-pg-simple` sobre a tabela `session` e fornece o middleware global.
+Cria o pool e o store `connect-pg-simple` sobre a tabela `session` e fornece o middleware global. Normaliza os aliases SSL seguros somente na conexão desse pool, sem reescrever `DATABASE_URL` ou a conexão Prisma.
 
 Desabilita a criação automática da tabela e o touch renovável. Revoga sessões por `usuarioId` persistido no JSON e encerra store e pool no shutdown.
 
@@ -633,6 +645,10 @@ Registra e exporta `SessionStoreService` para a composição do módulo raiz e o
 ### 4. `backend/src/auth/session/session-data.d.ts`
 
 Amplia o tipo de sessão do `express-session` com `usuarioId` e `csrfToken`, os únicos dados próprios persistidos pelo fluxo de autenticação e proteção CSRF.
+
+### 5. `backend/src/auth/session/session-pg-connection.ts`
+
+Torna `prefer`, `require` e `verify-ca` explicitamente `verify-full` no consumidor pg da sessão, preservando a verificação atual de certificado e hostname. Conserva parâmetros, certificados e credenciais; URLs sem alias ou com `uselibpqcompat=true` permanecem intactas.
 
 ---
 
@@ -910,7 +926,7 @@ Usa transações revertidas ao final de cada cenário; os Environments auxiliare
 
 ### 20. `backend/src/environments/environment-isolation.spec.ts`
 
-Exercita fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha. As fixtures DEMO respeitam a configuração obrigatória e a expiração fixa, inclusive no cenário que expira naturalmente durante o teste.
+Exercita fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha. As fixtures DEMO respeitam a configuração obrigatória e a expiração fixa; são inseridas por epoch para que a expiração natural corresponda ao instante real mesmo fora de UTC.
 
 Também comprova que a sessão armazena somente `usuarioId`, que o contexto autenticado deriva o Environment do banco, que a recorrência calculada por SQL raw e as métricas por funcionário não recebem dados externos, que números e documentos podem se repetir entre Environments e que as validações de serviço rejeitam associações cruzadas antes das FKs compostas.
 
@@ -921,3 +937,7 @@ Valida a credencial administrativa obrigatória, ausência de fallback, isolamen
 ### 22. `backend/vitest.config.scripts.ts`
 
 Seleciona os testes operacionais `test/scripts/**/*.spec.mjs` para `npm run test:scripts`, sem carregar o setup PostgreSQL da suíte principal.
+
+### 23. `backend/src/auth/session/session-pg-connection.spec.ts`
+
+Verifica os três aliases SSL, TLS sem desabilitar validação ou hostname, ausência do warning após normalização, preservação de credenciais/parâmetros e semântica libpq explícita. Usa apenas URIs sintéticas e instancia `pg.Client` sem abrir conexão.

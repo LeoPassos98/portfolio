@@ -1,9 +1,14 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  DEMO_EXPIRED_ERROR,
+  DemoProvisioningService,
+} from '../demo/demo-provisioning.service.js';
 import { PasswordService } from './password/password.service.js';
 import { DatabaseService } from '../database/database.service.js';
 import { AuthSessionResponse } from './auth-session-response.dto.js';
 import type { AuthenticatedUser } from './authenticated-user.interface.js';
 import { DemoStatus, TipoEnvironment } from '../generated/prisma/client.js';
+import { readDemoEnvironmentTime } from '../demo/demo-environment-time.js';
 
 type UserWithFuncionario = {
   id: string;
@@ -28,6 +33,7 @@ export class AuthService {
   constructor(
     private readonly database: DatabaseService,
     private readonly passwordService: PasswordService,
+    private readonly demoProvisioning: DemoProvisioningService,
   ) {}
 
   async authenticate(email: string, password: string) {
@@ -36,9 +42,15 @@ export class AuthService {
       include: { funcionario: true, environment: true },
     });
 
-    if (!usuario || !this.isAuthenticationContextValid(usuario)) {
+    if (!usuario || !this.isCredentialCandidateValid(usuario)) {
       return null;
     }
+
+    if (
+      usuario.environment.tipo === TipoEnvironment.PRINCIPAL &&
+      !this.isAuthenticationContextValid(usuario)
+    )
+      return null;
 
     const passwordMatches = await this.passwordService.verify(
       usuario.senhaHash,
@@ -49,13 +61,35 @@ export class AuthService {
       return null;
     }
 
-    return usuario;
+    if (usuario.environment.tipo === TipoEnvironment.PRINCIPAL) return usuario;
+
+    Object.assign(
+      usuario.environment,
+      await readDemoEnvironmentTime(this.database, usuario.environmentId),
+    );
+
+    if (
+      !usuario.environment.expiresAt ||
+      usuario.environment.expiresAt.getTime() <= Date.now()
+    ) {
+      throw new UnauthorizedException(DEMO_EXPIRED_ERROR);
+    }
+    if (usuario.environment.demoStatus !== DemoStatus.PRONTA) {
+      await this.demoProvisioning.ensureReady(
+        usuario.environmentId,
+        usuario.environment.originIpHash!,
+        usuario.id,
+      );
+    }
+    const current = await this.getAuthenticatedUser(usuario.id);
+    if (!current || !this.isAuthenticationContextValid(current)) return null;
+    return current;
   }
 
   async getAuthenticatedUser(
     usuarioId: string,
   ): Promise<CurrentAuthenticatedUser | null> {
-    return this.database.usuario.findUnique({
+    const usuario = await this.database.usuario.findUnique({
       where: { id: usuarioId },
       select: {
         id: true,
@@ -70,6 +104,14 @@ export class AuthService {
         },
       },
     });
+    if (usuario?.environment.tipo === TipoEnvironment.DEMO) {
+      const time = await readDemoEnvironmentTime(
+        this.database,
+        usuario.environmentId,
+      );
+      usuario.environment.expiresAt = time?.expiresAt ?? null;
+    }
+    return usuario;
   }
 
   async changeFirstAccessPassword(
@@ -115,13 +157,7 @@ export class AuthService {
   }
 
   isAuthenticationContextValid(usuario: CurrentAuthenticatedUser): boolean {
-    if (
-      !usuario.ativo ||
-      !usuario.funcionario ||
-      usuario.funcionario.environmentId !== usuario.environmentId
-    ) {
-      return false;
-    }
+    if (!this.isCredentialCandidateValid(usuario)) return false;
 
     if (usuario.environment.tipo === TipoEnvironment.PRINCIPAL) {
       return usuario.environment.expiresAt === null;
@@ -132,5 +168,19 @@ export class AuthService {
       usuario.environment.expiresAt !== null &&
       usuario.environment.expiresAt.getTime() > Date.now()
     );
+  }
+
+  private isCredentialCandidateValid(
+    usuario: CurrentAuthenticatedUser,
+  ): boolean {
+    if (
+      !usuario.ativo ||
+      !usuario.funcionario ||
+      usuario.funcionario.environmentId !== usuario.environmentId
+    ) {
+      return false;
+    }
+
+    return true;
   }
 }

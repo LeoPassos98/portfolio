@@ -72,6 +72,21 @@ export class DemoCapacityService {
 
     if (pendingFailure) return pendingFailure;
 
+    return this.inspectActiveInTransaction(
+      transaction,
+      originIpHash,
+      referenceTime,
+    );
+  }
+
+  // Activation consumes an active slot, not another pending access.
+  async inspectActiveInTransaction(
+    transaction: DatabaseReader,
+    originIpHash: string,
+    referenceTime: Date,
+  ): Promise<DemoCapacityResult> {
+    const referenceTimeEpochMs = referenceTime.getTime();
+
     const [activeOrigin] = await transaction.$queryRaw<CapacityWindow[]>`
       SELECT
         COUNT(*)::integer AS "current",

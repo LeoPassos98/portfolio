@@ -119,6 +119,18 @@ Antes de carregar qualquer spec, o bootstrap do Vitest lê `.env` e `.env.test`,
 
 `SESSION_MAX_AGE_MS` deve ser um inteiro positivo; o padrão é 28.800.000 ms (8 horas). `SESSION_SECRET` e `DEMO_IP_HMAC_SECRET` exigem no mínimo 32 caracteres, devem usar valores aleatórios distintos e exclusivos de cada ambiente e nunca devem ser logados ou versionados.
 
+A conexão `pg` do store de sessão torna os aliases `sslmode=prefer`, `require` e `verify-ca` explicitamente `verify-full`, mantendo a validação atual de certificado e hostname. Essa normalização existe apenas no consumidor da sessão: não muda a variável gerenciada do Northflank, `DATABASE_URL` global ou a URL do adapter Prisma. `uselibpqcompat=true` preserva sua semântica explícita. O adapter Prisma também usa pg e pode continuar emitindo o warning original; nenhuma conexão/certificação de produção foi alterada ou revalidada por esse ajuste.
+
+### Primeiro login DEMO
+
+`POST /demo/access` gera o shell PENDENTE e as credenciais; `POST /auth/login` verifica a senha antes de ativá-lo. A primeira ativação exige menos de ou exatamente uma hora desde a geração. Retry de FALHA exige somente que a expiração fixa de 24 horas ainda não tenha ocorrido. A capacidade utiliza o hash de origem persistido, independentemente da rede do login.
+
+Ativação e seed usam uma transação externa, sob locks global → origem mantidos até o commit. O SAVEPOINT criado após PROVISIONANDO permite reverter seed/conclusão e confirmar FALHA sem liberar a vaga. Isso também vale no retry; uma interrupção antes do commit reverte toda a transação ao estado anterior, sem PROVISIONANDO persistido isoladamente.
+
+VAZIO mantém o shell; EXEMPLO acrescenta dois funcionários, seis clientes, oito ordens e dez históricos fictícios, com contador oito. Somente PRONTA vigente pode receber sessão. PROVISIONANDO preexistente exige investigação e retorna conflito, sem executar outro seed.
+
+Criação e expiração da DEMO são lidas por epoch, e `provisionedAt` é gravado com conversão SQL explícita para evitar dependência do fuso do PostgreSQL no adapter instalado. Isso não exige migration, seed operacional ou alteração da configuração global do banco.
+
 ### Deploy do frontend
 
 O frontend é publicado como Static Assets no Cloudflare Workers. O Workers Builds deve usar `frontend/` como diretório de trabalho, executar `npm run build` e publicar com `npx wrangler deploy`.

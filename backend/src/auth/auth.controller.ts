@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  HttpException,
   HttpStatus,
   Post,
   Req,
@@ -20,6 +21,7 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -146,18 +148,43 @@ export class AuthController {
     schema: getHttpErrorResponseSchemaReference(),
   })
   @ApiUnauthorizedResponse({
-    description: 'Credenciais inválidas ou conta inativa.',
+    description:
+      'Credenciais inválidas, conta inativa, DEMO expirada (DEMO_EXPIRED) ou janela de ativação encerrada (DEMO_ACTIVATION_EXPIRED).',
     schema: getHttpErrorResponseSchemaReference(),
   })
   @ApiForbiddenResponse(CSRF_INVALID_TOKEN_RESPONSE)
+  @ApiConflictResponse({
+    description: 'DEMO com provisionamento já em andamento ou estado inválido.',
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiResponse({
+    status: HttpStatus.TOO_MANY_REQUESTS,
+    description: 'Capacidade ativa da origem DEMO atingida.',
+    headers: {
+      'Retry-After': {
+        description: 'Segundos até liberar capacidade.',
+        schema: { type: 'integer', minimum: 1 },
+      },
+    },
+    schema: getHttpErrorResponseSchemaReference(),
+  })
+  @ApiResponse({
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    description: 'Capacidade global atingida ou provisionamento DEMO falhou.',
+    headers: {
+      'Retry-After': {
+        description: 'Presente quando a capacidade global está esgotada.',
+        schema: { type: 'integer', minimum: 1 },
+      },
+    },
+    schema: getHttpErrorResponseSchemaReference(),
+  })
   async login(
     @Body(new ZodValidationPipe(loginSchema)) input: LoginInput,
     @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponse> {
-    const usuario = await this.authService.authenticate(
-      input.email,
-      input.password,
-    );
+    const usuario = await this.authenticateLogin(input, response);
 
     if (!usuario) {
       throw new UnauthorizedException(INVALID_CREDENTIALS_ERROR);
@@ -270,5 +297,24 @@ export class AuthController {
     }
 
     response.status(HttpStatus.NO_CONTENT).send();
+  }
+
+  private async authenticateLogin(input: LoginInput, response: Response) {
+    try {
+      return await this.authService.authenticate(input.email, input.password);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        const body = error.getResponse() as {
+          details?: { retryAfterSeconds?: number };
+        };
+        if (body.details?.retryAfterSeconds) {
+          response.setHeader(
+            'Retry-After',
+            String(body.details.retryAfterSeconds),
+          );
+        }
+      }
+      throw error;
+    }
   }
 }
