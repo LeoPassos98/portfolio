@@ -10,9 +10,9 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                 |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                   |
-| Arquivos catalogados         | 28 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
+| Arquivos catalogados         | 29 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo  |
-| Último resultado consolidado | **579/579 testes aprovados**, incluindo primeiro login DEMO; **95/95 testes focados aprovados** |
+| Último resultado consolidado | **592/592 testes aprovados**, incluindo cleanup físico DEMO; **13/13 testes novos de cleanup aprovados** |
 | Scripts operacionais         | **24/24 testes aprovados**, sem PostgreSQL; separados da suíte principal |
 
 ## Executar agora
@@ -69,6 +69,7 @@ git diff --check
   - [Scripts operacionais](#scripts-operacionais)
   - [Banco e Environment](#banco-e-environment)
   - [Geração de acesso DEMO](#geração-de-acesso-demo)
+  - [Cleanup físico de DEMOs](#cleanup-físico-de-demos)
   - [Credenciais, sessão e guards](#credenciais-sessão-e-guards)
   - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Autenticação HTTP](#autenticação-http)
@@ -83,7 +84,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-A suíte principal atual aprovou **579 testes em 28 arquivos** após o primeiro login DEMO. A validação direcionada aprovou **95 testes em oito arquivos**, cobrindo DEMO, autenticação, lifecycle, isolamento e sessão. Os resultados consolidados são cumulativos, sem contagem individual por família.
+A suíte principal atual aprovou **592 testes em 29 arquivos**, incluindo **13 testes novos de cleanup físico DEMO**. A validação direcionada anterior aprovou **95 testes em oito arquivos**, cobrindo DEMO, autenticação, lifecycle, isolamento e sessão. Os resultados consolidados são cumulativos, sem contagem individual por família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -100,7 +101,7 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/common/validation/zod-validation.pipe.spec.ts`](../backend/src/common/validation/zod-validation.pipe.spec.ts) | Aceita entrada parseada, preserva transformações Zod e devolve `BadRequestException` com as issues.                                                                                | DTOs normalizam dados e expõem erros de schema consistentes na camada HTTP.                | Vitest, Zod e `ZodValidationPipe` isolado.                         |
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas, inclusive o segredo HMAC da DEMO; sempre responde `statusCode`, `code` e `message`. | O contrato público e os logs permanecem estáveis sem vazar detalhes internos ou segredos.  | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
-Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 579 testes selecionados por `npm test`.
+Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 592 testes selecionados por `npm test`.
 
 ### Scripts operacionais
 
@@ -108,7 +109,7 @@ Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vite
 | ------- | ------------------------------- | ------------------------- | ------------------------- |
 | [`backend/test/scripts/migrate-production.spec.mjs`](../backend/test/scripts/migrate-production.spec.mjs) | Rejeita URI ausente, vazia, em branco, malformada, sem host ou com outro protocolo; verifica comando fixo, URI administrativa exclusiva no subprocesso, remoção de `MIGRATION_DATABASE_URL`, ausência de fallback e preservação do environment pai. Cobre sucesso, códigos de falha Prisma, erro retornado/lançado ao iniciar, status inutilizável, término por sinal e mensagens sem segredos. | Migration de produção exige uma conexão operacional explícita e falha quando o subprocesso falha; credencial runtime não substitui a administrativa. | Vitest em configuração isolada, função de spawn e logger injetados, credenciais sintéticas e nenhum acesso a PostgreSQL ou execução real de Prisma. |
 
-Resultado conhecido: **24/24 testes aprovados** pelo comando direcionado acima, separado da suíte principal de **579 testes**. Os mocks comprovam o contrato do script; não comprovam permissões do banco, aplicação real das migrations ou configuração do Job no Northflank.
+Resultado conhecido: **24/24 testes aprovados** pelo comando direcionado acima, separado da suíte principal de **592 testes**. Os mocks comprovam o contrato do script; não comprovam permissões do banco, aplicação real das migrations ou configuração do Job no Northflank.
 
 ### Banco e Environment
 
@@ -129,7 +130,7 @@ Os Environments `DEMO` desses testes são somente fixtures: o teste de integrida
 | [`backend/src/demo/demo-credentials.service.spec.ts`](../backend/src/demo/demo-credentials.service.spec.ts)                           | Verifica prefixos, domínio, comprimentos e alfabeto sem caracteres ambíguos; login e senha são operações separadas e continuam funcionando com `Math.random()` proibido por spy.                                                                     | Credenciais obedecem ao contrato público e usam a fonte criptográfica centralizada sem testes probabilísticos frágeis.                                               | Vitest, `DemoCredentialsService`, `node:crypto` e spy de `Math.random`.                                                 |
 | [`backend/src/demo/demo-access.controller.spec.ts`](../backend/src/demo/demo-access.controller.spec.ts) | Geração nos dois modos, shell, Argon2id, relógio, CSRF, limites, colisões e rollback; login com senha errada, ativação VAZIO/EXEMPLO, prazos, capacidade ativa, serialização, falha/retry, estados inválidos e falha de session.save sem novo seed. | O seed e PRONTA são atômicos; retry usa a vaga já ocupada, e somente PRONTA vigente recebe sessão. Hash de origem persistido governa capacidade, sem vínculo ao IP do login. | Vitest, NestJS/Supertest, Prisma/PostgreSQL portfolio_test, Argon2id, store real, spies para falhas e barreiras explícitas de concorrência. |
 
-Registros com mais de 60 segundos são ignorados pela consulta e permanecem apenas fisicamente armazenados nesta fase; o cleanup posterior não faz parte desta fundação.
+Registros com mais de 60 segundos são ignorados pela consulta funcional. O comando de cleanup físico, catalogado abaixo, remove somente tentativas com mais de 24 horas; a janela e a lógica de admissão permanecem iguais.
 
 ### Primeiro login e provisionamento DEMO
 
@@ -148,6 +149,29 @@ A cobertura está no arquivo DEMO já catalogado, sem reduzir os cenários anter
 Resultados: **95/95** nos arquivos DEMO, AuthController, SessionGuard, normalização SSL, store, middleware, integridade e isolamento; **579/579** na suíte principal completa. Lint, build e `prisma validate` aprovados. A sonda local confirmou mesma conexão/transação, recuperação de erro SQL e retenção dos dois advisory locks após rollback ao SAVEPOINT.
 
 O fluxo oficial `test:db:prepare` aplica somente `migrate deploy`. Após autorização explícita, o banco descartável local `portfolio_test` foi reconstruído usando `prisma migrate reset --force`, com alvo validado e saída de conexão ocultada. O reset reaplicou as seis migrations: seus checksums SHA-256 correspondem aos arquivos versionados, e a preparação oficial confirmou ausência de pendências antes da suíte completa. Nenhuma migration foi editada ou resolvida manualmente; desenvolvimento e produção não foram alterados.
+
+### Cleanup físico de DEMOs
+
+Arquivo: [`backend/src/demo-cleanup/demo-cleanup.service.spec.ts`](../backend/src/demo-cleanup/demo-cleanup.service.spec.ts).
+
+Infraestrutura: módulo NestJS exclusivo, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`, com preparação oficial pelas seis migrations existentes. Fixtures e trigger temporário são removidos ao final. Resultado: **13/13 testes direcionados** e **592/592 na suíte completa**; lint, build, `prisma validate` e `git diff --check` aprovados.
+
+| Operação | Cenários e regra comprovada |
+| --- | --- |
+| Configuração isolada | Somente `DATABASE_URL` válida é obrigatória; configuração HTTP, sessão, HMAC e URIs administrativas não participam do contrato. |
+| Seleção física | PENDENTE, PROVISIONANDO, PRONTA e FALHA expiradas além de 1h são removidas. DEMO expirada há menos de 1h, DEMO vigente e PRINCIPAL permanecem. Fixtures usam relógio PostgreSQL e expiração fixa de 24h. |
+| Relações e isolamento | DEMO com cliente, funcionário, usuário, ordem, histórico e contador é removida completamente sob FKs `RESTRICT`; o grafo de outra DEMO vigente e do PRINCIPAL permanece idêntico. |
+| Sessões sem FK | Duas sessões do usuário removido desaparecem; sessões do PRINCIPAL, de outra DEMO, anônima e com `usuarioId` inválido permanecem. Associação pelo campo JSON usa SQL parametrizado. |
+| Retenção de tentativas | Tentativa com mais de 24h desaparece; registros com menos de 24h e dentro da janela de 60s permanecem. |
+| Batches e idempotência | 101 DEMOs comprovam batches de 100, mais antigas primeiro, transações distintas e nova aquisição do lock global inclusive na seleção final vazia. Segunda execução imediata remove zero sem erro. |
+| Atomicidade | Trigger temporário rejeita o delete final no PostgreSQL; serviço propaga a falha e preserva ambientes, dependências e sessão por rollback integral do batch. Após remover o trigger, o cleanup funciona. |
+| Concorrência | Barreiras explícitas seguram o mesmo advisory lock global da admissão/provisionamento; `pg_locks` confirma espera real antes da seleção. No sentido inverso, nova aquisição global só avança após commit do batch, quando a DEMO já desapareceu. Não depende de atraso probabilístico. |
+
+O comando operacional é `cd backend && npm run demo:cleanup`, com build prévia da imagem e conexão runtime em `DATABASE_URL`. A seleção usa `expires_at <= statement_timestamp() - 1 hora` e ignora status. Após os batches, tentativas antigas são removidas numa transação independente. Não há histórico administrativo, cron ou scheduler dentro da API; a execução periódica futura depende de um Scheduled Job externo no Northflank.
+
+Validação operacional do comando compilado, sobre `b916c9d` com esta implementação: `npm run demo:cleanup` removeu uma fixture expirada em `portfolio_test` e retornou 0; uma segunda execução sem outras variáveis obrigatórias retornou 0 e removeu zero. Configuração ausente/inválida e falha SQL induzida retornaram 1. A falha preservou a fixture, o marcador sensível do erro não apareceu nos logs e `pg_stat_activity` confirmou ausência de conexões residuais dos subprocessos. A sonda local está em `/tmp/demo-cleanup-command-check.mjs`; não integra a suíte versionada. O catálogo do banco confirmou as 12 FKs `RESTRICT` e a independência de sessões/tentativas. Nenhum cleanup foi executado em desenvolvimento ou produção.
+
+Limites da cobertura: a atomicidade é por batch, não por execução completa; batches confirmados antes de uma falha posterior permanecem removidos. Os testes não comprovam frequência ou permissões de um Job externo ainda não configurado, nem desempenho com volume de produção.
 
 ### Credenciais, sessão e guards
 
@@ -419,3 +443,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | DEMO — origem e rate limit persistido            | **530 testes** |
 | DEMO — geração atômica de acesso                 | **547 testes** |
 | DEMO — primeiro login, seed, retry e sessão       | **579 testes** |
+| DEMO — cleanup físico automático                | **592 testes** |

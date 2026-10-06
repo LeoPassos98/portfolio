@@ -8,6 +8,7 @@
   "type": "module",
   "scripts": {
     "bootstrap:admin": "npm run build && node dist/bootstrap-admin.js",
+    "demo:cleanup": "node dist/demo-cleanup.js",
     "prebuild": "npm run prisma:generate",
     "build": "nest build",
     "deploy": "nest deploy",

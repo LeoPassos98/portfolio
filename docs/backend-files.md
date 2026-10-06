@@ -14,6 +14,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------: |
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens, fundação DEMO e endpoint raiz atual                 |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                              |        4 |
+| Cleanup físico DEMO      | Comando isolado, batches atômicos, sessões e retenção física de tentativas, sem cron na API                                                            |        4 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS, segredos e validação no bootstrap                                                                   |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, ciclo de vida DEMO, migrations, comando operacional e acesso PostgreSQL injetável                              |       12 |
 | Fundação de geração DEMO | Geração de acesso, ativação atômica, seed, capacidade, locks, origem e rate limit                                                                     |       18 |
@@ -31,12 +32,13 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
-| Testes                   | 30 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       31 |
+| Testes                   | 31 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       32 |
 
 ## Sumário
 
 - [Entrada e composição](#entrada-e-composição)
 - [Bootstrap operacional](#bootstrap-operacional)
+- [Cleanup físico DEMO](#cleanup-físico-demo)
 - [Configuração de ambiente](#configuração-de-ambiente)
 - [Infraestrutura de banco](#infraestrutura-de-banco)
 - [Fundação de geração DEMO](#fundação-de-geração-demo)
@@ -109,6 +111,38 @@ Lê as cinco variáveis `BOOTSTRAP_ADMIN_*` e reutiliza os schemas oficiais de c
 Obtém um advisory lock transacional fixo no PostgreSQL, confirma a ausência de usuários no Environment PRINCIPAL e cria nele, atomicamente, o Funcionário e a conta Administrador ativa com troca obrigatória de senha.
 
 O lock serializa duas execuções concorrentes; a segunda só faz o `count()` depois do commit da primeira e recusa sem alteração. O hash usa o `PasswordService` Argon2id já compartilhado pela autenticação.
+
+---
+
+## Cleanup físico DEMO
+
+Remove fisicamente DEMOs já expiradas sem preservar histórico administrativo. O comando one-shot `npm run demo:cleanup` executa `node dist/demo-cleanup.js` na imagem previamente construída; não executa build nem abre servidor HTTP.
+
+A execução periódica será feita futuramente por um Scheduled Job externo no Northflank. Não há cron, timer, endpoint de cleanup ou dependência de `@nestjs/schedule` dentro da API. O scheduler não foi configurado nesta implementação.
+
+Diretórios principais: `backend/src/` e `backend/src/demo-cleanup/`
+
+### 1. `backend/src/demo-cleanup.ts`
+
+Abre o ApplicationContext exclusivo, executa o serviço, fecha as conexões e registra somente contagens agregadas. Sucesso retorna código 0; falha retorna código 1 sem expor detalhes de configuração, SQL ou credenciais.
+
+### 2. `backend/src/demo-cleanup/demo-cleanup.module.ts`
+
+Valida apenas `DATABASE_URL` e compõe `DatabaseModule`, `DemoAdmissionLockService` e `DemoCleanupService`. Usa a conexão runtime da aplicação, sem URI administrativa de migration, middleware de sessão ou módulos HTTP.
+
+### 3. `backend/src/demo-cleanup/demo-cleanup.service.ts`
+
+Seleciona exclusivamente `tipo = DEMO` com `expires_at <= statement_timestamp() - 1 hora`, sem filtro por status. A grace period física é fixa; a expiração lógica continua em 24h. Ordena por expiração e ID e processa até 100 ambientes por transação, repetindo até não encontrar elegíveis.
+
+Cada batch adquire novamente o mesmo advisory lock global transacional da admissão/provisionamento antes de selecionar e remover. A sequência é: sessões dos usuários selecionados → históricos → ordens → usuários → clientes → funcionários → contadores → ambientes. As FKs continuam `RESTRICT`; qualquer falha reverte todo o batch e interrompe a execução. Batches anteriores já confirmados permanecem removidos.
+
+Sessões são removidas por SQL parametrizado que associa `sess ->> 'usuarioId'` ao UUID textual de usuários dos ambientes selecionados. Sessões do PRINCIPAL, de outras DEMOs e sem identidade correspondente permanecem.
+
+Após os batches, uma transação independente remove `demo_generation_attempt` com `created_at < statement_timestamp() - 24 horas`, sem segurar o lock global. Essa retenção física não altera a janela funcional de 60 segundos do rate limit. Uma nova execução sem elegíveis retorna contagens zero.
+
+### 4. `backend/src/demo-cleanup/demo-cleanup.service.spec.ts`
+
+Exercita o módulo e PostgreSQL `portfolio_test`: configuração mínima, quatro estados, grace period, ambientes vigentes, PRINCIPAL, todas as dependências, sessões, retenção de tentativas, idempotência e ordenação em batches. Trigger temporário comprova rollback; barreiras e observação de `pg_locks` comprovam a espera pelo mesmo lock global nos dois sentidos.
 
 ---
 
