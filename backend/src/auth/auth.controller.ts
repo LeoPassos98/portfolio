@@ -26,6 +26,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
+import { DemoCleanupOpportunisticService } from '../demo-cleanup/demo-cleanup-opportunistic.service.js';
 import { getHttpErrorResponseSchemaReference } from '../common/errors/http-error-response.openapi.js';
 import { ZodValidationPipe } from '../common/validation/zod-validation.pipe.js';
 import { AuthSessionResponse } from './auth-session-response.dto.js';
@@ -114,7 +115,10 @@ function clearSessionCookie(
 @Controller('auth')
 @ApiTags('Autenticação')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly opportunisticCleanup: DemoCleanupOpportunisticService,
+  ) {}
 
   @Get('csrf')
   @ApiOperation({ summary: 'Obtém o token CSRF da sessão atual' })
@@ -184,19 +188,29 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<AuthSessionResponse> {
-    const usuario = await this.authenticateLogin(input, response);
+    const authentication = await this.authenticateLogin(input, response);
 
-    if (!usuario) {
+    if (!authentication) {
       throw new UnauthorizedException(INVALID_CREDENTIALS_ERROR);
     }
+    const { usuario, demoProvisionedNow } = authentication;
 
     await regenerateSession(request);
     request.session.usuarioId = usuario.id;
     await saveSession(request);
 
-    return this.authService.toSessionResponse(
+    const body = this.authService.toSessionResponse(
       this.authService.toAuthenticatedUser(usuario),
     );
+    if (demoProvisionedNow) {
+      // Register before returning, but schedule only after a successful response.
+      response.once('finish', () => {
+        if (response.statusCode === HttpStatus.OK) {
+          this.opportunisticCleanup.requestCleanup();
+        }
+      });
+    }
+    return body;
   }
 
   @Post('first-access/password')

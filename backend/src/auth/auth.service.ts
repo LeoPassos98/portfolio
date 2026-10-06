@@ -28,6 +28,11 @@ type CurrentAuthenticatedUser = UserWithFuncionario & {
   };
 };
 
+export type LoginAuthenticationResult = {
+  usuario: CurrentAuthenticatedUser;
+  demoProvisionedNow: boolean;
+};
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,7 +41,10 @@ export class AuthService {
     private readonly demoProvisioning: DemoProvisioningService,
   ) {}
 
-  async authenticate(email: string, password: string) {
+  async authenticate(
+    email: string,
+    password: string,
+  ): Promise<LoginAuthenticationResult | null> {
     const usuario = await this.database.usuario.findUnique({
       where: { emailLogin: email },
       include: { funcionario: true, environment: true },
@@ -61,7 +69,9 @@ export class AuthService {
       return null;
     }
 
-    if (usuario.environment.tipo === TipoEnvironment.PRINCIPAL) return usuario;
+    if (usuario.environment.tipo === TipoEnvironment.PRINCIPAL) {
+      return { usuario, demoProvisionedNow: false };
+    }
 
     Object.assign(
       usuario.environment,
@@ -74,8 +84,9 @@ export class AuthService {
     ) {
       throw new UnauthorizedException(DEMO_EXPIRED_ERROR);
     }
+    let demoProvisionedNow = false;
     if (usuario.environment.demoStatus !== DemoStatus.PRONTA) {
-      await this.demoProvisioning.ensureReady(
+      demoProvisionedNow = await this.demoProvisioning.ensureReady(
         usuario.environmentId,
         usuario.environment.originIpHash!,
         usuario.id,
@@ -83,7 +94,7 @@ export class AuthService {
     }
     const current = await this.getAuthenticatedUser(usuario.id);
     if (!current || !this.isAuthenticationContextValid(current)) return null;
-    return current;
+    return { usuario: current, demoProvisionedNow };
   }
 
   async getAuthenticatedUser(

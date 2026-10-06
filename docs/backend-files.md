@@ -14,11 +14,11 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------: |
 | Entrada e composição     | Inicialização do NestJS, sessão global, CORS, clientes, funcionários, perfil, Dashboard, ordens, fundação DEMO e endpoint raiz atual                 |        4 |
 | Bootstrap operacional    | Comando one-shot, configuração, transação e proteção concorrente do primeiro Administrador do PRINCIPAL                                              |        4 |
-| Cleanup físico DEMO      | Comando isolado, batches atômicos, sessões e retenção física de tentativas, sem cron na API                                                            |        4 |
+| Cleanup físico DEMO      | Comando isolado, execução oportunística após login, batches atômicos, sessões e retenção física de tentativas                                         |        6 |
 | Configuração de ambiente | Contrato de variáveis, valores de exemplo, CORS, segredos e validação no bootstrap                                                                   |        2 |
 | Infraestrutura de banco  | Configuração Prisma, modelos físicos, ciclo de vida DEMO, migrations, comando operacional e acesso PostgreSQL injetável                              |       12 |
 | Fundação de geração DEMO | Geração de acesso, ativação atômica, seed, capacidade, locks, origem e rate limit                                                                     |       18 |
-| Autenticação             | Login, token CSRF, troca obrigatória, logout e sessões, com acesso DEMO restrito ao estado PRONTA                                                    |       12 |
+| Autenticação             | Login, token CSRF, troca obrigatória, logout e sessões, com acesso DEMO restrito ao estado PRONTA                                                    |       13 |
 | Guards de acesso         | CSRF, autenticação de sessão, bloqueio de primeiro acesso e autorização por perfil                                                                   |        4 |
 | Clientes                 | Criação, edição cadastral, situação, exclusão, consultas de clientes e consulta de CEP intermediada pelo backend                                     |       16 |
 | Funcionários             | Criação, edição cadastral, situação e consultas administrativas reais de funcionários e suas contas de acesso opcionais                              |       18 |
@@ -32,7 +32,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
-| Testes                   | 31 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       32 |
+| Testes                   | 33 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       34 |
 
 ## Sumário
 
@@ -118,7 +118,7 @@ O lock serializa duas execuções concorrentes; a segunda só faz o `count()` de
 
 Remove fisicamente DEMOs já expiradas sem preservar histórico administrativo. O comando one-shot `npm run demo:cleanup` executa `node dist/demo-cleanup.js` na imagem previamente construída; não executa build nem abre servidor HTTP.
 
-A execução periódica será feita futuramente por um Scheduled Job externo no Northflank. Não há cron, timer, endpoint de cleanup ou dependência de `@nestjs/schedule` dentro da API. O scheduler não foi configurado nesta implementação.
+A API também executa cleanup oportunístico, solicitado somente pelo login que efetivamente conclui o provisionamento de uma DEMO. A sessão é salva e a resposta HTTP 200 termina antes do agendamento. Não há cron interno, scheduler permanente, endpoint de cleanup, `@nestjs/schedule` ou Scheduled Job configurado.
 
 Diretórios principais: `backend/src/` e `backend/src/demo-cleanup/`
 
@@ -132,17 +132,33 @@ Valida apenas `DATABASE_URL` e compõe `DatabaseModule`, `DemoAdmissionLockServi
 
 ### 3. `backend/src/demo-cleanup/demo-cleanup.service.ts`
 
-Seleciona exclusivamente `tipo = DEMO` com `expires_at <= statement_timestamp() - 1 hora`, sem filtro por status. A grace period física é fixa; a expiração lógica continua em 24h. Ordena por expiração e ID e processa até 100 ambientes por transação, repetindo até não encontrar elegíveis.
+Seleciona exclusivamente `tipo = DEMO` com `expires_at <= statement_timestamp() - 1 hora`, sem filtro por status. A grace period física é fixa; a expiração lógica continua em 24h. Ordena por expiração e ID e processa até 100 ambientes por transação. O manual repete batches até não encontrar elegíveis; `cleanupOneBatchIfAvailable()` executa no máximo um batch sob try-lock e retorna `lock-unavailable` imediatamente se o global estiver ocupado. Ambos compartilham seleção e exclusões.
 
 Cada batch adquire novamente o mesmo advisory lock global transacional da admissão/provisionamento antes de selecionar e remover. A sequência é: sessões dos usuários selecionados → históricos → ordens → usuários → clientes → funcionários → contadores → ambientes. As FKs continuam `RESTRICT`; qualquer falha reverte todo o batch e interrompe a execução. Batches anteriores já confirmados permanecem removidos.
 
 Sessões são removidas por SQL parametrizado que associa `sess ->> 'usuarioId'` ao UUID textual de usuários dos ambientes selecionados. Sessões do PRINCIPAL, de outras DEMOs e sem identidade correspondente permanecem.
 
-Após os batches, uma transação independente remove `demo_generation_attempt` com `created_at < statement_timestamp() - 24 horas`, sem segurar o lock global. Essa retenção física não altera a janela funcional de 60 segundos do rate limit. Uma nova execução sem elegíveis retorna contagens zero.
+Após os batches manuais, ou após conseguir confirmar o único batch oportunístico, uma transação independente remove `demo_generation_attempt` com `created_at < statement_timestamp() - 24 horas`, sem segurar o lock global. A mesma operação é reutilizada mesmo quando o batch está vazio; lock indisponível dispensa também essa limpeza. Essa retenção física não altera a janela funcional de 60 segundos do rate limit. Uma nova execução sem elegíveis retorna contagens zero.
 
 ### 4. `backend/src/demo-cleanup/demo-cleanup.service.spec.ts`
 
 Exercita o módulo e PostgreSQL `portfolio_test`: configuração mínima, quatro estados, grace period, ambientes vigentes, PRINCIPAL, todas as dependências, sessões, retenção de tentativas, idempotência e ordenação em batches. Trigger temporário comprova rollback; barreiras e observação de `pg_locks` comprovam a espera pelo mesmo lock global nos dois sentidos.
+
+Também cobre try-lock real antes de liberar uma transação concorrente, sua duração até o commit, limite de um batch com 101 DEMOs, preservação do loop manual, isolamento de sessões e ambientes, retenção de tentativas e rollback oportunístico.
+
+### 5. `backend/src/demo-cleanup/demo-cleanup-opportunistic.service.ts`
+
+Coordena um timer one-shot de 10 segundos disparado exclusivamente após `finish` do login bem-sucedido que tornou a DEMO PRONTA. Mantém single-flight entre agendamento e execução e limita tentativas a uma por hora por processo. A janela começa quando a tentativa inicia e é consumida também por lock ocupado, resultado vazio ou falha. O relógio em memória serve somente ao throttle; elegibilidade continua no PostgreSQL.
+
+Timer usa `unref()` e é cancelado no shutdown; reiniciar perde timers e throttle por desenho. Rejections são capturadas, sem retry imediato, detalhes sensíveis ou efeito sobre resposta, sessão ou DEMO recém-provisionada. Logs de sucesso contêm somente contagem de ambientes removidos; resultado vazio e lock ocupado são silenciosos.
+
+O try-lock não espera geração/provisionamento já ativo. Se o cleanup adquirir o lock primeiro, uma nova geração/provisionamento poderá esperar durante os deletes do único batch. O atraso, throttle e limite de batch reduzem a frequência desse caso, mas não eliminam essa limitação. Muitos dependentes podem alongar a transação mesmo com apenas 100 ambientes.
+
+`DemoModule` registra o serviço de exclusão e o coordenador para a API. O módulo operacional isolado não importa essa composição nem altera a configuração normal da API; continua exigindo somente `DATABASE_URL`.
+
+### 6. `backend/src/demo-cleanup/demo-cleanup-opportunistic.service.spec.ts`
+
+Usa timers falsos para comprovar delay, throttle, single-flight pendente e em execução, janela consumida por falha/lock ocupado, logs seguros, `unref()` e cancelamento no shutdown. Exercita o controller com lifecycle de resposta e saveSession controlados: nenhum agendamento antes de salvar e de `finish`, login independente da tarefa e falhas sem cleanup.
 
 ---
 
@@ -246,11 +262,13 @@ Canonicaliza IPv4 e IPv6 com `ipaddr.js`, converte IPv4-mapped IPv6 ao IPv4 equi
 
 Inspeciona e registra a janela móvel de 60 segundos com limite de três tentativas. Pode operar autonomamente sob o lock da origem ou compor a transação do shell sem abrir outra transação; consulta e insert usam o relógio do PostgreSQL.
 
-Tentativas bloqueadas não são persistidas nem renovam a janela. Registros com mais de 60 segundos são ignorados semanticamente; a remoção física ficará para a integração posterior de cleanup.
+Tentativas bloqueadas não são persistidas nem renovam a janela. Registros com mais de 60 segundos são ignorados semanticamente; `DemoCleanupService` remove fisicamente somente os que têm mais de 24 horas.
 
 ### 3. `backend/src/demo/demo-admission-lock.service.ts`
 
 Deriva chaves `int64` por SHA-256 com domínios distintos e oferece advisory locks transacionais global e por origem. Operações que usam ambos mantêm a ordem global e depois origem; o primeiro login retém ambos até o commit de PRONTA ou FALHA.
+
+`tryAcquireGlobalLock()` usa `pg_try_advisory_xact_lock` com a mesma chave global, sem espera. Geração, provisionamento e cleanup manual continuam usando a aquisição bloqueante existente.
 
 ### 4. `backend/src/demo/demo-credentials.service.ts`
 
@@ -278,7 +296,7 @@ Expõe `POST /demo/access` sob o CSRF global, aplica o schema Zod, projeta somen
 
 ### 10. `backend/src/demo/demo.module.ts`
 
-Compõe controller, `PasswordModule` e serviços de origem, locks, capacidade, credenciais, rate limit, geração do shell, ativação e seed; exporta provisionamento para `AuthModule`.
+Compõe controller, `PasswordModule` e serviços de origem, locks, capacidade, credenciais, rate limit, geração do shell, ativação e seed. Registra cleanup e coordenador oportunístico sem importar a configuração reduzida do módulo operacional. Exporta provisionamento e coordenador para `AuthModule`.
 
 ### 11. `backend/src/demo/demo-origin.service.spec.ts`
 
@@ -308,6 +326,8 @@ Provisiona o shell existente dentro da transação do login. VAZIO não acrescen
 
 Serializa ativação e retry sob locks global → origem. PENDENTE exige janela de uma hora e vaga ativa; FALHA reutiliza sua vaga enquanto vigente. Abre SAVEPOINT após PROVISIONANDO: sucesso conclui PRONTA com `provisionedAt` pelo relógio PostgreSQL; falha reverte seed/conclusão e confirma FALHA na mesma transação externa, retendo a capacidade. A exception só é lançada após esse commit. Interrupção da transação externa reverte ao estado anterior, sem PROVISIONANDO abandonado. Releitura impede repetir seed; PROVISIONANDO preexistente retorna conflito.
 
+Retorna `true` somente se esta chamada efetivamente concluiu PRONTA e a transação confirmou; releitura de PRONTA retorna `false`. O sinal interno não altera o lifecycle nem a resposta HTTP.
+
 ### 18. `backend/src/demo/demo-environment-time.ts`
 
 Lê criação e expiração por epoch para a autenticação e o provisionamento DEMO. Evita deslocamentos na decodificação de TIMESTAMPTZ do adapter quando o PostgreSQL usa fuso diferente de UTC; não altera configuração global do banco ou a URL Prisma.
@@ -334,6 +354,8 @@ Declara o schema Zod de login, removendo espaços externos e normalizando maiús
 
 Consulta globalmente por `emailLogin`, valida o candidato e verifica a senha com `PasswordService` antes de ativar uma DEMO PENDENTE ou repetir uma FALHA. O PRINCIPAL preserva o comportamento anterior. Recarrega o contexto após o provisionamento; sessões continuam exigindo DEMO PRONTA e vigente, com expiração lida por epoch. A identidade persistida é somente `usuarioId`, e a resposta não expõe `environmentId`.
 
+`authenticate()` retorna internamente o usuário e `demoProvisionedNow`, derivado do resultado de `ensureReady()`, sem consulta adicional. PRINCIPAL e DEMO já PRONTA retornam sinal falso; o DTO público permanece igual.
+
 ### 4. `backend/src/auth/first-access-password.schema.ts`
 
 Declara o schema Zod da troca obrigatória de senha: exige senha entre 8 e 128 caracteres sem transformações e confirmação idêntica.
@@ -345,6 +367,8 @@ Expõe CSRF, login, troca de senha de primeiro acesso, logout e consulta da sess
 Vincula o token CSRF à sessão e documenta seu uso nas mutações.
 
 As rotas autenticadas usam `SessionGuard`. Login cria sessão somente após validação do contexto pronto, preserva os erros de ativação/capacidade e inclui `Retry-After` quando aplicável. Login e troca de senha regeneram a sessão; logout a encerra no PostgreSQL.
+
+Após `saveSession()` e montagem da resposta, o login que provisionou registra `response.once('finish', ...)` antes de retornar. Somente `finish` com HTTP 200 solicita cleanup oportunístico; nenhum cleanup é solicitado em `/demo/access`, login regular de PRONTA, PRINCIPAL ou erro.
 
 ### 6. `backend/src/auth/auth.module.ts`
 
@@ -375,6 +399,10 @@ Gera tokens CSRF aleatórios com `crypto` nativo e compara os valores recebidos 
 ### 12. `backend/src/auth/csrf-token-response.dto.ts`
 
 Define a resposta documentada de `GET /auth/csrf`, expondo somente o token vinculado à sessão server-side atual.
+
+### 13. `backend/src/auth/auth-demo-cleanup.spec.ts`
+
+Valida no PostgreSQL e HTTP reais o sinal interno de PENDENTE/FALHA, ausência de sinal para PRINCIPAL/PRONTA e releitura após outra chamada provisionar. Cobre gatilho após sessão salva, contrato público preservado, login inválido, seed com falha e resposta HTTP concluída enquanto cleanup controlado permanece pendente. Timers falsos comprovam 10s; rejection posterior preserva sessão e estado PRONTA.
 
 ---
 

@@ -35,6 +35,16 @@ export function demoOriginAdvisoryLockKey(originIpHash: string): bigint {
 
 @Injectable()
 export class DemoAdmissionLockService {
+  async tryAcquireGlobalLock(
+    transaction: Prisma.TransactionClient,
+  ): Promise<boolean> {
+    const lockKey = demoGlobalAdvisoryLockKey();
+    const [result] = await transaction.$queryRaw<Array<{ acquired: boolean }>>`
+      SELECT pg_try_advisory_xact_lock(${lockKey}) AS acquired
+    `;
+    return result.acquired;
+  }
+
   acquireGlobalLock(transaction: Prisma.TransactionClient): Promise<unknown> {
     const lockKey = demoGlobalAdvisoryLockKey();
 

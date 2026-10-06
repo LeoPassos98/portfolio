@@ -486,4 +486,181 @@ describe('DemoCleanupService (portfolio_test)', () => {
     await expect(cleanup).resolves.toMatchObject({ environmentsDeleted: 1 });
     await expect(admission).resolves.toBeUndefined();
   });
+
+  it('skips opportunistic cleanup while the exact global lock is held, before its release', async () => {
+    const id = await createDemo(7_200);
+    const attemptId = randomUUID();
+    attemptIds.push(attemptId);
+    await database.demoGenerationAttempt.create({
+      data: { id: attemptId, originIpHash, createdAt: new Date('2000-01-01') },
+    });
+    const locked = barrier();
+    const release = barrier();
+    const blocker = database.$transaction(
+      async (transaction) => {
+        await locks.acquireGlobalLock(transaction);
+        locked.resolve();
+        await release.promise;
+      },
+      { timeout: 10_000 },
+    );
+    const settled = Promise.allSettled([blocker]);
+    await locked.promise;
+    try {
+      // The assertion must finish while the holder remains blocked on our barrier.
+      // A blocking implementation times out instead of passing after release.
+      await expect(service.cleanupOneBatchIfAvailable()).resolves.toEqual({
+        status: 'lock-unavailable',
+      });
+      expect(await database.environment.count({ where: { id } })).toBe(1);
+      expect(
+        await database.demoGenerationAttempt.count({
+          where: { id: attemptId },
+        }),
+      ).toBe(1);
+    } finally {
+      release.resolve();
+      await settled;
+    }
+    await expect(blocker).resolves.toBeUndefined();
+  }, 5_000);
+
+  it('opportunistically commits only one batch of 100; manual cleanup still drains the remainder', async () => {
+    for (let index = 0; index < 101; index++) await createDemo(10_000 - index);
+    const acquire = locks.tryAcquireGlobalLock.bind(locks);
+    const tryLock = vi
+      .spyOn(locks, 'tryAcquireGlobalLock')
+      .mockImplementation(acquire);
+    const waitLock = vi.spyOn(locks, 'acquireGlobalLock');
+    await expect(service.cleanupOneBatchIfAvailable()).resolves.toEqual({
+      status: 'completed',
+      environmentsDeleted: 100,
+      sessionsDeleted: 0,
+      generationAttemptsDeleted: 0,
+    });
+    expect(tryLock).toHaveBeenCalledOnce();
+    expect(waitLock).not.toHaveBeenCalled();
+    expect(
+      await database.environment.count({
+        where: { id: { in: environmentIds } },
+      }),
+    ).toBe(1);
+    expect((await service.cleanup()).environmentsDeleted).toBe(1);
+    expect(waitLock).toHaveBeenCalledTimes(2);
+    expect(
+      await database.environment.count({
+        where: { id: { in: environmentIds } },
+      }),
+    ).toBe(0);
+  });
+
+  it('holds the opportunistic transaction lock until commit and releases it afterwards', async () => {
+    const id = await createDemo(7_200);
+    const locked = barrier();
+    const release = barrier();
+    const acquire = locks.tryAcquireGlobalLock.bind(locks);
+    vi.spyOn(locks, 'tryAcquireGlobalLock').mockImplementationOnce(
+      async (transaction) => {
+        const acquired = await acquire(transaction);
+        expect(acquired).toBe(true);
+        locked.resolve();
+        await release.promise;
+        return acquired;
+      },
+    );
+    const cleanup = service.cleanupOneBatchIfAvailable();
+    const settled = Promise.allSettled([cleanup]);
+    await locked.promise;
+    try {
+      expect(
+        await database.$transaction((transaction) => acquire(transaction)),
+      ).toBe(false);
+      expect(await database.environment.count({ where: { id } })).toBe(1);
+    } finally {
+      release.resolve();
+      await settled;
+    }
+    await expect(cleanup).resolves.toMatchObject({
+      status: 'completed',
+      environmentsDeleted: 1,
+    });
+    expect(
+      await database.$transaction((transaction) => acquire(transaction)),
+    ).toBe(true);
+  });
+
+  it('isolates newly ready, active, grace-period and PRINCIPAL graphs and sessions', async () => {
+    const expiredId = await createDemo(7_200);
+    const newlyReadyId = await createDemo(-86_400, DemoStatus.PRONTA);
+    const activeId = await createDemo(-3_600, DemoStatus.PRONTA);
+    const graceId = await createDemo(600, DemoStatus.FALHA);
+    const preservedIds = [
+      newlyReadyId,
+      activeId,
+      graceId,
+      PRINCIPAL_ENVIRONMENT_ID,
+    ];
+    const expiredSid = await createSession({
+      usuarioId: await createGraph(expiredId),
+    });
+    const preservedSids: string[] = [];
+    for (const id of preservedIds) {
+      preservedSids.push(
+        await createSession({ usuarioId: await createGraph(id) }),
+      );
+    }
+    const before = await Promise.all(preservedIds.map(readGraph));
+    expect(await service.cleanupOneBatchIfAvailable()).toMatchObject({
+      status: 'completed',
+      environmentsDeleted: 1,
+      sessionsDeleted: 1,
+    });
+    expect(await database.session.count({ where: { sid: expiredSid } })).toBe(
+      0,
+    );
+    expect(
+      await database.session.count({ where: { sid: { in: preservedSids } } }),
+    ).toBe(4);
+    expect(await Promise.all(preservedIds.map(readGraph))).toEqual(before);
+  });
+
+  it('prunes only attempts older than 24h after a successful opportunistic batch, including an empty batch', async () => {
+    for (const secondsAgo of [86_460, 86_340, 30]) {
+      const id = randomUUID();
+      attemptIds.push(id);
+      await database.$executeRaw`
+        INSERT INTO "demo_generation_attempt" ("id", "origin_ip_hash", "created_at")
+        VALUES (${id}::uuid, ${originIpHash}, statement_timestamp() - make_interval(secs => ${secondsAgo}))
+      `;
+    }
+    await expect(service.cleanupOneBatchIfAvailable()).resolves.toEqual({
+      status: 'completed',
+      environmentsDeleted: 0,
+      sessionsDeleted: 0,
+      generationAttemptsDeleted: 1,
+    });
+    expect(
+      await database.demoGenerationAttempt.count({
+        where: { id: { in: attemptIds.slice(1) } },
+      }),
+    ).toBe(2);
+  });
+
+  it('rolls back an opportunistic batch on delete failure just like the manual mode', async () => {
+    const id = await createDemo(7_200);
+    const sid = await createSession({ usuarioId: await createGraph(id) });
+    const before = await readGraph(id);
+    await database.$executeRaw`
+      CREATE FUNCTION demo_cleanup_test_failure() RETURNS trigger AS $function$
+      BEGIN RAISE EXCEPTION 'forced opportunistic delete failure'; END;
+      $function$ LANGUAGE plpgsql
+    `;
+    await database.$executeRaw`
+      CREATE TRIGGER demo_cleanup_test_failure BEFORE DELETE ON "environment"
+      FOR EACH ROW EXECUTE FUNCTION demo_cleanup_test_failure()
+    `;
+    await expect(service.cleanupOneBatchIfAvailable()).rejects.toThrow();
+    expect(await readGraph(id)).toEqual(before);
+    expect(await database.session.count({ where: { sid } })).toBe(1);
+  });
 });

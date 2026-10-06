@@ -13,6 +13,15 @@ export type DemoCleanupResult = {
   generationAttemptsDeleted: number;
 };
 
+type BatchResult = Pick<
+  DemoCleanupResult,
+  'environmentsDeleted' | 'sessionsDeleted'
+>;
+
+export type DemoOpportunisticCleanupResult =
+  | { status: 'lock-unavailable' }
+  | ({ status: 'completed' } & DemoCleanupResult);
+
 @Injectable()
 export class DemoCleanupService {
   constructor(
@@ -34,61 +43,86 @@ export class DemoCleanupService {
       if (batch.environmentsDeleted === 0) break;
     }
 
+    result.generationAttemptsDeleted = await this.deleteOldGenerationAttempts();
+    return result;
+  }
+
+  async cleanupOneBatchIfAvailable(): Promise<DemoOpportunisticCleanupResult> {
+    const batch = await this.database.$transaction(
+      async (transaction) => {
+        if (!(await this.admissionLocks.tryAcquireGlobalLock(transaction))) {
+          return null;
+        }
+        return this.deleteSelectedEnvironments(transaction);
+      },
+      { maxWait: 10_000, timeout: 60_000 },
+    );
+    if (!batch) return { status: 'lock-unavailable' };
+
+    // Once the batch commits, prune attempts separately without the global lock.
+    const generationAttemptsDeleted = await this.deleteOldGenerationAttempts();
+    return { status: 'completed', ...batch, generationAttemptsDeleted };
+  }
+
+  private deleteOldGenerationAttempts(): Promise<number> {
     // Independent rate-limit records do not need to hold the admission lock.
-    result.generationAttemptsDeleted = await this.database.$transaction(
+    return this.database.$transaction(
       (transaction) => transaction.$executeRaw`
         DELETE FROM "demo_generation_attempt"
         WHERE "created_at" < statement_timestamp()
           - make_interval(secs => ${DEMO_GENERATION_ATTEMPT_RETENTION_SECONDS})
       `,
     );
-    return result;
   }
 
-  private deleteBatch(): Promise<
-    Pick<DemoCleanupResult, 'environmentsDeleted' | 'sessionsDeleted'>
-  > {
+  private deleteBatch(): Promise<BatchResult> {
     return this.database.$transaction(
       async (transaction) => {
         await this.admissionLocks.acquireGlobalLock(transaction);
-        // statement_timestamp() is evaluated after waiting for the global lock.
-        const environments = await transaction.$queryRaw<Array<{ id: string }>>`
-          SELECT "id" FROM "environment"
-          WHERE "tipo" = 'DEMO'
-            AND "expires_at" <= statement_timestamp()
-              - make_interval(secs => ${DEMO_CLEANUP_GRACE_SECONDS})
-          ORDER BY "expires_at" ASC, "id" ASC
-          LIMIT ${DEMO_CLEANUP_BATCH_SIZE}
-          FOR UPDATE
-        `;
-        if (environments.length === 0) {
-          return { environmentsDeleted: 0, sessionsDeleted: 0 };
-        }
-
-        const environmentIds = environments.map(({ id }) => id);
-        const where = { environmentId: { in: environmentIds } };
-        // session has no user FK; compare JSON text without casting its contents.
-        const sessionsDeleted = await transaction.$executeRaw`
-          DELETE FROM "session" AS session
-          USING "usuario" AS usuario
-          WHERE session."sess" ->> 'usuarioId' = usuario."id"::text
-            AND usuario."environment_id" IN (
-              ${Prisma.join(environmentIds.map((id) => Prisma.sql`${id}::uuid`))}
-            )
-        `;
-        await transaction.historicoOrdemServico.deleteMany({ where });
-        await transaction.ordemServico.deleteMany({ where });
-        await transaction.usuario.deleteMany({ where });
-        await transaction.cliente.deleteMany({ where });
-        await transaction.funcionario.deleteMany({ where });
-        await transaction.contadorOrdemServico.deleteMany({ where });
-        const deleted = await transaction.environment.deleteMany({
-          where: { id: { in: environmentIds }, tipo: TipoEnvironment.DEMO },
-        });
-        return { environmentsDeleted: deleted.count, sessionsDeleted };
+        return this.deleteSelectedEnvironments(transaction);
       },
       // Allow a running provisioning transaction to release its shared lock.
       { maxWait: 10_000, timeout: 60_000 },
     );
+  }
+
+  private async deleteSelectedEnvironments(
+    transaction: Prisma.TransactionClient,
+  ): Promise<BatchResult> {
+    // statement_timestamp() is evaluated after waiting for the global lock.
+    const environments = await transaction.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "environment"
+      WHERE "tipo" = 'DEMO'
+        AND "expires_at" <= statement_timestamp()
+          - make_interval(secs => ${DEMO_CLEANUP_GRACE_SECONDS})
+      ORDER BY "expires_at" ASC, "id" ASC
+      LIMIT ${DEMO_CLEANUP_BATCH_SIZE}
+      FOR UPDATE
+    `;
+    if (environments.length === 0) {
+      return { environmentsDeleted: 0, sessionsDeleted: 0 };
+    }
+
+    const environmentIds = environments.map(({ id }) => id);
+    const where = { environmentId: { in: environmentIds } };
+    // session has no user FK; compare JSON text without casting its contents.
+    const sessionsDeleted = await transaction.$executeRaw`
+      DELETE FROM "session" AS session
+      USING "usuario" AS usuario
+      WHERE session."sess" ->> 'usuarioId' = usuario."id"::text
+        AND usuario."environment_id" IN (
+          ${Prisma.join(environmentIds.map((id) => Prisma.sql`${id}::uuid`))}
+        )
+    `;
+    await transaction.historicoOrdemServico.deleteMany({ where });
+    await transaction.ordemServico.deleteMany({ where });
+    await transaction.usuario.deleteMany({ where });
+    await transaction.cliente.deleteMany({ where });
+    await transaction.funcionario.deleteMany({ where });
+    await transaction.contadorOrdemServico.deleteMany({ where });
+    const deleted = await transaction.environment.deleteMany({
+      where: { id: { in: environmentIds }, tipo: TipoEnvironment.DEMO },
+    });
+    return { environmentsDeleted: deleted.count, sessionsDeleted };
   }
 }

@@ -10,9 +10,9 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Suíte do backend             | Vitest, com Supertest nas rotas integradas                                                                 |
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                   |
-| Arquivos catalogados         | 29 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
+| Arquivos catalogados         | 31 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo  |
-| Último resultado consolidado | **592/592 testes aprovados**, incluindo cleanup físico DEMO; **13/13 testes novos de cleanup aprovados** |
+| Último resultado consolidado | **624/624 testes aprovados**, incluindo cleanup oportunístico DEMO; **45/45 testes direcionados**, com 32 casos novos |
 | Scripts operacionais         | **24/24 testes aprovados**, sem PostgreSQL; separados da suíte principal |
 
 ## Executar agora
@@ -70,6 +70,7 @@ git diff --check
   - [Banco e Environment](#banco-e-environment)
   - [Geração de acesso DEMO](#geração-de-acesso-demo)
   - [Cleanup físico de DEMOs](#cleanup-físico-de-demos)
+  - [Cleanup oportunístico após login](#cleanup-oportunístico-após-login)
   - [Credenciais, sessão e guards](#credenciais-sessão-e-guards)
   - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
   - [Autenticação HTTP](#autenticação-http)
@@ -84,7 +85,7 @@ git diff --check
 
 ## Catálogo de testes automatizados
 
-A suíte principal atual aprovou **592 testes em 29 arquivos**, incluindo **13 testes novos de cleanup físico DEMO**. A validação direcionada anterior aprovou **95 testes em oito arquivos**, cobrindo DEMO, autenticação, lifecycle, isolamento e sessão. Os resultados consolidados são cumulativos, sem contagem individual por família.
+A suíte principal atual aprovou **624 testes em 31 arquivos**, incluindo **32 casos novos de cleanup oportunístico DEMO**. A validação direcionada aprovou **45 testes em três arquivos**, preservando os 13 casos do cleanup manual. A validação direcionada anterior aprovou **95 testes em oito arquivos**, cobrindo DEMO, autenticação, lifecycle, isolamento e sessão. Os resultados consolidados são cumulativos, sem contagem individual por família.
 
 Os arquivos da suíte principal executam em série porque compartilham o PostgreSQL isolado `portfolio_test`; as requisições concorrentes continuam sendo exercitadas explicitamente dentro dos testes que dependem dessa propriedade.
 
@@ -101,7 +102,7 @@ As tabelas seguintes são o índice de consulta rápida. Os três arquivos com m
 | [`backend/src/common/validation/zod-validation.pipe.spec.ts`](../backend/src/common/validation/zod-validation.pipe.spec.ts) | Aceita entrada parseada, preserva transformações Zod e devolve `BadRequestException` com as issues.                                                                                | DTOs normalizam dados e expõem erros de schema consistentes na camada HTTP.                | Vitest, Zod e `ZodValidationPipe` isolado.                         |
 | [`backend/src/common/errors/http-exception.filter.spec.ts`](../backend/src/common/errors/http-exception.filter.spec.ts)     | Normaliza Zod, 401, 403, 404 e 409; preserva exceções de domínio; sanitiza falhas inesperadas, inclusive o segredo HMAC da DEMO; sempre responde `statusCode`, `code` e `message`. | O contrato público e os logs permanecem estáveis sem vazar detalhes internos ou segredos.  | Vitest, `HttpExceptionFilter`, exceções NestJS e mock de `Logger`. |
 
-Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 592 testes selecionados por `npm test`.
+Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vitest.config.e2e.ts` e é executado por `npm run test:e2e`; ele não integra os 624 testes selecionados por `npm test`.
 
 ### Scripts operacionais
 
@@ -109,7 +110,7 @@ Observação do smoke e2e: `app.e2e-spec.ts` usa a configuração separada `vite
 | ------- | ------------------------------- | ------------------------- | ------------------------- |
 | [`backend/test/scripts/migrate-production.spec.mjs`](../backend/test/scripts/migrate-production.spec.mjs) | Rejeita URI ausente, vazia, em branco, malformada, sem host ou com outro protocolo; verifica comando fixo, URI administrativa exclusiva no subprocesso, remoção de `MIGRATION_DATABASE_URL`, ausência de fallback e preservação do environment pai. Cobre sucesso, códigos de falha Prisma, erro retornado/lançado ao iniciar, status inutilizável, término por sinal e mensagens sem segredos. | Migration de produção exige uma conexão operacional explícita e falha quando o subprocesso falha; credencial runtime não substitui a administrativa. | Vitest em configuração isolada, função de spawn e logger injetados, credenciais sintéticas e nenhum acesso a PostgreSQL ou execução real de Prisma. |
 
-Resultado conhecido: **24/24 testes aprovados** pelo comando direcionado acima, separado da suíte principal de **592 testes**. Os mocks comprovam o contrato do script; não comprovam permissões do banco, aplicação real das migrations ou configuração do Job no Northflank.
+Resultado conhecido: **24/24 testes aprovados** pelo comando direcionado acima, separado da suíte principal de **624 testes**. Os mocks comprovam o contrato do script; não comprovam permissões do banco, aplicação real das migrations ou configuração do Job no Northflank.
 
 ### Banco e Environment
 
@@ -154,7 +155,7 @@ O fluxo oficial `test:db:prepare` aplica somente `migrate deploy`. Após autoriz
 
 Arquivo: [`backend/src/demo-cleanup/demo-cleanup.service.spec.ts`](../backend/src/demo-cleanup/demo-cleanup.service.spec.ts).
 
-Infraestrutura: módulo NestJS exclusivo, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`, com preparação oficial pelas seis migrations existentes. Fixtures e trigger temporário são removidos ao final. Resultado: **13/13 testes direcionados** e **592/592 na suíte completa**; lint, build, `prisma validate` e `git diff --check` aprovados.
+Infraestrutura: módulo NestJS exclusivo, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`, com preparação oficial pelas seis migrations existentes. Fixtures e trigger temporário são removidos ao final. A implementação manual original aprovou **13/13 testes direcionados** e **592/592 na suíte completa**. A suíte agora possui **19 casos**, incluindo seis cenários integrados do modo oportunístico descritos abaixo.
 
 | Operação | Cenários e regra comprovada |
 | --- | --- |
@@ -167,11 +168,33 @@ Infraestrutura: módulo NestJS exclusivo, Prisma/`DatabaseService` e PostgreSQL 
 | Atomicidade | Trigger temporário rejeita o delete final no PostgreSQL; serviço propaga a falha e preserva ambientes, dependências e sessão por rollback integral do batch. Após remover o trigger, o cleanup funciona. |
 | Concorrência | Barreiras explícitas seguram o mesmo advisory lock global da admissão/provisionamento; `pg_locks` confirma espera real antes da seleção. No sentido inverso, nova aquisição global só avança após commit do batch, quando a DEMO já desapareceu. Não depende de atraso probabilístico. |
 
-O comando operacional é `cd backend && npm run demo:cleanup`, com build prévia da imagem e conexão runtime em `DATABASE_URL`. A seleção usa `expires_at <= statement_timestamp() - 1 hora` e ignora status. Após os batches, tentativas antigas são removidas numa transação independente. Não há histórico administrativo, cron ou scheduler dentro da API; a execução periódica futura depende de um Scheduled Job externo no Northflank.
+O comando operacional continua sendo `cd backend && npm run demo:cleanup`, com build prévia da imagem e conexão runtime em `DATABASE_URL`. A seleção usa `expires_at <= statement_timestamp() - 1 hora` e ignora status. Após os batches, tentativas antigas são removidas numa transação independente. A API oferece somente a automação oportunística descrita abaixo; não há histórico administrativo, cron interno, scheduler permanente ou Scheduled Job configurado.
 
 Validação operacional do comando compilado, sobre `b916c9d` com esta implementação: `npm run demo:cleanup` removeu uma fixture expirada em `portfolio_test` e retornou 0; uma segunda execução sem outras variáveis obrigatórias retornou 0 e removeu zero. Configuração ausente/inválida e falha SQL induzida retornaram 1. A falha preservou a fixture, o marcador sensível do erro não apareceu nos logs e `pg_stat_activity` confirmou ausência de conexões residuais dos subprocessos. A sonda local está em `/tmp/demo-cleanup-command-check.mjs`; não integra a suíte versionada. O catálogo do banco confirmou as 12 FKs `RESTRICT` e a independência de sessões/tentativas. Nenhum cleanup foi executado em desenvolvimento ou produção.
 
+Revalidação após compartilhar a lógica com o modo oportunístico: o artefato `dist/demo-cleanup.js` foi executado em subprocessos com apenas `DATABASE_URL` de `portfolio_test` e `PATH`, fora do diretório com `.env`. Execução e repetição retornaram 0; banco ausente ou inválido retornou 1, sem expor os valores de configuração. O módulo operacional permaneceu independente dos segredos HTTP.
+
 Limites da cobertura: a atomicidade é por batch, não por execução completa; batches confirmados antes de uma falha posterior permanecem removidos. Os testes não comprovam frequência ou permissões de um Job externo ainda não configurado, nem desempenho com volume de produção.
+
+### Cleanup oportunístico após login
+
+Somente o login que efetivamente confirma uma transição de PENDENTE/FALHA até PRONTA pode solicitar essa automação. `ensureReady()` informa internamente se esta chamada provisionou; `authenticate()` propaga o sinal sem consulta adicional nem mudança de DTO público. PRINCIPAL, PRONTA existente, credenciais inválidas, provisionamento malsucedido e login com erro não agendam trabalho. `/demo/access` permanece sem gatilho.
+
+O controller registra `response.once('finish', ...)` depois de salvar a sessão e antes de retornar. HTTP 200 concluído agenda um timer one-shot de **10s** com `unref()`. O coordenador mantém single-flight pendente/em execução e throttle de **1h por processo**, contado desde o início da tentativa. Lock ocupado, resultado vazio ou falha também consomem a janela; não há retry imediato. Reinício perde throttle e timers por desenho; shutdown cancela agendamentos sem aguardar que comecem.
+
+O oportunístico usa `pg_try_advisory_xact_lock` com exatamente a mesma chave global da admissão/provisionamento. Lock ocupado retorna silenciosamente sem esperar nem selecionar/deletar. Lock livre permite **no máximo um batch de 100**; manual e oportunístico compartilham a implementação de seleção e exclusões atômicas. Após commit, mesmo de batch vazio, a operação comum de retenção remove tentativas com mais de 24h numa transação separada, sem lock global; a janela funcional de 60s permanece igual. Se essa segunda operação falhar, o batch já confirmado permanece removido.
+
+Toda rejeição da tarefa é capturada com mensagem fixa, sem SQL/credenciais/identificadores. Falha posterior não altera resposta, sessão nem DEMO recém-provisionada; sucesso registra somente contagem quando remove ambientes. Não existe cron interno, scheduler permanente ou Scheduled Job.
+
+| Arquivo | Cobertura e infraestrutura |
+| --- | --- |
+| [`backend/src/demo-cleanup/demo-cleanup-opportunistic.service.spec.ts`](../backend/src/demo-cleanup/demo-cleanup-opportunistic.service.spec.ts) | 14 casos com timers falsos: 10s, single-flight, uma hora desde a tentativa, falha/lock ocupado consumindo janela, logs agregados e seguros, `unref()` e shutdown. Controller com sessão e lifecycle controlados comprova listener após save, ausência de trabalho antes de finish/10s e login independente de Promise pendente. Erros de autenticação, provisionamento, save, regenerate e status final inesperado não agendam. Mocks aqui isolam coordenação; SQL é validado no arquivo integrado abaixo. |
+| [`backend/src/auth/auth-demo-cleanup.spec.ts`](../backend/src/auth/auth-demo-cleanup.spec.ts) | 12 casos com AppModule, Argon2, Prisma e HTTP/PostgreSQL reais em `portfolio_test`: sinal de PENDENTE/FALHA e ausência para PRINCIPAL/PRONTA; outra chamada já concluiu a transição; contrato público e sessão normal; senha inválida e seed com falha não disparam. HTTP real termina enquanto cleanup controlado continua pendente; timers falsos comprovam atraso, rejection posterior mantém sessão e PRONTA. |
+| [`backend/src/demo-cleanup/demo-cleanup.service.spec.ts`](../backend/src/demo-cleanup/demo-cleanup.service.spec.ts) | Seis casos novos sobre PostgreSQL real: retorna skipped enquanto outra transação ainda segura o global; lock é retido até commit e liberado depois; 101 DEMOs deixam uma elegível após oportunidade e manual drena o restante; isolamento de PRONTA recém-criada, ativa, grace period, PRINCIPAL e sessões; retenção de 24h; trigger comprova rollback oportunístico. Barreiras explícitas e try-lock real comprovam concorrência sem sleeps probabilísticos. Os 13 casos manuais continuam presentes. |
+
+Validação direcionada: **45/45 testes nos três arquivos**, incluindo os 13 manuais e 32 casos novos. A suíte completa aprovou **624/624 em 31 arquivos**; lint, build, Prisma validate e diff-check passaram. A primeira execução completa teve 623/624: o teste existente de corrida entre reativação de conta e desativação de funcionário recebeu um erro de conflito/deadlock de transação. O caso passou isoladamente e a repetição completa passou, sem alterações nesse domínio ou em seus testes. Todos os testes com banco usam exclusivamente `portfolio_test`; fixtures são removidas e o comando não é executado contra desenvolvimento ou produção.
+
+Limitações: se cleanup obtiver o global primeiro, uma nova geração/provisionamento poderá esperar durante os deletes do único batch; 10s, throttle e try-lock reduzem essa disputa, mas não a eliminam. O teto de 100 ambientes não limita seus dependentes nem garante duração curta; timeout transacional permanece 60s. Throttle é local a cada instância, sem garantia de periodicidade ou drenagem completa. Permissões DELETE do runtime e desempenho em produção continuam sendo validações operacionais do deployment. O módulo reduzido do comando continua isolado da configuração HTTP normal.
 
 ### Credenciais, sessão e guards
 
@@ -444,3 +467,4 @@ Os números são totais cumulativos da suíte do backend no respectivo marco, n�
 | DEMO — geração atômica de acesso                 | **547 testes** |
 | DEMO — primeiro login, seed, retry e sessão       | **579 testes** |
 | DEMO — cleanup físico automático                | **592 testes** |
+| DEMO — cleanup oportunístico após login          | **624 testes** |

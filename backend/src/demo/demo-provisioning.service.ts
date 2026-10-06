@@ -41,8 +41,9 @@ export class DemoProvisioningService {
     environmentId: string,
     originIpHash: string,
     usuarioId: string,
-  ): Promise<void> {
+  ): Promise<boolean> {
     let seedStarted = false;
+    let provisionedNow = false;
     let failure: HttpException | undefined;
     try {
       failure = await this.database.$transaction(
@@ -116,6 +117,7 @@ export class DemoProvisioningService {
               : new ServiceUnavailableException(PROVISIONING_FAILED_ERROR);
           }
           await transaction.$executeRaw`RELEASE SAVEPOINT demo_seed`;
+          provisionedNow = true;
         },
         { maxWait: 10_000, timeout: 30_000 },
       );
@@ -129,6 +131,8 @@ export class DemoProvisioningService {
       this.logger.error('DEMO seed rolled back; FALHA committed.');
       throw failure;
     }
+    // Only report the transition after the transaction has committed.
+    return provisionedNow;
   }
 
   private async acquireLocks(
