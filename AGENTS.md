@@ -4,6 +4,7 @@ Estas orientações definem como agentes devem alterar e documentar este reposit
 
 ## Sumário
 
+- [Estrutura e limites operacionais](#estrutura-e-limites-operacionais)
 - [Legibilidade humana](#legibilidade-humana)
 - [Padrão de documentação Markdown](#padrão-de-documentação-markdown)
 - [Documentação de configuração](#documentação-de-configuração)
@@ -12,6 +13,23 @@ Estas orientações definem como agentes devem alterar e documentar este reposit
 - [Estilo com Tailwind](#estilo-com-tailwind)
 - [Mapas de arquivos do frontend e backend](#mapas-de-arquivos-do-frontend-e-backend)
 - [Mapa de arquivos do backend](#mapa-de-arquivos-do-backend)
+
+---
+
+## Estrutura e limites operacionais
+
+- `apps/site/frontend/`: portfólio público, sem autenticação ou API.
+- `apps/sistema-os/frontend/`: interface autenticada e DEMO separada em `/demo`.
+- `apps/sistema-os/backend/`: API NestJS, Prisma, migrations, scripts e testes do Sistema OS.
+- `frontend/`: frontend original preservado durante a modularização.
+
+Execute instalação, lint, build e testes no pacote correspondente, com seu próprio lockfile. Não existem workspaces ou bibliotecas compartilhadas. Consulte `docs/setup.md` para ambiente e comandos.
+
+Arquivos privados de ambiente não devem ser movidos, copiados, impressos ou versionados durante a reorganização. Remanescentes locais em `backend/` não são um pacote executável; o novo pacote exige configuração explícita do ambiente.
+
+Antes de testes com escrita, confirme tanto `DATABASE_URL` quanto `TEST_DATABASE_URL` em PostgreSQL local `portfolio_test`, inclusive a identidade da conexão. Os wrappers `npm test` e `npm run test:e2e` preparam migrations; use Vitest diretamente quando migrations não estiverem autorizadas e o schema aplicado já tiver sido confirmado.
+
+Toda etapa exige validação local antes de push, incluindo lint, build, testes aplicáveis e navegador. Antes de enviar mudanças estruturais, verifique e proteja os gatilhos e diretórios dos deploys automáticos no Cloudflare e Northflank. Não declare uma etapa concluída com validações obrigatórias pendentes.
 
 ---
 

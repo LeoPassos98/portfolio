@@ -6,6 +6,8 @@ Dentro de cada família, os arquivos seguem a ordem de criação. Quando surgira
 
 Destina-se a pessoas e agentes que precisam localizar responsabilidades no backend sem depender do histórico da implementação.
 
+A API reside em `apps/sistema-os/backend/`, com instalação e build próprios. A mudança de diretório preserva a organização interna e as responsabilidades; os arquivos privados e gerados remanescentes em `backend/` não pertencem ao mapa.
+
 As descrições representam a responsabilidade atual de cada arquivo. Este mapa não substitui o histórico do Git.
 
 ## Visão rápida
@@ -32,7 +34,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 | Validação HTTP           | Pipe reutilizável para aplicar schemas Zod às entradas HTTP                                                                                          |        1 |
 | Tratamento de erros HTTP | Contrato público, schema OpenAPI e normalização global de exceções                                                                                   |        3 |
 | Documentação HTTP        | Configuração OpenAPI e Swagger UI                                                                                                                    |        1 |
-| Testes                   | 33 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       34 |
+| Testes                   | 34 arquivos de teste de aplicação, domínio e operação, além da configuração isolada de testes de scripts                                             |       35 |
 
 ## Sumário
 
@@ -64,25 +66,25 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 
 Inicializa a aplicação NestJS, reúne sua composição atual e fornece o endpoint raiz temporário.
 
-Diretório principal: `backend/src/`
+Diretório principal: `apps/sistema-os/backend/src/`
 
-### 1. `backend/src/main.ts`
+### 1. `apps/sistema-os/backend/src/main.ts`
 
 Cria a aplicação NestJS a partir de `AppModule` e inicia o servidor HTTP na porta validada por `ConfigService`.
 
 Também configura logger, confiança limitada no proxy de produção, CORS, sessão, filtro global de exceções, OpenAPI e hooks de desligamento.
 
-### 2. `backend/src/app.module.ts`
+### 2. `apps/sistema-os/backend/src/app.module.ts`
 
 Compõe o módulo raiz, com configuração global validada e os módulos de banco, autenticação, clientes, funcionários, perfil, ordens, sessão e fundação de geração DEMO.
 
 Registra o `CsrfGuard` global e fornece o endpoint raiz atual.
 
-### 3. `backend/src/app.controller.ts`
+### 3. `apps/sistema-os/backend/src/app.controller.ts`
 
 Expõe temporariamente a rota raiz `GET /`, delega sua resposta a `AppService` e a descreve na documentação OpenAPI como endpoint de verificação temporário.
 
-### 4. `backend/src/app.service.ts`
+### 4. `apps/sistema-os/backend/src/app.service.ts`
 
 Fornece a resposta temporária do endpoint raiz consumido por `AppController`.
 
@@ -92,21 +94,21 @@ Fornece a resposta temporária do endpoint raiz consumido por `AppController`.
 
 Cria explicitamente a primeira identidade administrativa de um banco novo sem abrir listener HTTP e deixa a troca de senha obrigatória para o fluxo normal de primeiro acesso.
 
-Diretórios principais: `backend/src/` e `backend/src/bootstrap/`
+Diretórios principais: `apps/sistema-os/backend/src/` e `apps/sistema-os/backend/src/bootstrap/`
 
-### 1. `backend/src/bootstrap-admin.ts`
+### 1. `apps/sistema-os/backend/src/bootstrap-admin.ts`
 
 Inicializa um contexto NestJS exclusivo do comando `npm run bootstrap:admin`, relata somente estados operacionais seguros e encerra com falha controlada para configuração inválida, sistema já inicializado ou erro inesperado.
 
-### 2. `backend/src/bootstrap/admin-bootstrap.module.ts`
+### 2. `apps/sistema-os/backend/src/bootstrap/admin-bootstrap.module.ts`
 
 Compõe apenas configuração de banco, `DatabaseModule`, `PasswordModule` e o serviço do bootstrap, sem controllers, sessão ou servidor HTTP.
 
-### 3. `backend/src/bootstrap/admin-bootstrap.schema.ts`
+### 3. `apps/sistema-os/backend/src/bootstrap/admin-bootstrap.schema.ts`
 
 Lê as cinco variáveis `BOOTSTRAP_ADMIN_*` e reutiliza os schemas oficiais de cadastro do Funcionário, e-mail de login e senha, mantendo essas variáveis fora do startup comum.
 
-### 4. `backend/src/bootstrap/admin-bootstrap.service.ts`
+### 4. `apps/sistema-os/backend/src/bootstrap/admin-bootstrap.service.ts`
 
 Obtém um advisory lock transacional fixo no PostgreSQL, confirma a ausência de usuários no Environment PRINCIPAL e cria nele, atomicamente, o Funcionário e a conta Administrador ativa com troca obrigatória de senha.
 
@@ -120,17 +122,17 @@ Remove fisicamente DEMOs já expiradas sem preservar histórico administrativo. 
 
 A API também executa cleanup oportunístico, solicitado somente pelo login que efetivamente conclui o provisionamento de uma DEMO. A sessão é salva e a resposta HTTP 200 termina antes do agendamento. Não há cron interno, scheduler permanente, endpoint de cleanup, `@nestjs/schedule` ou Scheduled Job configurado.
 
-Diretórios principais: `backend/src/` e `backend/src/demo-cleanup/`
+Diretórios principais: `apps/sistema-os/backend/src/` e `apps/sistema-os/backend/src/demo-cleanup/`
 
-### 1. `backend/src/demo-cleanup.ts`
+### 1. `apps/sistema-os/backend/src/demo-cleanup.ts`
 
 Abre o ApplicationContext exclusivo, executa o serviço, fecha as conexões e registra somente contagens agregadas. Sucesso retorna código 0; falha retorna código 1 sem expor detalhes de configuração, SQL ou credenciais.
 
-### 2. `backend/src/demo-cleanup/demo-cleanup.module.ts`
+### 2. `apps/sistema-os/backend/src/demo-cleanup/demo-cleanup.module.ts`
 
 Valida apenas `DATABASE_URL` e compõe `DatabaseModule`, `DemoAdmissionLockService` e `DemoCleanupService`. Usa a conexão runtime da aplicação, sem URI administrativa de migration, middleware de sessão ou módulos HTTP.
 
-### 3. `backend/src/demo-cleanup/demo-cleanup.service.ts`
+### 3. `apps/sistema-os/backend/src/demo-cleanup/demo-cleanup.service.ts`
 
 Seleciona exclusivamente `tipo = DEMO` com `expires_at <= statement_timestamp() - 1 hora`, sem filtro por status. A grace period física é fixa; a expiração lógica continua em 24h. Ordena por expiração e ID e processa até 100 ambientes por transação. O manual repete batches até não encontrar elegíveis; `cleanupOneBatchIfAvailable()` executa no máximo um batch sob try-lock e retorna `lock-unavailable` imediatamente se o global estiver ocupado. Ambos compartilham seleção e exclusões.
 
@@ -140,13 +142,13 @@ Sessões são removidas por SQL parametrizado que associa `sess ->> 'usuarioId'`
 
 Após os batches manuais, ou após conseguir confirmar o único batch oportunístico, uma transação independente remove `demo_generation_attempt` com `created_at < statement_timestamp() - 24 horas`, sem segurar o lock global. A mesma operação é reutilizada mesmo quando o batch está vazio; lock indisponível dispensa também essa limpeza. Essa retenção física não altera a janela funcional de 60 segundos do rate limit. Uma nova execução sem elegíveis retorna contagens zero.
 
-### 4. `backend/src/demo-cleanup/demo-cleanup.service.spec.ts`
+### 4. `apps/sistema-os/backend/src/demo-cleanup/demo-cleanup.service.spec.ts`
 
 Exercita o módulo e PostgreSQL `portfolio_test`: configuração mínima, quatro estados, grace period, ambientes vigentes, PRINCIPAL, todas as dependências, sessões, retenção de tentativas, idempotência e ordenação em batches. Trigger temporário comprova rollback; barreiras e observação de `pg_locks` comprovam a espera pelo mesmo lock global nos dois sentidos.
 
 Também cobre try-lock real antes de liberar uma transação concorrente, sua duração até o commit, limite de um batch com 101 DEMOs, preservação do loop manual, isolamento de sessões e ambientes, retenção de tentativas e rollback oportunístico.
 
-### 5. `backend/src/demo-cleanup/demo-cleanup-opportunistic.service.ts`
+### 5. `apps/sistema-os/backend/src/demo-cleanup/demo-cleanup-opportunistic.service.ts`
 
 Coordena um timer one-shot de 10 segundos disparado exclusivamente após `finish` do login bem-sucedido que tornou a DEMO PRONTA. Mantém single-flight entre agendamento e execução e limita tentativas a uma por hora por processo. A janela começa quando a tentativa inicia e é consumida também por lock ocupado, resultado vazio ou falha. O relógio em memória serve somente ao throttle; elegibilidade continua no PostgreSQL.
 
@@ -156,7 +158,7 @@ O try-lock não espera geração/provisionamento já ativo. Se o cleanup adquiri
 
 `DemoModule` registra o serviço de exclusão e o coordenador para a API. O módulo operacional isolado não importa essa composição nem altera a configuração normal da API; continua exigindo somente `DATABASE_URL`.
 
-### 6. `backend/src/demo-cleanup/demo-cleanup-opportunistic.service.spec.ts`
+### 6. `apps/sistema-os/backend/src/demo-cleanup/demo-cleanup-opportunistic.service.spec.ts`
 
 Usa timers falsos para comprovar delay, throttle, single-flight pendente e em execução, janela consumida por falha/lock ocupado, logs seguros, `unref()` e cancelamento no shutdown. Exercita o controller com lifecycle de resposta e saveSession controlados: nenhum agendamento antes de salvar e de `finish`, login independente da tarefa e falhas sem cleanup.
 
@@ -166,15 +168,15 @@ Usa timers falsos para comprovar delay, throttle, single-flight pendente e em ex
 
 Define o contrato de execução local e valida as variáveis exigidas quando a aplicação é composta.
 
-Diretório principal: `backend/src/config/`
+Diretório principal: `apps/sistema-os/backend/src/config/`
 
-### 1. `backend/.env.example`
+### 1. `apps/sistema-os/backend/.env.example`
 
 Disponibiliza valores de referência para ambiente, porta, bancos PostgreSQL, segredos distintos de sessão e HMAC da origem DEMO e duração da sessão.
 
 Também define a origem única permitida pelo CORS.
 
-### 2. `backend/src/config/environment.validation.ts`
+### 2. `apps/sistema-os/backend/src/config/environment.validation.ts`
 
 Declara com Zod o schema das variáveis de ambiente, exige ao menos 32 caracteres nos segredos de sessão e HMAC da origem DEMO e aplica defaults de ambiente, porta e duração de sessão.
 
@@ -186,63 +188,63 @@ Interrompe o bootstrap com mensagens detalhadas quando a configuração é invá
 
 Centraliza a configuração do Prisma e disponibiliza o acesso tipado ao PostgreSQL para os módulos NestJS que importarem `DatabaseModule`.
 
-Diretórios principais: `backend/prisma/`, `backend/src/database/` e `backend/scripts/`
+Diretórios principais: `apps/sistema-os/backend/prisma/`, `apps/sistema-os/backend/src/database/` e `apps/sistema-os/backend/scripts/`
 
-### 1. `backend/prisma.config.ts`
+### 1. `apps/sistema-os/backend/prisma.config.ts`
 
 Configura o Prisma CLI e localiza o schema.
 
 Recebe `DATABASE_URL` para o banco da aplicação e `SHADOW_DATABASE_URL` para a base descartável do Prisma Migrate.
 
-### 2. `backend/prisma/schema.prisma`
+### 2. `apps/sistema-os/backend/prisma/schema.prisma`
 
 Define `Environment`, seus estados e configuração persistida de DEMO, as tentativas permitidas de geração por hash de origem, o vínculo obrigatório das entidades tenant-aware, as relações compostas que expressam a integridade por ambiente, o contador de OS por Environment e a tabela de infraestrutura `session` sem vínculo de tenant. Também mantém os enums, os índices consultáveis pelo ciclo de vida e o generator `prisma-client` com saída local.
 
-### 3. `backend/src/database/database.module.ts`
+### 3. `apps/sistema-os/backend/src/database/database.module.ts`
 
 Expõe `DatabaseService` para que futuros módulos de domínio recebam o acesso ao banco por injeção de dependência.
 
-### 4. `backend/src/database/database.service.ts`
+### 4. `apps/sistema-os/backend/src/database/database.service.ts`
 
 Instancia o Prisma Client com o adapter PostgreSQL e recebe a URL pelo `ConfigService`.
 
 Gerencia a conexão no ciclo de vida do NestJS e registra apenas eventos seguros de conexão e desconexão.
 
-### 5. `backend/src/environments/principal-environment.ts`
+### 5. `apps/sistema-os/backend/src/environments/principal-environment.ts`
 
 Declara o identificador server-side estável do Environment PRINCIPAL criado pela migration. Seu uso runtime fica restrito ao bootstrap global; operações autenticadas usam o Environment derivado do usuário persistido.
 
-### 6. `backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
+### 6. `apps/sistema-os/backend/prisma/migrations/20260831231500_initial_domain_schema/migration.sql`
 
 Cria o esquema inicial PostgreSQL do domínio, incluindo tabelas, enums, índices, constraints de integridade e as chaves estrangeiras restritivas.
 
-### 7. `backend/prisma/migrations/20260901002105_add_session_store/migration.sql`
+### 7. `apps/sistema-os/backend/prisma/migrations/20260901002105_add_session_store/migration.sql`
 
 Cria a tabela de infraestrutura `session` esperada pelo `connect-pg-simple`, com `sid` como chave primária, `sess` JSON, `expire` timestamp e índice de expiração.
 
-### 8. `backend/prisma/migrations/20260908190000_add_order_counter/migration.sql`
+### 8. `apps/sistema-os/backend/prisma/migrations/20260908190000_add_order_counter/migration.sql`
 
 Cria o contador singleton da numeração de OS, com constraints para o identificador único e valor não negativo.
 
 Inicializa `ultimo_numero` pelo maior número de uma OS existente no formato `OS-<número>`, preservando dados anteriores à migration.
 
-### 9. `backend/prisma/migrations/20260923213000_add_environment_foundation/migration.sql`
+### 9. `apps/sistema-os/backend/prisma/migrations/20260923213000_add_environment_foundation/migration.sql`
 
 Introduz `Environment` e o PRINCIPAL permanente, protege no PostgreSQL sua exclusão e mudança de tipo, valida as relações legadas, faz backfill de todas as entidades tenant-aware e converte o contador global em um contador por Environment sem recalcular `ultimo_numero`.
 
 Também substitui as FKs simples pelas compostas, move documento e número da OS para unicidade por Environment, mantém o e-mail de login global, torna os vínculos obrigatórios somente após o backfill e preserva `session` sem alteração.
 
-### 10. `backend/prisma/migrations/20260924150000_add_demo_environment_lifecycle/migration.sql`
+### 10. `apps/sistema-os/backend/prisma/migrations/20260924150000_add_demo_environment_lifecycle/migration.sql`
 
 Adiciona os enums e campos persistidos da DEMO, aborta diante de DEMOs preexistentes sem configuração reconciliada e preserva o PRINCIPAL existente com os novos campos nulos.
 
 Impõe no PostgreSQL campos obrigatórios por tipo, expiração fixa de 24 horas, hash hexadecimal minúsculo, coerência de `provisionedAt`, transições de status e imutabilidade da configuração. Também cria os índices por tipo/expiração e hash de origem/expiração.
 
-### 11. `backend/prisma/migrations/20260924210000_add_demo_generation_attempt/migration.sql`
+### 11. `apps/sistema-os/backend/prisma/migrations/20260924210000_add_demo_generation_attempt/migration.sql`
 
 Cria a tabela independente `demo_generation_attempt` com UUID, hash de origem `VARCHAR(64)`, timestamp com fuso e precisão de microssegundos, constraint de hexadecimal minúsculo e índice composto por origem e criação.
 
-### 12. `backend/scripts/migrate-production.mjs`
+### 12. `apps/sistema-os/backend/scripts/migrate-production.mjs`
 
 Executa exclusivamente `prisma migrate deploy` com `MIGRATION_DATABASE_URL` validada e convertida em `DATABASE_URL` somente no subprocesso. Exige a credencial operacional sem fallback, preserva o environment pai, mantém logs Prisma e retorna falha controlada sem revelar segredos quando a configuração ou execução falha.
 
@@ -252,83 +254,83 @@ Executa exclusivamente `prisma migrate deploy` com `MIGRATION_DATABASE_URL` vali
 
 Fornece geração pública de acesso e admissão concorrente do shell `PENDENTE`. A ativação ocorre no login após verificar a senha; o provisionamento e a conclusão são atômicos e a sessão só nasce depois de PRONTA.
 
-Diretório principal: `backend/src/demo/`
+Diretório principal: `apps/sistema-os/backend/src/demo/`
 
-### 1. `backend/src/demo/demo-origin.service.ts`
+### 1. `apps/sistema-os/backend/src/demo/demo-origin.service.ts`
 
 Canonicaliza IPv4 e IPv6 com `ipaddr.js`, converte IPv4-mapped IPv6 ao IPv4 equivalente, rejeita entrada inválida ou com zone ID e calcula HMAC-SHA-256 hexadecimal com segredo obtido do `ConfigService`.
 
-### 2. `backend/src/demo/demo-generation-rate-limit.service.ts`
+### 2. `apps/sistema-os/backend/src/demo/demo-generation-rate-limit.service.ts`
 
 Inspeciona e registra a janela móvel de 60 segundos com limite de três tentativas. Pode operar autonomamente sob o lock da origem ou compor a transação do shell sem abrir outra transação; consulta e insert usam o relógio do PostgreSQL.
 
 Tentativas bloqueadas não são persistidas nem renovam a janela. Registros com mais de 60 segundos são ignorados semanticamente; `DemoCleanupService` remove fisicamente somente os que têm mais de 24 horas.
 
-### 3. `backend/src/demo/demo-admission-lock.service.ts`
+### 3. `apps/sistema-os/backend/src/demo/demo-admission-lock.service.ts`
 
 Deriva chaves `int64` por SHA-256 com domínios distintos e oferece advisory locks transacionais global e por origem. Operações que usam ambos mantêm a ordem global e depois origem; o primeiro login retém ambos até o commit de PRONTA ou FALHA.
 
 `tryAcquireGlobalLock()` usa `pg_try_advisory_xact_lock` com a mesma chave global, sem espera. Geração, provisionamento e cleanup manual continuam usando a aquisição bloqueante existente.
 
-### 4. `backend/src/demo/demo-credentials.service.ts`
+### 4. `apps/sistema-os/backend/src/demo/demo-credentials.service.ts`
 
 Gera login e senha separadamente com `crypto.randomInt()`, alfabeto sem caracteres ambíguos e os comprimentos públicos aprovados, sem persistir a senha original.
 
-### 5. `backend/src/demo/demo-access.schema.ts`
+### 5. `apps/sistema-os/backend/src/demo/demo-access.schema.ts`
 
 Declara com Zod estrito os campos `dataMode` e `tutorialEnabled` aceitos por `POST /demo/access`.
 
-### 6. `backend/src/demo/demo-access-response.dto.ts`
+### 6. `apps/sistema-os/backend/src/demo/demo-access-response.dto.ts`
 
 Documenta a resposta pública de criação com login, senha efêmera e expirações de ativação e da DEMO, sem identificadores ou estado interno.
 
-### 7. `backend/src/demo/demo-capacity.service.ts`
+### 7. `apps/sistema-os/backend/src/demo/demo-capacity.service.ts`
 
 Lê no PostgreSQL, em ordem pública estável, PENDENTEs válidos por origem, DEMOs ativas por origem e capacidade ativa global. A inspeção ativa separada permite ativação sem aplicar novamente o limite de pendências. Retorna bloqueios tipados com contagem, limite e `retryAfterSeconds`.
 
-### 8. `backend/src/demo/demo-access.service.ts`
+### 8. `apps/sistema-os/backend/src/demo/demo-access.service.ts`
 
 Orquestra precheck, Argon2id fora da transação e admissão definitiva sob locks global e de origem. Registra a tentativa e cria Environment, Administrador, Usuario e contador atomicamente; colisões específicas de `emailLogin` refazem somente o login em até cinco transações.
 
-### 9. `backend/src/demo/demo.controller.ts`
+### 9. `apps/sistema-os/backend/src/demo/demo.controller.ts`
 
 Expõe `POST /demo/access` sob o CSRF global, aplica o schema Zod, projeta somente o contrato público e traduz os quatro bloqueios de domínio para `429` ou `503` com `Retry-After` idêntico ao body e schemas OpenAPI globais.
 
-### 10. `backend/src/demo/demo.module.ts`
+### 10. `apps/sistema-os/backend/src/demo/demo.module.ts`
 
 Compõe controller, `PasswordModule` e serviços de origem, locks, capacidade, credenciais, rate limit, geração do shell, ativação e seed. Registra cleanup e coordenador oportunístico sem importar a configuração reduzida do módulo operacional. Exporta provisionamento e coordenador para `AuthModule`.
 
-### 11. `backend/src/demo/demo-origin.service.spec.ts`
+### 11. `apps/sistema-os/backend/src/demo/demo-origin.service.spec.ts`
 
 Cobre canonicalização, equivalência de IPv4-mapped IPv6, representações IPv6 equivalentes, rejeição fechada e propriedades do HMAC sem expor o segredo.
 
-### 12. `backend/src/demo/demo-generation-rate-limit.service.spec.ts`
+### 12. `apps/sistema-os/backend/src/demo/demo-generation-rate-limit.service.spec.ts`
 
 Exercita PostgreSQL real para validar inspeção sem insert, composição transacional, lock autônomo, três permissões, bloqueio sem insert, retry, expiração, isolamento entre origens e concorrência.
 
-### 13. `backend/src/demo/demo-credentials.service.spec.ts`
+### 13. `apps/sistema-os/backend/src/demo/demo-credentials.service.spec.ts`
 
 Valida formatos, comprimentos, alfabeto sem `0`, `o`, `1` e `l`, operações independentes de login e senha e ausência de `Math.random()`.
 
-### 14. `backend/src/demo/demo-access.controller.spec.ts`
+### 14. `apps/sistema-os/backend/src/demo/demo-access.controller.spec.ts`
 
 Exercita geração HTTP, CSRF, shell mínimo, credenciais, limites, colisões e rollback. Cobre primeiro login nos dois modos, senha errada sem ativação, prazos, capacidade ativa, concorrência com um único seed, falhas SQL recuperadas por SAVEPOINT e disputas pela última vaga sem perder FALHA. Inclui retry, PROVISIONANDO inesperado e falha de persistência da sessão sem reprovisionamento. Sessões injetadas em estados inválidos são destruídas.
 
-### 15. `backend/src/database/demo-generation-attempt-integrity.spec.ts`
+### 15. `apps/sistema-os/backend/src/database/demo-generation-attempt-integrity.spec.ts`
 
 Confirma no PostgreSQL a tabela independente de tentativas, os tipos físicos, o default temporal, a ordem do índice composto e a rejeição de hashes fora do formato hexadecimal minúsculo de 64 caracteres.
 
-### 16. `backend/src/demo/demo-seed.service.ts`
+### 16. `apps/sistema-os/backend/src/demo/demo-seed.service.ts`
 
 Provisiona o shell existente dentro da transação do login. VAZIO não acrescenta entidades; EXEMPLO cria dois funcionários fictícios, seis clientes, oito ordens em estados variados e dez snapshots de versões anteriores, usando o administrador existente como autor e contador final oito.
 
-### 17. `backend/src/demo/demo-provisioning.service.ts`
+### 17. `apps/sistema-os/backend/src/demo/demo-provisioning.service.ts`
 
 Serializa ativação e retry sob locks global → origem. PENDENTE exige janela de uma hora e vaga ativa; FALHA reutiliza sua vaga enquanto vigente. Abre SAVEPOINT após PROVISIONANDO: sucesso conclui PRONTA com `provisionedAt` pelo relógio PostgreSQL; falha reverte seed/conclusão e confirma FALHA na mesma transação externa, retendo a capacidade. A exception só é lançada após esse commit. Interrupção da transação externa reverte ao estado anterior, sem PROVISIONANDO abandonado. Releitura impede repetir seed; PROVISIONANDO preexistente retorna conflito.
 
 Retorna `true` somente se esta chamada efetivamente concluiu PRONTA e a transação confirmou; releitura de PRONTA retorna `false`. O sinal interno não altera o lifecycle nem a resposta HTTP.
 
-### 18. `backend/src/demo/demo-environment-time.ts`
+### 18. `apps/sistema-os/backend/src/demo/demo-environment-time.ts`
 
 Lê criação e expiração por epoch para a autenticação e o provisionamento DEMO. Evita deslocamentos na decodificação de TIMESTAMPTZ do adapter quando o PostgreSQL usa fuso diferente de UTC; não altera configuração global do banco ou a URL Prisma.
 
@@ -340,27 +342,27 @@ Reúne token CSRF, login, troca obrigatória de senha, logout e consulta da sess
 
 Mantém server-side somente a identidade necessária e o token anti-CSRF; as respostas expõem apenas o contexto autenticado seguro.
 
-Diretório principal: `backend/src/auth/`
+Diretório principal: `apps/sistema-os/backend/src/auth/`
 
-### 1. `backend/src/auth/auth-session-response.dto.ts`
+### 1. `apps/sistema-os/backend/src/auth/auth-session-response.dto.ts`
 
 Define o contrato seguro retornado no login e na sessão atual: identidade, perfil, funcionário e estado de troca obrigatória, sem hash, senha ou identificador de sessão.
 
-### 2. `backend/src/auth/auth-login.schema.ts`
+### 2. `apps/sistema-os/backend/src/auth/auth-login.schema.ts`
 
 Declara o schema Zod de login, removendo espaços externos e normalizando maiúsculas/minúsculas apenas no e-mail; a senha permanece inalterada.
 
-### 3. `backend/src/auth/auth.service.ts`
+### 3. `apps/sistema-os/backend/src/auth/auth.service.ts`
 
 Consulta globalmente por `emailLogin`, valida o candidato e verifica a senha com `PasswordService` antes de ativar uma DEMO PENDENTE ou repetir uma FALHA. O PRINCIPAL preserva o comportamento anterior. Recarrega o contexto após o provisionamento; sessões continuam exigindo DEMO PRONTA e vigente, com expiração lida por epoch. A identidade persistida é somente `usuarioId`, e a resposta não expõe `environmentId`.
 
 `authenticate()` retorna internamente o usuário e `demoProvisionedNow`, derivado do resultado de `ensureReady()`, sem consulta adicional. PRINCIPAL e DEMO já PRONTA retornam sinal falso; o DTO público permanece igual.
 
-### 4. `backend/src/auth/first-access-password.schema.ts`
+### 4. `apps/sistema-os/backend/src/auth/first-access-password.schema.ts`
 
 Declara o schema Zod da troca obrigatória de senha: exige senha entre 8 e 128 caracteres sem transformações e confirmação idêntica.
 
-### 5. `backend/src/auth/auth.controller.ts`
+### 5. `apps/sistema-os/backend/src/auth/auth.controller.ts`
 
 Expõe CSRF, login, troca de senha de primeiro acesso, logout e consulta da sessão.
 
@@ -370,37 +372,37 @@ As rotas autenticadas usam `SessionGuard`. Login cria sessão somente após vali
 
 Após `saveSession()` e montagem da resposta, o login que provisionou registra `response.once('finish', ...)` antes de retornar. Somente `finish` com HTTP 200 solicita cleanup oportunístico; nenhum cleanup é solicitado em `/demo/access`, login regular de PRONTA, PRINCIPAL ou erro.
 
-### 6. `backend/src/auth/auth.module.ts`
+### 6. `apps/sistema-os/backend/src/auth/auth.module.ts`
 
 Compõe controller, service e guards de autenticação com banco, infraestrutura de senhas e `DemoModule`.
 
 Exporta o serviço e os guards de sessão, primeiro acesso e perfil para módulos de domínio protegidos.
 
-### 7. `backend/src/auth/authenticated-user.interface.ts`
+### 7. `apps/sistema-os/backend/src/auth/authenticated-user.interface.ts`
 
 Define o principal seguro tipado disponível somente no request autenticado, incluindo o `environmentId` derivado do banco sem hash de senha ou dados adicionais persistidos na sessão.
 
-### 8. `backend/src/auth/authenticated-request.d.ts`
+### 8. `apps/sistema-os/backend/src/auth/authenticated-request.d.ts`
 
 Amplia o tipo de `Express.Request` com `authenticatedUser`, o contexto seguro da requisição preenchido pelo guard de sessão.
 
-### 9. `backend/src/auth/auth-errors.ts`
+### 9. `apps/sistema-os/backend/src/auth/auth-errors.ts`
 
 Centraliza os códigos e mensagens estáveis usados pelos guards CSRF, de sessão, primeiro acesso e perfil.
 
-### 10. `backend/src/auth/roles.decorator.ts`
+### 10. `apps/sistema-os/backend/src/auth/roles.decorator.ts`
 
 Declara a metadata reutilizável de perfis permitidos para handlers e controllers, usando exclusivamente o enum `Perfil` do Prisma.
 
-### 11. `backend/src/auth/csrf-token.ts`
+### 11. `apps/sistema-os/backend/src/auth/csrf-token.ts`
 
 Gera tokens CSRF aleatórios com `crypto` nativo e compara os valores recebidos em tempo seguro, sem registrar ou transferir o token por cookie próprio.
 
-### 12. `backend/src/auth/csrf-token-response.dto.ts`
+### 12. `apps/sistema-os/backend/src/auth/csrf-token-response.dto.ts`
 
 Define a resposta documentada de `GET /auth/csrf`, expondo somente o token vinculado à sessão server-side atual.
 
-### 13. `backend/src/auth/auth-demo-cleanup.spec.ts`
+### 13. `apps/sistema-os/backend/src/auth/auth-demo-cleanup.spec.ts`
 
 Valida no PostgreSQL e HTTP reais o sinal interno de PENDENTE/FALHA, ausência de sinal para PRINCIPAL/PRONTA e releitura após outra chamada provisionar. Cobre gatilho após sessão salva, contrato público preservado, login inválido, seed com falha e resposta HTTP concluída enquanto cleanup controlado permanece pendente. Timers falsos comprovam 10s; rejection posterior preserva sessão e estado PRONTA.
 
@@ -410,23 +412,23 @@ Valida no PostgreSQL e HTTP reais o sinal interno de PENDENTE/FALHA, ausência d
 
 Reúne guards reutilizáveis que separam a validação CSRF, autenticação, bloqueio de primeiro acesso e autorização por perfil das futuras policies de recurso.
 
-Diretório principal: `backend/src/auth/guards/`
+Diretório principal: `apps/sistema-os/backend/src/auth/guards/`
 
-### 1. `backend/src/auth/guards/session.guard.ts`
+### 1. `apps/sistema-os/backend/src/auth/guards/session.guard.ts`
 
 Exige `session.usuarioId`, recarrega a conta ativa com Funcionário e Environment, destrói sessões inválidas ou com contexto incoerente e disponibiliza no request o principal seguro com `environmentId` server-side.
 
-### 2. `backend/src/auth/guards/first-access-completed.guard.ts`
+### 2. `apps/sistema-os/backend/src/auth/guards/first-access-completed.guard.ts`
 
 Usa o principal já carregado pelo `SessionGuard` para bloquear o acesso normal enquanto `deveAlterarSenha` estiver ativo, sem nova consulta ao PostgreSQL.
 
-### 3. `backend/src/auth/guards/role.guard.ts`
+### 3. `apps/sistema-os/backend/src/auth/guards/role.guard.ts`
 
 Lê com `Reflector` os perfis declarados por `@Roles(...)`.
 
 Compara-os somente com o perfil já autenticado no request, sem consultar o PostgreSQL nem aplicar regras de recurso.
 
-### 4. `backend/src/auth/guards/csrf.guard.ts`
+### 4. `apps/sistema-os/backend/src/auth/guards/csrf.guard.ts`
 
 Protege globalmente métodos mutáveis ao comparar, em tempo seguro, o cabeçalho `X-CSRF-Token` ao token da sessão; permite somente `GET`, `HEAD` e `OPTIONS` sem token.
 
@@ -438,25 +440,25 @@ Reúne criação, edição cadastral, situação, exclusão e consultas reais de
 
 Expõe contratos HTTP estritos, sem carregar relações ou Ordens de Serviço. A consulta de CEP usa ViaCEP sem persistir dados nem expor o contrato externo ao React.
 
-Diretório principal: `backend/src/clients/`
+Diretório principal: `apps/sistema-os/backend/src/clients/`
 
-### 1. `backend/src/clients/client-id.schema.ts`
+### 1. `apps/sistema-os/backend/src/clients/client-id.schema.ts`
 
 Valida com Zod o parâmetro `id` das consultas de detalhe como UUID.
 
-### 2. `backend/src/clients/client-list-query.schema.ts`
+### 2. `apps/sistema-os/backend/src/clients/client-list-query.schema.ts`
 
 Valida com Zod a query da listagem, aceita `active`, `inactive` e `all`, aplica `active` como padrão e remove espaços externos da busca.
 
-### 3. `backend/src/clients/client-list-item-response.dto.ts`
+### 3. `apps/sistema-os/backend/src/clients/client-list-item-response.dto.ts`
 
 Documenta no OpenAPI o DTO compacto da listagem, contendo somente identificação, nome, telefone, documento e situação.
 
-### 4. `backend/src/clients/client-detail-response.dto.ts`
+### 4. `apps/sistema-os/backend/src/clients/client-detail-response.dto.ts`
 
 Documenta no OpenAPI o DTO completo da consulta de detalhe, sem relações ou Ordens de Serviço.
 
-### 5. `backend/src/clients/clients.service.ts`
+### 5. `apps/sistema-os/backend/src/clients/clients.service.ts`
 
 Orquestra criação, edição, situação, exclusão e consultas de Clientes por `DatabaseService`, sempre limitadas ao Environment autenticado.
 
@@ -466,7 +468,7 @@ Antes da exclusão, verifica Ordens de Serviço e traduz a regra contextual e a 
 
 Também traduz `P2002` de documento em `CLIENT_DOCUMENT_ALREADY_EXISTS`, compõe filtro e busca do Prisma, ordena por nome e id e retorna `CLIENT_NOT_FOUND` quando necessário.
 
-### 6. `backend/src/clients/clients.controller.ts`
+### 6. `apps/sistema-os/backend/src/clients/clients.controller.ts`
 
 Define as rotas de criação, edição, situação, exclusão, listagem, detalhe e CEP de Clientes.
 
@@ -474,47 +476,47 @@ Aplica `SessionGuard` e `FirstAccessCompletedGuard` às rotas protegidas.
 
 Situação e exclusão também exigem `RoleGuard` para Administrador. Entradas e contratos são validados com Zod e documentados no OpenAPI.
 
-### 7. `backend/src/clients/clients.module.ts`
+### 7. `apps/sistema-os/backend/src/clients/clients.module.ts`
 
 Agrupa o domínio de Clientes, importando banco e autenticação e registrando controller, service e a integração de CEP via ViaCEP.
 
-### 8. `backend/src/clients/client-document.validator.ts`
+### 8. `apps/sistema-os/backend/src/clients/client-document.validator.ts`
 
 Centraliza a validação reutilizável dos dígitos verificadores de CPF e CNPJ, incluindo a rejeição de sequências repetidas.
 
-### 9. `backend/src/clients/client-create.schema.ts`
+### 9. `apps/sistema-os/backend/src/clients/client-create.schema.ts`
 
 Expõe o schema estrito de criação de Cliente a partir do contrato cadastral compartilhado, impedindo mass assignment de campos administrativos.
 
-### 10. `backend/src/clients/client-registration.schema.ts`
+### 10. `apps/sistema-os/backend/src/clients/client-registration.schema.ts`
 
 Centraliza o schema cadastral estrito compartilhado por criação e edição, normalizando nome, endereço, telefone, CPF/CNPJ, CEP, e-mail, complemento e UF antes do service.
 
-### 11. `backend/src/clients/client-update.schema.ts`
+### 11. `apps/sistema-os/backend/src/clients/client-update.schema.ts`
 
 Expõe o schema estrito de edição cadastral de Cliente a partir do contrato compartilhado, mantendo `ativo` e outros campos administrativos fora da entrada.
 
-### 12. `backend/src/clients/client-status-update.schema.ts`
+### 12. `apps/sistema-os/backend/src/clients/client-status-update.schema.ts`
 
 Declara o schema estrito da alteração administrativa de situação, aceitando exclusivamente `status` com `active` ou `inactive`.
 
-Diretório de integração: `backend/src/clients/cep/`
+Diretório de integração: `apps/sistema-os/backend/src/clients/cep/`
 
-### 13. `backend/src/clients/cep/cep.schema.ts`
+### 13. `apps/sistema-os/backend/src/clients/cep/cep.schema.ts`
 
 Centraliza o schema reutilizável de CEP, removendo caracteres não numéricos e exigindo exatamente oito dígitos para parâmetros HTTP e cadastro de Clientes.
 
-### 14. `backend/src/clients/cep/cep-lookup-response.dto.ts`
+### 14. `apps/sistema-os/backend/src/clients/cep/cep-lookup-response.dto.ts`
 
 Documenta o contrato interno e estável da consulta de CEP, expondo somente logradouro, bairro, cidade e UF, todos anuláveis para respostas parciais.
 
-### 15. `backend/src/clients/cep/via-cep.provider.ts`
+### 15. `apps/sistema-os/backend/src/clients/cep/via-cep.provider.ts`
 
 Encapsula URL, formato externo, `fetch` server-side e timeout explícito do ViaCEP.
 
 Traduz `localidade` para `cidade`, oculta campos do fornecedor e distingue indisponibilidade técnica da ausência de CEP.
 
-### 16. `backend/src/clients/cep/cep-lookup.service.ts`
+### 16. `apps/sistema-os/backend/src/clients/cep/cep-lookup.service.ts`
 
 Orquestra a consulta de CEP sem acessar persistência e converte as saídas do provider nos contratos HTTP `CEP_NOT_FOUND` e `CEP_PROVIDER_UNAVAILABLE`.
 
@@ -528,25 +530,25 @@ Expõe a criação, as edições cadastral e administrativa conjunta, as situaç
 
 O cadastro cria somente `Funcionario`; a conta é criada separadamente para um funcionário sem acesso. As consultas e respostas retornam projeções explícitas, sem credenciais, sessões, Ordens de Serviço ou histórico.
 
-Diretório principal: `backend/src/employees/`
+Diretório principal: `apps/sistema-os/backend/src/employees/`
 
-### 1. `backend/src/employees/employee-id.schema.ts`
+### 1. `apps/sistema-os/backend/src/employees/employee-id.schema.ts`
 
 Valida com Zod o parâmetro `id` da consulta de detalhe como UUID.
 
-### 2. `backend/src/employees/employee-list-query.schema.ts`
+### 2. `apps/sistema-os/backend/src/employees/employee-list-query.schema.ts`
 
 Valida com Zod a query da listagem, aceita `active`, `inactive` e `all`, aplica `active` como padrão e trata busca vazia após trim como ausente.
 
-### 3. `backend/src/employees/employee-list-item-response.dto.ts`
+### 3. `apps/sistema-os/backend/src/employees/employee-list-item-response.dto.ts`
 
 Documenta no OpenAPI o DTO compacto da listagem, incluindo a conta opcional com situação e perfil, sem dados de credencial.
 
-### 4. `backend/src/employees/employee-detail-response.dto.ts`
+### 4. `apps/sistema-os/backend/src/employees/employee-detail-response.dto.ts`
 
 Documenta no OpenAPI o DTO de detalhe, incluindo data de criação e a conta opcional com e-mail de login, situação e perfil.
 
-### 5. `backend/src/employees/employees.service.ts`
+### 5. `apps/sistema-os/backend/src/employees/employees.service.ts`
 
 Cria, edita, altera as situações do cadastro e da conta, altera perfil e e-mail de login, redefine senha, cria explicitamente a conta e consulta `Funcionario` e sua conta `Usuario` opcional por `DatabaseService`, com `select` explícito e escopo obrigatório do Environment autenticado.
 
@@ -568,61 +570,61 @@ Na redefinição administrativa de senha, gera sempre um novo hash Argon2id pelo
 
 Traduz filtro e busca por nome, e-mail e telefone normalizado, ordena por nome e id, projeta `usuario` para `conta` e retorna `EMPLOYEE_NOT_FOUND` quando necessário.
 
-### 6. `backend/src/employees/employees.controller.ts`
+### 6. `apps/sistema-os/backend/src/employees/employees.controller.ts`
 
 Define criação, edição cadastral, edição administrativa conjunta, situação do Funcionário, criação, situação, perfil, e-mail de login e redefinição de senha da conta de acesso, listagem e detalhe de Funcionários.
 
 O controller exige `SessionGuard`, `FirstAccessCompletedGuard` e `RoleGuard` de Administrador. Mutações recebem CSRF global; entradas, DTOs e erros são descritos com Zod e OpenAPI.
 
-### 7. `backend/src/employees/employees.module.ts`
+### 7. `apps/sistema-os/backend/src/employees/employees.module.ts`
 
 Agrupa o domínio de Funcionários, importando autenticação, senha, banco e sessões e registrando controller e service.
 
-### 8. `backend/src/employees/employee-create.schema.ts`
+### 8. `apps/sistema-os/backend/src/employees/employee-create.schema.ts`
 
 Expõe o body estrito de criação a partir do cadastro compartilhado, adicionando exclusivamente a situação inicial.
 
-### 9. `backend/src/employees/employee-registration.schema.ts`
+### 9. `apps/sistema-os/backend/src/employees/employee-registration.schema.ts`
 
 Centraliza o body cadastral estrito compartilhado pela criação e edição de Funcionários.
 
 Normaliza nome, telefone e e-mail de contato antes da persistência, sem incluir situação ou dados de conta.
 
-### 10. `backend/src/employees/employee-update.schema.ts`
+### 10. `apps/sistema-os/backend/src/employees/employee-update.schema.ts`
 
 Expõe o body estrito de edição cadastral a partir do contrato compartilhado, mantendo situação, conta e campos administrativos fora da entrada.
 
-### 11. `backend/src/employees/employee-status-update.schema.ts`
+### 11. `apps/sistema-os/backend/src/employees/employee-status-update.schema.ts`
 
 Declara o body estrito da alteração de situação, aceitando exclusivamente `status` com `active` ou `inactive`.
 
-### 12. `backend/src/employees/employee-access-create.schema.ts`
+### 12. `apps/sistema-os/backend/src/employees/employee-access-create.schema.ts`
 
 Valida com Zod estrito a criação administrativa de conta por e-mail de login, perfil público, senha inicial e confirmação.
 
 Normaliza somente o e-mail de login; preserva a senha exatamente como recebida, exige de 8 a 128 caracteres e impede persistência da confirmação.
 
-### 13. `backend/src/employees/employee-access-status-update.schema.ts`
+### 13. `apps/sistema-os/backend/src/employees/employee-access-status-update.schema.ts`
 
 Declara com Zod estrito o body da administração da conta de acesso, aceitando exclusivamente `status` com `active` ou `inactive`.
 
-### 14. `backend/src/employees/employee-access-profile-update.schema.ts`
+### 14. `apps/sistema-os/backend/src/employees/employee-access-profile-update.schema.ts`
 
 Declara com Zod estrito o body da alteração de perfil da conta, aceitando exclusivamente o contrato público `profile` com `administrator` ou `employee`.
 
-### 15. `backend/src/employees/employee-login-email.schema.ts`
+### 15. `apps/sistema-os/backend/src/employees/employee-login-email.schema.ts`
 
 Centraliza a regra de e-mail de login reutilizada pela criação e alteração da conta: string, trim, lowercase, valor não vazio e formato válido.
 
-### 16. `backend/src/employees/employee-access-login-email-update.schema.ts`
+### 16. `apps/sistema-os/backend/src/employees/employee-access-login-email-update.schema.ts`
 
 Declara com Zod estrito o body da alteração de e-mail de login, aceitando exclusivamente `loginEmail` com a regra compartilhada da conta.
 
-### 17. `backend/src/employees/employee-access-password-reset.schema.ts`
+### 17. `apps/sistema-os/backend/src/employees/employee-access-password-reset.schema.ts`
 
 Declara com Zod estrito o body da redefinição administrativa de senha, exigindo senha temporária e confirmação idênticas conforme a política compartilhada de 8 a 128 caracteres sem normalização.
 
-### 18. `backend/src/employees/employee-administrative-update.schema.ts`
+### 18. `apps/sistema-os/backend/src/employees/employee-administrative-update.schema.ts`
 
 Declara o body estrito da edição administrativa conjunta, reunindo cadastro e situação do Funcionário com e-mail, perfil e situação da conta opcional, sem incluir senha ou criação de acesso.
 
@@ -632,33 +634,33 @@ Declara o body estrito da edição administrativa conjunta, reunindo cadastro e 
 
 Expõe o autoatendimento pessoal para qualquer conta autenticada com primeiro acesso concluído, sem reutilizar nem flexibilizar as rotas administrativas de Funcionários.
 
-Diretório principal: `backend/src/profile/`
+Diretório principal: `apps/sistema-os/backend/src/profile/`
 
-### 1. `backend/src/profile/profile-update.schema.ts`
+### 1. `apps/sistema-os/backend/src/profile/profile-update.schema.ts`
 
 Reutiliza as regras cadastrais de nome e telefone em um body Zod estrito que rejeita identificadores, e-mails, perfil, situações e qualquer campo adicional.
 
-### 2. `backend/src/profile/profile-password-update.schema.ts`
+### 2. `apps/sistema-os/backend/src/profile/profile-password-update.schema.ts`
 
 Valida senha atual, nova senha pela política compartilhada de 8 a 128 caracteres e confirmação idêntica, sem normalizar credenciais e sem aceitar campos extras.
 
-### 3. `backend/src/profile/profile-response.dto.ts`
+### 3. `apps/sistema-os/backend/src/profile/profile-response.dto.ts`
 
 Documenta a projeção segura de nome, telefone, e-mail de contato, perfil e situações do Funcionário e da conta, sem IDs, credenciais, sessão ou dados internos.
 
-### 4. `backend/src/profile/profile.service.ts`
+### 4. `apps/sistema-os/backend/src/profile/profile.service.ts`
 
 Consulta e atualiza nome e telefone exclusivamente pelo `funcionarioId`, `usuarioId` e `environmentId` do principal autenticado. Na troca voluntária, verifica a senha atual com `PasswordService`, grava novo hash sem alterar `deveAlterarSenha` e revoga todas as sessões da própria conta.
 
-### 5. `backend/src/profile/profile.controller.ts`
+### 5. `apps/sistema-os/backend/src/profile/profile.controller.ts`
 
 Expõe `GET /profile`, `PUT /profile` e `PUT /profile/password` com `SessionGuard`, `FirstAccessCompletedGuard`, validação Zod, documentação OpenAPI e CSRF global nas mutações. Não recebe `employeeId` do cliente e limpa o cookie atual após a troca de senha.
 
-### 6. `backend/src/profile/profile.module.ts`
+### 6. `apps/sistema-os/backend/src/profile/profile.module.ts`
 
 Compõe o controller e o serviço de autoatendimento com autenticação, banco, senha e store server-side de sessões.
 
-### 7. `backend/src/profile/profile.controller.spec.ts`
+### 7. `apps/sistema-os/backend/src/profile/profile.controller.spec.ts`
 
 Exercita consulta, atualização pessoal, senha, revogação de sessões e isolamento dos endpoints administrativos pela aplicação NestJS e pelo PostgreSQL reais.
 
@@ -668,17 +670,17 @@ Exercita consulta, atualização pessoal, senha, revogação de sessões e isola
 
 Disponibiliza o hash persistível e a verificação segura de senhas para os futuros fluxos de autenticação, sem criar endpoints ou sessões.
 
-Diretório principal: `backend/src/auth/password/`
+Diretório principal: `apps/sistema-os/backend/src/auth/password/`
 
-### 1. `backend/src/auth/password/password.module.ts`
+### 1. `apps/sistema-os/backend/src/auth/password/password.module.ts`
 
 Registra e exporta `PasswordService` para que módulos futuros possam receber a infraestrutura de senhas por injeção de dependência; é composto pelo módulo raiz sem expor rotas.
 
-### 2. `backend/src/auth/password/password.service.ts`
+### 2. `apps/sistema-os/backend/src/auth/password/password.service.ts`
 
 Gera hashes Argon2id com salt automático e parâmetros seguros, e verifica a senha recebida pelo mecanismo seguro da própria biblioteca, sem armazenar ou registrar a senha original.
 
-### 3. `backend/src/auth/password/password.schema.ts`
+### 3. `apps/sistema-os/backend/src/auth/password/password.schema.ts`
 
 Centraliza a política autoritativa de senha reutilizada na criação da conta, no primeiro acesso e na redefinição administrativa: string exata de 8 a 128 caracteres, sem trim ou outra normalização.
 
@@ -688,27 +690,27 @@ Centraliza a política autoritativa de senha reutilizada na criação da conta, 
 
 Configura o ciclo de sessão HTTP sem rotas de autenticação, mantendo no cookie somente o identificador assinado e no PostgreSQL os dados da sessão.
 
-Diretório principal: `backend/src/auth/session/`
+Diretório principal: `apps/sistema-os/backend/src/auth/session/`
 
-### 1. `backend/src/auth/session/session.middleware.ts`
+### 1. `apps/sistema-os/backend/src/auth/session/session.middleware.ts`
 
 Centraliza as opções do `express-session`: cookie `HttpOnly`, `SameSite=Lax`, `Secure` condicionado à produção, duração configurável e ausência de renovação por acesso.
 
-### 2. `backend/src/auth/session/session-store.service.ts`
+### 2. `apps/sistema-os/backend/src/auth/session/session-store.service.ts`
 
 Cria o pool e o store `connect-pg-simple` sobre a tabela `session` e fornece o middleware global. Normaliza os aliases SSL seguros somente na conexão desse pool, sem reescrever `DATABASE_URL` ou a conexão Prisma.
 
 Desabilita a criação automática da tabela e o touch renovável. Revoga sessões por `usuarioId` persistido no JSON e encerra store e pool no shutdown.
 
-### 3. `backend/src/auth/session/session.module.ts`
+### 3. `apps/sistema-os/backend/src/auth/session/session.module.ts`
 
 Registra e exporta `SessionStoreService` para a composição do módulo raiz e o bootstrap da aplicação.
 
-### 4. `backend/src/auth/session/session-data.d.ts`
+### 4. `apps/sistema-os/backend/src/auth/session/session-data.d.ts`
 
 Amplia o tipo de sessão do `express-session` com `usuarioId` e `csrfToken`, os únicos dados próprios persistidos pelo fluxo de autenticação e proteção CSRF.
 
-### 5. `backend/src/auth/session/session-pg-connection.ts`
+### 5. `apps/sistema-os/backend/src/auth/session/session-pg-connection.ts`
 
 Torna `prefer`, `require` e `verify-ca` explicitamente `verify-full` no consumidor pg da sessão, preservando a verificação atual de certificado e hostname. Conserva parâmetros, certificados e credenciais; URLs sem alias ou com `uselibpqcompat=true` permanecem intactas.
 
@@ -718,11 +720,11 @@ Torna `prefer`, `require` e `verify-ca` explicitamente `verify-full` no consumid
 
 Define o CORS do backend para o frontend configurado, independente da validação CSRF e das regras de autorização do servidor.
 
-Diretório principal: `backend/src/common/http/`
+Diretório principal: `apps/sistema-os/backend/src/common/http/`
 
-### 1. `backend/src/common/http/cors.options.ts`
+### 1. `apps/sistema-os/backend/src/common/http/cors.options.ts`
 
-Centraliza a origem explícita, credenciais, métodos e cabeçalhos permitidos pelo CORS, incluindo `X-CSRF-Token` e sem usar wildcard.
+Centraliza a origem explícita, credenciais, métodos e cabeçalhos permitidos pelo CORS, incluindo `X-CSRF-Token` e sem usar wildcard. A origem única HTTPS do OS é suficiente; a leitura por origens divergentes é bloqueada pelo navegador, independente dos guards.
 
 ---
 
@@ -730,9 +732,9 @@ Centraliza a origem explícita, credenciais, métodos e cabeçalhos permitidos p
 
 Reconhece o protocolo HTTPS original quando a produção está atrás do edge/load balancer, sem confiar em uma cadeia arbitrária de proxies.
 
-Diretório principal: `backend/src/common/http/`
+Diretório principal: `apps/sistema-os/backend/src/common/http/`
 
-### 1. `backend/src/common/http/trust-proxy.config.ts`
+### 1. `apps/sistema-os/backend/src/common/http/trust-proxy.config.ts`
 
 Configura o Express para confiar exatamente no hop imediatamente anterior somente em produção e preserva o padrão sem confiança em proxy nos demais ambientes.
 
@@ -742,9 +744,9 @@ Configura o Express para confiar exatamente no hop imediatamente anterior soment
 
 Conecta schemas Zod ao ciclo de entrada HTTP do NestJS e mantém as issues disponíveis para a normalização global de erros.
 
-Diretório principal: `backend/src/common/validation/`
+Diretório principal: `apps/sistema-os/backend/src/common/validation/`
 
-### 1. `backend/src/common/validation/zod-validation.pipe.ts`
+### 1. `apps/sistema-os/backend/src/common/validation/zod-validation.pipe.ts`
 
 Recebe um schema Zod, retorna seu valor parseado e transforma falhas em `BadRequestException` com as issues originais disponíveis para o futuro filtro global.
 
@@ -756,19 +758,19 @@ Centraliza o contrato público de erros HTTP, sem regras de domínio específica
 
 Permite que services e policies informem status, código, mensagem e `details` estruturados.
 
-Diretório principal: `backend/src/common/errors/`
+Diretório principal: `apps/sistema-os/backend/src/common/errors/`
 
-### 1. `backend/src/common/errors/http-error-response.interface.ts`
+### 1. `apps/sistema-os/backend/src/common/errors/http-error-response.interface.ts`
 
 Define o formato público e estável das respostas de erro: `statusCode`, `code`, `message` e `details` opcional.
 
-### 2. `backend/src/common/errors/http-exception.filter.ts`
+### 2. `apps/sistema-os/backend/src/common/errors/http-exception.filter.ts`
 
 Normaliza exceções HTTP do NestJS, issues Zod e falhas inesperadas sanitizadas.
 
 Registra internamente falhas inesperadas sem serializar detalhes sensíveis e preserva os campos públicos de exceções HTTP futuras.
 
-### 3. `backend/src/common/errors/http-error-response.openapi.ts`
+### 3. `apps/sistema-os/backend/src/common/errors/http-error-response.openapi.ts`
 
 Registra o schema OpenAPI reutilizável `HttpErrorResponse`, que representa `statusCode`, `code`, `message` e `details` opcional sem alterar o contrato runtime.
 
@@ -778,9 +780,9 @@ Registra o schema OpenAPI reutilizável `HttpErrorResponse`, que representa `sta
 
 Configura a geração do contrato OpenAPI e expõe a Swagger UI, mantendo o schema dos erros alinhado ao formato normalizado em runtime.
 
-Diretório principal: `backend/src/common/openapi/`
+Diretório principal: `apps/sistema-os/backend/src/common/openapi/`
 
-### 1. `backend/src/common/openapi/openapi.setup.ts`
+### 1. `apps/sistema-os/backend/src/common/openapi/openapi.setup.ts`
 
 Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o schema global de erros e publica a Swagger UI em `/api/docs` com o JSON em `/api/docs/openapi.json`.
 
@@ -790,39 +792,39 @@ Centraliza os metadados OpenAPI, gera o documento da aplicação, registra o sch
 
 Expõe a situação atual da operação e o desempenho temporal no escopo autenticado, consumidos pelo Dashboard React. A situação não recebe período; o desempenho aceita um intervalo RFC3339 explícito ou todo o período.
 
-Diretório principal: `backend/src/dashboard/`
+Diretório principal: `apps/sistema-os/backend/src/dashboard/`
 
-### 1. `backend/src/dashboard/dashboard-situation-query.schema.ts`
+### 1. `apps/sistema-os/backend/src/dashboard/dashboard-situation-query.schema.ts`
 
 Valida estritamente a query opcional `employeeId` como UUID, impedindo filtros temporais e parâmetros não previstos pelo contrato.
 
-### 2. `backend/src/dashboard/dashboard-situation-response.dto.ts`
+### 2. `apps/sistema-os/backend/src/dashboard/dashboard-situation-response.dto.ts`
 
 Documenta os contratos discriminados do OpenAPI: situação global de Administrador e situação de Funcionário, sem dados de conta, contato, credenciais ou objetos Prisma.
 
-### 3. `backend/src/dashboard/dashboard-performance-query.schema.ts`
+### 3. `apps/sistema-os/backend/src/dashboard/dashboard-performance-query.schema.ts`
 
 Valida estritamente `employeeId`, `from` e `before`. Exige os dois limites RFC3339 com offset, `from < before` e interpreta a ausência de ambos como todo o período.
 
-### 4. `backend/src/dashboard/dashboard-performance-response.dto.ts`
+### 4. `apps/sistema-os/backend/src/dashboard/dashboard-performance-response.dto.ts`
 
 Documenta os contratos discriminados de desempenho: métricas globais do Administrador e métricas pessoais de Funcionário, incluindo valores monetários decimais serializados com duas casas.
 
-### 5. `backend/src/dashboard/dashboard.service.ts`
+### 5. `apps/sistema-os/backend/src/dashboard/dashboard.service.ts`
 
 Resolve o escopo a partir da sessão e agrega indicadores atuais e temporais no PostgreSQL dentro do Environment autenticado. Administrador sem `employeeId` recebe os totais desse Environment; com identificador recebe o contexto, inclusive histórico, de um Funcionário do mesmo Environment. Funcionário só consulta a própria responsabilidade atual e recebe `DASHBOARD_SCOPE_FORBIDDEN` ao tentar outro identificador.
 
 O desempenho usa `concluidoEm`, `canceladoEm` e `criadoEm` conforme a métrica, com soma/média `Decimal` no banco e uma consulta SQL parametrizada para clientes distintos e recorrentes. O SQL raw filtra pelo mesmo Environment tanto a OS candidata quanto a existência anterior correlacionada. As leituras correlatas ocorrem em transação `RepeatableRead`, preservando um snapshot lógico sem locks ou retentativas de escrita.
 
-### 6. `backend/src/dashboard/dashboard.controller.ts`
+### 6. `apps/sistema-os/backend/src/dashboard/dashboard.controller.ts`
 
 Expõe `GET /dashboard/situation` e `GET /dashboard/performance` protegidos por sessão, primeiro acesso concluído e perfis Administrador ou Funcionário. Documenta as queries, respostas discriminadas e erros de validação, autenticação, escopo e Funcionário inexistente.
 
-### 7. `backend/src/dashboard/dashboard.module.ts`
+### 7. `apps/sistema-os/backend/src/dashboard/dashboard.module.ts`
 
 Agrupa controller e service do Dashboard com autenticação e acesso ao banco, mantendo a agregação fora da feature de Ordens.
 
-### 8. `backend/src/dashboard/dashboard.controller.spec.ts`
+### 8. `apps/sistema-os/backend/src/dashboard/dashboard.controller.spec.ts`
 
 Exercita os endpoints HTTP contra PostgreSQL isolado, incluindo escopos, estados, visibilidade, autorização, validação, períodos, precisão decimal, recorrência, transferência de responsabilidade, primeiro acesso e limpeza das fixtures, históricos e sessões.
 
@@ -832,17 +834,17 @@ Exercita os endpoints HTTP contra PostgreSQL isolado, incluindo escopos, estados
 
 Implementa consultas reais contextualizadas, filtros de lista e opções seguras de responsáveis, criação e atualização transacionais para Administrador e Funcionário, incluindo geração e leitura de snapshots. Listagem, filtros, detalhe, histórico, criação e atualização estão integrados ao React.
 
-Diretório principal: `backend/src/orders/`
+Diretório principal: `apps/sistema-os/backend/src/orders/`
 
-### 1. `backend/src/orders/orders.module.ts`
+### 1. `apps/sistema-os/backend/src/orders/orders.module.ts`
 
 Compõe controller e service de Ordens com os módulos de autenticação e banco.
 
-### 2. `backend/src/orders/orders.controller.ts`
+### 2. `apps/sistema-os/backend/src/orders/orders.controller.ts`
 
 Expõe `POST /orders`, `PUT /orders/:id`, `GET /orders`, `GET /orders/responsibles`, `GET /orders/:id` e `GET /orders/:id/history`, aplica sessão, primeiro acesso e os dois perfis autenticados, valida entradas com Zod e documenta os contratos, erros estáveis e o cabeçalho CSRF no OpenAPI.
 
-### 3. `backend/src/orders/orders.service.ts`
+### 3. `apps/sistema-os/backend/src/orders/orders.service.ts`
 
 Cria OS em transação interativa `Serializable`, com retry limitado, locks de Cliente e responsável filtrados pelo Environment autenticado e incremento do contador desse Environment na mesma unidade de commit. Administrador seleciona um Funcionário ativo do mesmo Environment; Funcionário recebe a própria identidade autenticada, independentemente do body.
 
@@ -850,41 +852,41 @@ Também monta a consulta Prisma contextual com o Environment como predicado obri
 
 Atualiza a OS em transação `Serializable` sem lock pessimista sobre ela: aplica a policy de leitura na busca, valida a autorização da mutation antes de comparar a versão, aplica as regras de estado, revalida novo responsável ativo, detecta no-op e cria o snapshot pré-alteração antes do `updateMany` condicionado por `id + versao`. Assim, OS pública alheia retorna `ORDER_UPDATE_FORBIDDEN` antes de OCC, enquanto usuários autorizados continuam recebendo `ORDER_VERSION_CONFLICT` para versão stale. Mudanças reais incrementam a versão e atualizam as datas de conclusão ou cancelamento; conflitos concorrentes revertem snapshot e update.
 
-### 4. `backend/src/orders/order-list-query.schema.ts`
+### 4. `apps/sistema-os/backend/src/orders/order-list-query.schema.ts`
 
 Valida `status`, `search`, `responsibleId` e os datetimes RFC3339 `createdFrom` e `createdBefore`; remove espaços externos da busca, trata busca vazia como ausente e exige o intervalo não vazio `createdFrom < createdBefore`.
 
-### 5. `backend/src/orders/order-responsible-response.dto.ts`
+### 5. `apps/sistema-os/backend/src/orders/order-responsible-response.dto.ts`
 
 Declara a resposta mínima das opções de responsável, contendo somente `id` e `nome`.
 
-### 6. `backend/src/orders/order-id.schema.ts`
+### 6. `apps/sistema-os/backend/src/orders/order-id.schema.ts`
 
 Valida o UUID do detalhe.
 
-### 7. `backend/src/orders/order-list-item-response.dto.ts`
+### 7. `apps/sistema-os/backend/src/orders/order-list-item-response.dto.ts`
 
 Declara a projeção segura da listagem, incluindo Cliente, responsável, valor decimal serializado e `versao`.
 
-### 8. `backend/src/orders/order-detail-response.dto.ts`
+### 8. `apps/sistema-os/backend/src/orders/order-detail-response.dto.ts`
 
 Declara o detalhe seguro sem histórico, credenciais ou outras relações administrativas.
 
-### 9. `backend/src/orders/orders.controller.spec.ts`
+### 9. `apps/sistema-os/backend/src/orders/orders.controller.spec.ts`
 
 Exercita por HTTP criação, atualização, autorização contextual, não vazamento de existência, filtros, DTOs e proteções das rotas usando fixtures PostgreSQL descartáveis.
 
 Cobre regras por perfil e estado, normalização, transições e datas de negócio, snapshots sequenciais, autoria, no-op, rollback, OCC concorrente e stale request. Verifica também a prioridade entre autorização e OCC para OS própria, pública alheia e privada alheia, além da tentativa proibida de trocar responsável. Testa filtros por responsável e período, limites temporais inclusivo/exclusivo, opções deduplicadas sem dados administrativos, não revelação de responsáveis privados, numeração concorrente na criação e a corrida linearizável entre reassociação da OS e inativação do novo responsável.
 
-### 10. `backend/src/orders/order-history-item-response.dto.ts`
+### 10. `apps/sistema-os/backend/src/orders/order-history-item-response.dto.ts`
 
 Declara a projeção segura de cada snapshot: versão preservada, responsável histórico e autor identificado pelo `Usuario.id` e nome do Funcionário associado, sem dados de login ou credenciais.
 
-### 11. `backend/src/orders/order-create.schema.ts`
+### 11. `apps/sistema-os/backend/src/orders/order-create.schema.ts`
 
 Declara o body estrito de criação e os schemas reutilizáveis de valor e observações, normaliza os textos, limita a visibilidade e exige valor como string decimal canônica compatível com `Decimal(12,2)`.
 
-### 12. `backend/src/orders/order-update.schema.ts`
+### 12. `apps/sistema-os/backend/src/orders/order-update.schema.ts`
 
 Declara o body estrito da atualização atômica, exige versão inteira positiva e todos os campos do estado editável, aceita responsável opcional e reutiliza somente os contratos de valor e observações compartilhados com a criação.
 
@@ -894,112 +896,116 @@ Declara o body estrito da atualização atômica, exige versão inteira positiva
 
 Mapeia todos os arquivos autorais de teste atuais. Para cenários, resultados e limitações, consulte o catálogo em [Testes e validações](testing.md).
 
-Diretórios principais: `backend/src/` e `backend/test/`
+Diretórios principais: `apps/sistema-os/backend/src/` e `apps/sistema-os/backend/test/`
 
-### 1. `backend/src/app.controller.spec.ts`
+### 1. `apps/sistema-os/backend/src/app.controller.spec.ts`
 
 Verifica diretamente a resposta temporária do controller raiz.
 
-### 2. `backend/test/app.e2e-spec.ts`
+### 2. `apps/sistema-os/backend/test/app.e2e-spec.ts`
 
 Executa o smoke HTTP do endpoint raiz contra uma aplicação NestJS de teste.
 
-### 3. `backend/src/config/environment.validation.spec.ts`
+### 3. `apps/sistema-os/backend/src/config/environment.validation.spec.ts`
 
-Garante que a validação aceite a configuração mínima válida com padrões, rejeite variáveis obrigatórias ausentes e rejeite valores inválidos.
+Garante que a validação aceite a configuração mínima válida com padrões, rejeite variáveis obrigatórias ausentes e rejeite valores inválidos. Inclui a origem HTTPS final do OS em produção, além de URL ausente ou malformada.
 
-### 4. `backend/src/common/validation/zod-validation.pipe.spec.ts`
+### 4. `apps/sistema-os/backend/src/common/validation/zod-validation.pipe.spec.ts`
 
 Garante o retorno de valores parseados, a preservação de transformações Zod, a rejeição HTTP de entradas inválidas e a disponibilidade das issues no response da exceção.
 
-### 5. `backend/src/common/errors/http-exception.filter.spec.ts`
+### 5. `apps/sistema-os/backend/src/common/errors/http-exception.filter.spec.ts`
 
 Verifica a normalização global para Zod, exceções HTTP conhecidas, exceções de domínio futuras, falhas inesperadas sanitizadas e os campos obrigatórios do contrato público.
 
-### 6. `backend/src/auth/password/password.service.spec.ts`
+### 6. `apps/sistema-os/backend/src/auth/password/password.service.spec.ts`
 
 Verifica a geração de hashes Argon2id sem senha em texto puro, a validação correta e incorreta e o salt automático que gera hashes distintos para a mesma senha.
 
-### 7. `backend/src/auth/session/session.middleware.spec.ts`
+### 7. `apps/sistema-os/backend/src/auth/session/session.middleware.spec.ts`
 
 Verifica as opções do cookie, incluindo `HttpOnly`, `SameSite=Lax`, duração, ausência de domínio e `Secure` condicionado à produção.
 
-### 8. `backend/src/auth/session/session-store.service.spec.ts`
+### 8. `apps/sistema-os/backend/src/auth/session/session-store.service.spec.ts`
 
 Verifica persistência, expiração fixa, isolamento e revogação de sessões no PostgreSQL.
 
 Também cobre invalidação de CSRF, limpeza das fixtures e fechamento de store e pool.
 
-### 9. `backend/src/auth/auth.controller.spec.ts`
+### 9. `apps/sistema-os/backend/src/auth/auth.controller.spec.ts`
 
 Executa CSRF, login, primeiro acesso, logout e sessão contra PostgreSQL com fixtures removidas ao final.
 
 Cobre persistência, rotação, CORS, falhas genéricas, validação, revogação e ausência de dados sensíveis.
 
-### 10. `backend/src/auth/guards/session.guard.spec.ts`
+### 10. `apps/sistema-os/backend/src/auth/guards/session.guard.spec.ts`
 
 Verifica a rejeição de sessão ausente, a reconstrução do principal seguro, a destruição da sessão para conta inexistente ou inativa e a ausência de hash no contexto autenticado.
 
-### 11. `backend/src/auth/guards/first-access-completed.guard.spec.ts`
+### 11. `apps/sistema-os/backend/src/auth/guards/first-access-completed.guard.spec.ts`
 
 Verifica o bloqueio de acesso normal enquanto a troca obrigatória de senha está pendente.
 
 Também verifica a liberação após a troca, reutilizando somente o usuário já presente no request.
 
-### 12. `backend/src/auth/guards/role.guard.spec.ts`
+### 12. `apps/sistema-os/backend/src/auth/guards/role.guard.spec.ts`
 
 Verifica o decorator `@Roles(...)` e o `RoleGuard` para perfis permitidos, negados, múltiplos e ausentes.
 
 Também cobre a resposta estável de acesso proibido sem consulta adicional ao banco.
 
-### 13. `backend/src/auth/guards/csrf.guard.spec.ts`
+### 13. `apps/sistema-os/backend/src/auth/guards/csrf.guard.spec.ts`
 
 Verifica os métodos seguros liberados, a rejeição uniforme de token ausente ou inválido e a validação obrigatória para `POST`, `PUT`, `PATCH` e `DELETE`.
 
-### 14. `backend/src/clients/clients.controller.spec.ts`
+### 14. `apps/sistema-os/backend/src/clients/clients.controller.spec.ts`
 
 Executa o ciclo HTTP de Clientes contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
 
 Cobre cadastro, edição, situação, exclusão, consulta, CEP, guards, CSRF, constraints e OpenAPI.
 
-### 15. `backend/src/clients/cep/via-cep.provider.spec.ts`
+### 15. `apps/sistema-os/backend/src/clients/cep/via-cep.provider.spec.ts`
 
 Verifica que o provider aborta a chamada `fetch` quando o timeout explícito da dependência externa é atingido, sem consultar a internet.
 
-### 16. `backend/src/employees/employees.controller.spec.ts`
+### 16. `apps/sistema-os/backend/src/employees/employees.controller.spec.ts`
 
 Executa criação, edição cadastral e administrativa conjunta, situação, criação explícita, administração de credenciais e consultas administrativas de Funcionários contra PostgreSQL, com fixtures e sessões auxiliares removidas ao final.
 
 Cobre conta opcional, atomicidade e rollback da edição conjunta, criação e redefinição de credenciais Argon2id, normalização, validação, situação, OS ativa, último Administrador, sessões, primeiro acesso, concorrência, guards, CSRF, filtros, privacidade e OpenAPI.
 
-### 17. `backend/src/bootstrap/admin-bootstrap.service.spec.ts`
+### 17. `apps/sistema-os/backend/src/bootstrap/admin-bootstrap.service.spec.ts`
 
 Executa o bootstrap contra PostgreSQL `portfolio_test`, cobrindo criação e hash reais, recusa imutável após qualquer usuário do PRINCIPAL, configuração inválida sem escrita, rollback induzido por trigger temporário e duas transações concorrentes.
 
-### 18. `backend/src/common/http/trust-proxy.config.spec.ts`
+### 18. `apps/sistema-os/backend/src/common/http/trust-proxy.config.spec.ts`
 
 Verifica a confiança de exatamente um hop de proxy em produção e a preservação do padrão do Express em desenvolvimento e teste.
 
-### 19. `backend/src/database/environment-integrity.spec.ts`
+### 19. `apps/sistema-os/backend/src/database/environment-integrity.spec.ts`
 
 Valida no PostgreSQL o PRINCIPAL permanente, os campos e índices da DEMO, a expiração fixa, o hash de origem, a coerência do provisionamento, a máquina de estados e a imutabilidade da configuração. Também preserva a cobertura do contador por Environment, das unicidades e das FKs compostas contra relações cross-environment.
 
 Usa transações revertidas ao final de cada cenário; os Environments auxiliares existem somente durante o teste e não habilitam demonstrações na aplicação.
 
-### 20. `backend/src/environments/environment-isolation.spec.ts`
+### 20. `apps/sistema-os/backend/src/environments/environment-isolation.spec.ts`
 
 Exercita fixtures de Environment por HTTP e cobre ataques cross-environment em autenticação, filtros de Clientes e Funcionários, contas e `emailLogin`, regra do último Administrador, Ordens com histórico real, contador, Dashboard e perfil próprio com alteração de senha. As fixtures DEMO respeitam a configuração obrigatória e a expiração fixa; são inseridas por epoch para que a expiração natural corresponda ao instante real mesmo fora de UTC.
 
 Também comprova que a sessão armazena somente `usuarioId`, que o contexto autenticado deriva o Environment do banco, que a recorrência calculada por SQL raw e as métricas por funcionário não recebem dados externos, que números e documentos podem se repetir entre Environments e que as validações de serviço rejeitam associações cruzadas antes das FKs compostas.
 
-### 21. `backend/test/scripts/migrate-production.spec.mjs`
+### 21. `apps/sistema-os/backend/test/scripts/migrate-production.spec.mjs`
 
 Valida a credencial administrativa obrigatória, ausência de fallback, isolamento do environment do subprocesso, comando exclusivo de deploy, códigos de saída e erros sem segredos usando spawn e logger simulados, sem banco ou execução real de migrations.
 
-### 22. `backend/vitest.config.scripts.ts`
+### 22. `apps/sistema-os/backend/vitest.config.scripts.ts`
 
 Seleciona os testes operacionais `test/scripts/**/*.spec.mjs` para `npm run test:scripts`, sem carregar o setup PostgreSQL da suíte principal.
 
-### 23. `backend/src/auth/session/session-pg-connection.spec.ts`
+### 23. `apps/sistema-os/backend/src/auth/session/session-pg-connection.spec.ts`
 
 Verifica os três aliases SSL, TLS sem desabilitar validação ou hostname, ausência do warning após normalização, preservação de credenciais/parâmetros e semântica libpq explícita. Usa apenas URIs sintéticas e instancia `pg.Client` sem abrir conexão.
+
+### 24. `apps/sistema-os/backend/src/common/http/cors.options.spec.ts`
+
+Valida a negociação CORS por HTTP real com NestJS/Supertest e controller de teste sem sessão ou PostgreSQL: origem HTTPS final, credenciais, oito origens divergentes e preflight com `X-CSRF-Token`. Distingue divergência de header de uma rejeição HTTP; a aplicação real e o navegador são validados separadamente no catálogo.

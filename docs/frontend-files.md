@@ -1,6 +1,6 @@
 # Mapa da Estrutura Frontend
 
-Este documento organiza os arquivos autorais relevantes do frontend por famílias funcionais e estruturais.
+Este documento organiza os arquivos autorais relevantes dos frontends por famílias funcionais e estruturais. `apps/site/frontend/` contém somente o portfólio público; `apps/sistema-os/frontend/` contém somente o Sistema OS e sua DEMO; `frontend/` preserva a SPA original completa enquanto a modularização avança. Cada pacote mantém instalação e configuração próprias.
 
 Dentro de cada família, os arquivos seguem a ordem de criação. Quando surgiram no mesmo commit, a ordem é estrutural, pois o Git não registra uma sequência interna.
 
@@ -8,25 +8,28 @@ Destina-se a pessoas e agentes que precisam localizar responsabilidades no front
 
 As descrições representam a responsabilidade atual de cada arquivo. Este mapa não substitui o histórico do Git.
 
+As tabelas de implementações locais indicam as responsabilidades atuais de cada aplicação. Referências às entradas originais são somente documentais; não há imports entre frontends.
+
 ## Visão rápida
 
 | Área                    | Responsabilidade                                                                  | Arquivos |
 | ----------------------- | --------------------------------------------------------------------------------- | -------: |
-| Configuração e entrada  | Metadados, inicialização, rotas, providers, build e publicação do frontend        |        5 |
-| Infraestrutura HTTP     | Cliente Axios compartilhado, ambiente e CSRF em memória                           |        1 |
-| Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state                |        1 |
-| Estilos e tema          | Estilos globais e tokens visuais                                                  |        1 |
-| Componentes UI          | Elementos reutilizáveis da interface                                              |        7 |
-| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |        8 |
-| Layouts                 | Estruturas compartilhadas de páginas                                              |        4 |
-| Área pública            | Portfólio profissional e apresentação pública dos projetos                        |        2 |
-| Ambiente DEMO           | Geração pública de credenciais temporárias e continuação explícita para o login   |        3 |
-| Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       12 |
-| Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              |        7 |
-| Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       10 |
-| Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor      |        8 |
-| Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       13 |
-| Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       |        5 |
+| Configuração e entrada  | Metadados, inicialização, rotas, providers, build e publicação do frontend        |       19 |
+| Infraestrutura HTTP     | Cliente Axios compartilhado, ambiente e CSRF em memória                           |        2 |
+| Infraestrutura de dados | QueryClient compartilhado para cache e coordenação de server state                |        2 |
+| Estilos e tema          | Estilos globais e tokens visuais                                                  |        3 |
+| Componentes UI          | Elementos reutilizáveis da interface                                              |       14 |
+| Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           |       16 |
+| Layouts                 | Estruturas compartilhadas de páginas                                              |        9 |
+| Área pública            | Portfólio profissional e apresentação pública dos projetos                        |        4 |
+| Ambiente DEMO           | Geração pública de credenciais temporárias e continuação explícita para o login   |        6 |
+| Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas |       24 |
+| Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              |       14 |
+| Ordens de Serviço       | Listagem, detalhe, criação, edição, histórico, validação e integrações reais      |       20 |
+| Clientes                | Listagem, cadastro e edição reais, com arquivo legado de mock sem consumidor      |       16 |
+| Funcionários            | Listagem real, perfil, formulários validados, situação e gestão de acesso         |       24 |
+| Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       |       10 |
+| Navegação entre aplicações | Links externos configuráveis entre portfólio e Sistema OS |        2 |
 
 ## Sumário
 
@@ -45,6 +48,7 @@ As descrições representam a responsabilidade atual de cada arquivo. Este mapa 
 - [Clientes](#clientes)
 - [Funcionários](#funcionários)
 - [Meu perfil](#meu-perfil)
+- [Navegação entre aplicações](#navegação-entre-aplicações)
 
 ---
 
@@ -76,6 +80,25 @@ Configura desenvolvimento e build com os plugins de React e Tailwind CSS.
 
 Configura a publicação de `dist/` como Static Assets no Cloudflare Workers e o fallback de SPA para rotas do React Router.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 6 | `apps/site/frontend/README.md` | Execução do portfólio público, links configuráveis para o OS e build sem API. |
+| 7 | `apps/site/frontend/index.html` | Documento público, metadados e favicon preservados. |
+| 8 | `apps/site/frontend/src/main.tsx` | Monta React, BrowserRouter, fonte e CSS, sem providers de sessão, Query ou notificações. |
+| 9 | `apps/site/frontend/src/App.tsx` | Home, estudo de caso e fallback público de página não encontrada, sem redirecionar para login. |
+| 10 | `apps/site/frontend/vite.config.ts` | Plugins React e Tailwind e build independente do site. |
+| 11 | `apps/site/frontend/wrangler.jsonc` | Static Assets locais e fallback SPA com a identidade portfolio-site. |
+| 12 | `apps/sistema-os/frontend/README.md` | Execução do Sistema OS, variáveis da API/portfólio e validações locais. |
+| 13 | `apps/sistema-os/frontend/index.html` | Documento e metadados do Sistema OS, com favicon preservado. |
+| 14 | `apps/sistema-os/frontend/src/main.tsx` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 15 | `apps/sistema-os/frontend/src/App.tsx` | Rotas de autenticação, primeiro acesso, DEMO e áreas internas; raiz e fallback passam pelo login. |
+| 16 | `apps/sistema-os/frontend/vite.config.ts` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 17 | `apps/sistema-os/frontend/wrangler.jsonc` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 18 | `apps/site/frontend/.env.production.example` | URL pública do OS para o build de produção do site, sem carga automática pelo Vite ou segredo. |
+| 19 | `apps/sistema-os/frontend/.env.production.example` | URLs públicas os-api e portfólio para o build de produção do OS, sem alterar ambiente local ou sessão. |
+
 ---
 
 ## Infraestrutura HTTP
@@ -90,6 +113,12 @@ Cria a única instância Axios do frontend com `VITE_API_URL` e `withCredentials
 
 Anexa o token CSRF em memória às mutações, invalida-o após troca de sessão e recupera uma única vez mutations rejeitadas especificamente por `CSRF_INVALID_TOKEN`, obtendo o novo token pelo interceptor de request. Encaminha `AUTH_UNAUTHENTICATED` ao estado global de autenticação.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 2 | `apps/sistema-os/frontend/src/shared/lib/http/apiClient.ts` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+
 ---
 
 ## Infraestrutura de dados
@@ -102,6 +131,12 @@ Diretório principal: `frontend/src/shared/lib/query/`
 
 Cria o `QueryClient` único da SPA com os defaults do TanStack Query; é fornecido na raiz por `QueryClientProvider` e será consumido pelas features que migrarem para dados remotos.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 2 | `apps/sistema-os/frontend/src/shared/lib/query/queryClient.ts` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+
 ---
 
 ## Estilos e tema
@@ -113,6 +148,13 @@ Diretório principal: `frontend/src/`
 ### 1. `frontend/src/index.css`
 
 Importa o Tailwind CSS, define tokens de tipografia, raio e cores e mantém as animações discretas de entrada, saída e progresso das notificações, com redução de movimento para as transições.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 2 | `apps/site/frontend/src/index.css` | Tokens de tipografia e cores do portfólio, sem animações ou estilos de notificações. |
+| 3 | `apps/sistema-os/frontend/src/index.css` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
 
 ---
 
@@ -151,6 +193,18 @@ Campo de texto longo tipado com propriedades nativas. Padroniza dimensões, foco
 Combobox reutilizável sem dependências externas, com busca textual, seleção explícita e lista acessível.
 
 Integra valor e erro com formulários e atende aos seletores de Cliente e Responsável da OS.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 8 | `apps/sistema-os/frontend/src/components/ui/Button.tsx` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 9 | `apps/sistema-os/frontend/src/components/ui/Input.tsx` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 10 | `apps/sistema-os/frontend/src/components/ui/Label.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 11 | `apps/sistema-os/frontend/src/components/ui/Select.tsx` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 12 | `apps/sistema-os/frontend/src/components/ui/StatusBadge.tsx` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 13 | `apps/sistema-os/frontend/src/components/ui/Textarea.tsx` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/components/ui/SearchableSelect.tsx` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
 
 ---
 
@@ -196,6 +250,19 @@ Mantém a pilha global no topo da viewport, com a notificação mais recente pri
 
 Expõe o consumo seguro da API global de notificações e impede uso fora do `NotificationProvider`.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 9 | `apps/sistema-os/frontend/src/components/feedback/EmptyState.tsx` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 10 | `apps/sistema-os/frontend/src/components/feedback/ConfirmationDialog.tsx` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 11 | `apps/sistema-os/frontend/src/components/feedback/useUnsavedChangesGuard.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 12 | `apps/sistema-os/frontend/src/components/feedback/notificationConfig.ts` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 13 | `apps/sistema-os/frontend/src/components/feedback/NotificationContext.ts` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/components/feedback/Notification.tsx` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 15 | `apps/sistema-os/frontend/src/components/feedback/NotificationProvider.tsx` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
+| 16 | `apps/sistema-os/frontend/src/components/feedback/useNotifications.ts` | Mesma responsabilidade da entrada 8 desta família, em arquivo local independente. |
+
 ---
 
 ## Layouts
@@ -222,6 +289,16 @@ Reserva uma marca geométrica reutilizável e navegável, sem definir o logo fin
 
 Estrutura páginas públicas com marca profissional, navegação pelas seções do portfólio, `main` e rodapé. Preserva a navegação para as seções da Home quando usado por páginas internas do portfólio e oferece retorno ao sistema apenas para quem já tem sessão.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 5 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Marca, seções e rodapé públicos; acesso externo ao login do OS sem consulta de sessão. |
+| 6 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo. |
+| 7 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 8 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
+| 9 | `apps/sistema-os/frontend/src/components/layout/VisitorLayout.tsx` | Estrutura a DEMO com marca OS, login interno, acesso externo ao portfólio e conteúdo responsivo. |
+
 ---
 
 ## Área pública
@@ -237,6 +314,13 @@ Renderiza a Home profissional em `/` no `PublicLayout`, sem redirecionar automat
 ### 2. `frontend/src/features/public/pages/ServiceOrderProjectPage.tsx`
 
 Renderiza o estudo de caso público do Sistema de Gestão de Ordens de Serviço em `/projetos/sistema-os`. Organiza contexto, problema, solução, responsabilidade, escopo funcional e decisões técnicas, mantendo os dois CTAs “Testar aplicação” ligados ao fluxo real em `/demo` e a ação para consultar o código-fonte.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 3 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Apresentação profissional, projetos e contato; CTA externo para a DEMO do OS. |
+| 4 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso do Sistema OS, título do documento e dois CTAs externos de demonstração. |
 
 ---
 
@@ -259,6 +343,14 @@ Traduz os códigos reais de limite de pendências, ambientes ativos por origem, 
 Compõe a página no `PublicLayout`, com seleção acessível de EXEMPLO (padrão) ou VAZIO, loading, erros e apresentação de credenciais somente após geração explícita. Exibe prazos no fuso do navegador por `Intl.DateTimeFormat`, instrução contextual warning e cópia individual com feedback global e fallback manual.
 
 Mantém a resposta apenas no estado local e transfere e-mail/senha para `/login` por navigation state. Não grava credenciais em URL ou browser storage. Para uma sessão já autenticada, bloqueia a geração e oferece retorno ao Dashboard ou ao primeiro acesso obrigatório, preservando a identidade existente.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 4 | `apps/sistema-os/frontend/src/features/demo/api/demoApi.ts` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 5 | `apps/sistema-os/frontend/src/features/demo/lib/demoAccessError.ts` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 6 | `apps/sistema-os/frontend/src/features/demo/pages/DemoAccessPage.tsx` | Geração DEMO preservada em /demo, com layout visitante OS e estudo de caso externo. |
 
 ---
 
@@ -326,6 +418,23 @@ Expõe o estado e as ações completas da autenticação para os fluxos que prec
 
 Apresenta o estado mínimo de verificação inicial da sessão e a falha técnica recuperável, sem renderizar uma área protegida antes da confirmação de acesso.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 13 | `apps/sistema-os/frontend/src/features/auth/pages/LoginPage.tsx` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/features/auth/schemas/loginSchema.ts` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 15 | `apps/sistema-os/frontend/src/features/auth/pages/FirstAccessPage.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 16 | `apps/sistema-os/frontend/src/features/auth/schemas/firstAccessSchema.ts` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 17 | `apps/sistema-os/frontend/src/features/auth/context/AuthSessionContext.ts` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 18 | `apps/sistema-os/frontend/src/features/auth/context/AuthSessionProvider.tsx` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 19 | `apps/sistema-os/frontend/src/features/auth/hooks/useAuthSession.ts` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
+| 20 | `apps/sistema-os/frontend/src/features/auth/components/ProtectedRoute.tsx` | Mesma responsabilidade da entrada 8 desta família, em arquivo local independente. |
+| 21 | `apps/sistema-os/frontend/src/features/auth/api/authApi.ts` | Mesma responsabilidade da entrada 9 desta família, em arquivo local independente. |
+| 22 | `apps/sistema-os/frontend/src/features/auth/types/authenticatedSession.ts` | Mesma responsabilidade da entrada 10 desta família, em arquivo local independente. |
+| 23 | `apps/sistema-os/frontend/src/features/auth/hooks/useAuth.ts` | Mesma responsabilidade da entrada 11 desta família, em arquivo local independente. |
+| 24 | `apps/sistema-os/frontend/src/features/auth/components/AuthSessionBootstrap.tsx` | Mesma responsabilidade da entrada 12 desta família, em arquivo local independente. |
+
 ---
 
 ## Dashboard
@@ -363,6 +472,18 @@ Define as opções reais do seletor e converte período civil local em limites R
 ### 7. `frontend/src/features/dashboard/lib/dashboardFormatters.ts`
 
 Centraliza a apresentação de valores monetários decimais recebidos como string e percentuais derivados de contagens inteiras.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 8 | `apps/sistema-os/frontend/src/features/dashboard/pages/DashboardPage.tsx` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 9 | `apps/sistema-os/frontend/src/features/dashboard/components/MetricCard.tsx` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 10 | `apps/sistema-os/frontend/src/features/dashboard/components/EmployeePerformancePanel.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 11 | `apps/sistema-os/frontend/src/features/dashboard/api/dashboardApi.ts` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 12 | `apps/sistema-os/frontend/src/features/dashboard/api/dashboardQueryKeys.ts` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 13 | `apps/sistema-os/frontend/src/features/dashboard/lib/dashboardPeriod.ts` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/features/dashboard/lib/dashboardFormatters.ts` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
 
 ---
 
@@ -434,6 +555,21 @@ Centraliza as query keys de listagem, responsáveis, detalhe e histórico de OS.
 
 As chaves de detalhe e histórico são distintas porque representam recursos HTTP e estados de query independentes; a chave da listagem contém somente os parâmetros efetivamente enviados ao backend.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 11 | `apps/sistema-os/frontend/src/features/orders/pages/OrdersPage.tsx` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 12 | `apps/sistema-os/frontend/src/features/orders/types/order.ts` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 13 | `apps/sistema-os/frontend/src/features/orders/pages/OrderDetailsPage.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/features/orders/pages/OrderEditPage.tsx` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 15 | `apps/sistema-os/frontend/src/features/orders/pages/OrderCreatePage.tsx` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 16 | `apps/sistema-os/frontend/src/features/orders/components/OrderForm.tsx` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 17 | `apps/sistema-os/frontend/src/features/orders/schemas/orderSchema.ts` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
+| 18 | `apps/sistema-os/frontend/src/features/orders/lib/orderVisibility.ts` | Mesma responsabilidade da entrada 8 desta família, em arquivo local independente. |
+| 19 | `apps/sistema-os/frontend/src/features/orders/api/ordersApi.ts` | Mesma responsabilidade da entrada 9 desta família, em arquivo local independente. |
+| 20 | `apps/sistema-os/frontend/src/features/orders/api/orderQueryKeys.ts` | Mesma responsabilidade da entrada 10 desta família, em arquivo local independente. |
+
 ---
 
 ## Clientes
@@ -485,6 +621,19 @@ Separa os contratos HTTP do NestJS dos modelos React e traduz cadastro, detalhe,
 ### 8. `frontend/src/features/clients/api/clientQueryKeys.ts`
 
 Centraliza as query keys de listagens e detalhes de Clientes, reutilizadas pelas queries e pelas invalidações de cache após mutations.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 9 | `apps/sistema-os/frontend/src/features/clients/types/client.ts` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 10 | `apps/sistema-os/frontend/src/features/clients/mocks/clients.ts` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 11 | `apps/sistema-os/frontend/src/features/clients/pages/ClientsPage.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 12 | `apps/sistema-os/frontend/src/features/clients/pages/ClientCreatePage.tsx` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 13 | `apps/sistema-os/frontend/src/features/clients/pages/ClientEditPage.tsx` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/features/clients/schemas/clientSchema.ts` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 15 | `apps/sistema-os/frontend/src/features/clients/api/clientsApi.ts` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
+| 16 | `apps/sistema-os/frontend/src/features/clients/api/clientQueryKeys.ts` | Mesma responsabilidade da entrada 8 desta família, em arquivo local independente. |
 
 ---
 
@@ -568,6 +717,23 @@ Separa os contratos HTTP do NestJS dos modelos React, mapeia a conta opcional e 
 
 Centraliza as query keys de listagem e detalhe de Funcionários, com os parâmetros de filtro e busca usados pela query real.
 
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 13 | `apps/sistema-os/frontend/src/features/employees/pages/EmployeesPage.tsx` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 14 | `apps/sistema-os/frontend/src/features/employees/pages/EmployeeCreatePage.tsx` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 15 | `apps/sistema-os/frontend/src/features/employees/pages/EmployeeEditPage.tsx` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 16 | `apps/sistema-os/frontend/src/features/employees/pages/EmployeeProfilePage.tsx` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 17 | `apps/sistema-os/frontend/src/features/employees/mocks/employees.ts` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+| 18 | `apps/sistema-os/frontend/src/features/employees/types/employee.ts` | Mesma responsabilidade da entrada 6 desta família, em arquivo local independente. |
+| 19 | `apps/sistema-os/frontend/src/features/employees/schemas/employeeSchema.ts` | Mesma responsabilidade da entrada 7 desta família, em arquivo local independente. |
+| 20 | `apps/sistema-os/frontend/src/features/employees/schemas/employeeAccessSchema.ts` | Mesma responsabilidade da entrada 8 desta família, em arquivo local independente. |
+| 21 | `apps/sistema-os/frontend/src/features/employees/lib/employeeStatus.ts` | Mesma responsabilidade da entrada 9 desta família, em arquivo local independente. |
+| 22 | `apps/sistema-os/frontend/src/features/employees/lib/employeeAccessStatus.ts` | Mesma responsabilidade da entrada 10 desta família, em arquivo local independente. |
+| 23 | `apps/sistema-os/frontend/src/features/employees/api/employeesApi.ts` | Mesma responsabilidade da entrada 11 desta família, em arquivo local independente. |
+| 24 | `apps/sistema-os/frontend/src/features/employees/api/employeeQueryKeys.ts` | Mesma responsabilidade da entrada 12 desta família, em arquivo local independente. |
+
 ---
 
 ## Meu perfil
@@ -595,3 +761,29 @@ Centraliza a query key do perfil autenticado para leitura e atualização coeren
 ### 5. `frontend/src/features/profile/pages/ProfilePage.tsx`
 
 Exibe os dados pessoais e estados somente leitura, salva nome e telefone apenas por ação explícita, sincroniza imediatamente o nome do header com a resposta persistida e comunica o sucesso pela pilha global. Mantém a seção de Segurança independente, protege alterações pendentes e, após trocar a senha, limpa a sessão local, notifica o usuário e redireciona ao Login.
+
+**Implementações locais**
+
+| Nº | Caminho completo | Responsabilidade |
+| ---: | --- | --- |
+| 6 | `apps/sistema-os/frontend/src/features/profile/types/profile.ts` | Mesma responsabilidade da entrada 1 desta família, em arquivo local independente. |
+| 7 | `apps/sistema-os/frontend/src/features/profile/schemas/profileSchema.ts` | Mesma responsabilidade da entrada 2 desta família, em arquivo local independente. |
+| 8 | `apps/sistema-os/frontend/src/features/profile/api/profileApi.ts` | Mesma responsabilidade da entrada 3 desta família, em arquivo local independente. |
+| 9 | `apps/sistema-os/frontend/src/features/profile/api/profileQueryKeys.ts` | Mesma responsabilidade da entrada 4 desta família, em arquivo local independente. |
+| 10 | `apps/sistema-os/frontend/src/features/profile/pages/ProfilePage.tsx` | Mesma responsabilidade da entrada 5 desta família, em arquivo local independente. |
+
+---
+
+## Navegação entre aplicações
+
+Configura os destinos externos entre site e Sistema OS sem transportar credenciais ou consultar a API.
+
+Diretórios: `apps/site/frontend/src/shared/lib/` e `apps/sistema-os/frontend/src/shared/lib/`
+
+### 1. `apps/site/frontend/src/shared/lib/osLinks.ts`
+
+Define os links de login e DEMO usando `VITE_OS_URL`, com fallback para `https://os.leonardopassos.com` e remoção de barras finais. É consumido pelo layout, pela Home e pelo estudo de caso.
+
+### 2. `apps/sistema-os/frontend/src/shared/lib/siteLinks.ts`
+
+Define os destinos externos para o portfólio e o estudo de caso usando `VITE_SITE_URL`, com fallback para `https://leonardopassos.com` e normalização das barras finais. É consumido pelo layout de autenticação, pelo layout visitante e pela DEMO.

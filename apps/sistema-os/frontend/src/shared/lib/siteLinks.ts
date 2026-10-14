@@ -1,0 +1,5 @@
+export const siteHomeUrl = (
+  import.meta.env.VITE_SITE_URL?.trim() || 'https://leonardopassos.com'
+).replace(/\/+$/, '')
+
+export const serviceOrderProjectUrl = `${siteHomeUrl}/projetos/sistema-os`

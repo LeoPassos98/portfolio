@@ -5,11 +5,19 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Legacy generated client retained locally during backend relocation
+/backend/src/generated/prisma/
+
 # Environment files
 .env
 .env.*
 !.env.example
 !.env.test.example
+!apps/site/frontend/.env.production.example
+!apps/sistema-os/frontend/.env.production.example
+
+# Wrangler local state and temporary build files
+.wrangler/
 
 # Logs
 *.log

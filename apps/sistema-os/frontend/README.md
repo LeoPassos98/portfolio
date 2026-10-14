@@ -1,0 +1,43 @@
+# Frontend do Sistema OS
+
+Esta aplicação concentra autenticação, primeiro acesso, Dashboard, Clientes, Funcionários, Ordens de Serviço, Perfil e demonstração do Sistema OS. Este guia destina-se a quem vai executar ou desenvolver o frontend.
+
+A raiz `/` e endereços desconhecidos encaminham para `/login`. O login resolve sessões válidas para Dashboard ou Primeiro Acesso. A geração DEMO permanece em `/demo`, separada do login; sua integração futura não faz parte da Etapa 4.
+
+## Executar localmente
+
+A partir da raiz do repositório:
+
+```bash
+cd apps/sistema-os/frontend
+npm ci
+cp .env.example .env.local
+npm run dev -- --port 5175 --strictPort
+```
+
+Configure `VITE_API_URL` para a API local autorizada. O CORS desse ambiente precisa permitir a origem do frontend; o exemplo usa `http://localhost:3000` para a API. O backend está em `apps/sistema-os/backend/`, com ambiente e comandos descritos no [guia de configuração](../../../docs/setup.md).
+
+`VITE_SITE_URL` configura a URL base absoluta do portfólio. O exemplo usa `http://localhost:5174`; sem a variável, o padrão é `https://leonardopassos.com`. A marca das telas de autenticação retorna ao portfólio por um link externo. O layout visitante da DEMO possui login interno e acesso externo ao portfólio; “Conhecer o projeto” abre `/projetos/sistema-os` no site. Não há credenciais nesses links.
+
+## Validar e preparar o build
+
+```bash
+npm run lint
+npm run build
+npm run preview -- --port 4175 --strictPort
+```
+
+As variáveis `VITE_*` são públicas e incorporadas ao build. O arquivo `.env.production.example` contém somente os valores públicos aprovados e não é carregado automaticamente pelo Vite. Preserve `.env.example` para desenvolvimento. Para gerar o artefato de produção, configure ambas as URLs explicitamente:
+
+```bash
+VITE_API_URL=https://os-api.leonardopassos.com \
+VITE_SITE_URL=https://leonardopassos.com npm run build
+```
+
+Axios com credenciais, CSRF, TanStack Query, providers e guards de sessão permanecem locais ao pacote. A interface não substitui a autorização do NestJS. Qualquer teste com escrita no PostgreSQL exige confirmação prévia de `portfolio_test` e limpeza das fixtures próprias; migrations e produção não fazem parte da validação desta etapa.
+
+O pacote `portfolio-sistema-os-frontend` possui seu próprio lockfile e `dist/`; `wrangler.jsonc` mantém a identidade local `portfolio-sistema-os` e o fallback de SPA. Nenhum domínio, Worker ou gatilho externo foi alterado. A publicação futura depende de conferir e proteger a configuração operacional antes de qualquer push estrutural.
+
+Consulte [a configuração geral](../../../docs/setup.md), [o mapa frontend](../../../docs/frontend-files.md) e [o catálogo de testes](../../../docs/testing.md).
+
+O inventário de painéis, os bloqueios do pipeline da `main`, a sequência futura de publicação e a reversão estão em [Preparação local do deploy](../../../docs/deploy.md). Esta preparação não publica os Workers nem configura seus domínios.
