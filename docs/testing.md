@@ -12,7 +12,7 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                   |
 | Arquivos catalogados         | 32 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo  |
-| Último resultado consolidado | Etapa 7B: **643/643 testes em 32 arquivos**, **24/24 scripts** e **1/1 E2E**; smoke integrado com **76 verificações** |
+| Último resultado consolidado | Etapa 8: **643/643 testes em 32 arquivos**, **24/24 scripts** e **1/1 E2E**; smoke integrado com **76 verificações** e leitura dos três domínios publicados |
 | Scripts operacionais         | **24/24 testes aprovados**, sem PostgreSQL; separados da suíte principal |
 
 ## Executar agora
@@ -435,7 +435,7 @@ Validação local em 13/10/2026, no conjunto de alterações iniciado no HEAD `5
 
 Avisos: dependência transitiva `tsconfck@3.1.6` descontinuada, sugestão do Vite para substituir `vite-tsconfig-paths` e aviso de nova versão do Prisma. Nenhuma versão ou configuração foi atualizada. Uma primeira checagem adicional de bootstrap com `npm exec -- node` resolveu Node 26 em cache temporário do npm; ela foi repetida com `node dist/bootstrap-admin.js` usando Node 22 do ambiente, com a mesma rejeição esperada e sem modificar dependências ou lockfile. Um erro de sintaxe na preparação do runner temporário foi corrigido antes de sua execução; não afetou o repositório.
 
-Limitações: o smoke comprova HTTP local, não TLS, cookies Secure ou domínios finais. Os painéis Cloudflare/Northflank, branches, gatilhos, contexts, working directories e vínculos de secrets não foram acessados ou modificados; a relação de verificações externas está em [Configuração do projeto](setup.md#backend-reorganizado-e-configurações-externas). O bootstrap CLI foi validado por rejeição segura; sua criação/transação real permanece coberta pela suíte. A migration de produção foi validada exclusivamente por mocks e rejeição sem URI, sem aplicar schema.
+Limitações: o smoke comprova HTTP local, não TLS, cookies Secure ou domínios finais. Os painéis Cloudflare/Northflank, branches, gatilhos, contexts, working directories e vínculos de secrets não foram acessados ou modificados; a relação de verificações externas está em [Configuração do projeto](setup.md#backend-e-publicação-independente). O bootstrap CLI foi validado por rejeição segura; sua criação/transação real permanece coberta pela suíte. A migration de produção foi validada exclusivamente por mocks e rejeição sem URI, sem aplicar schema.
 
 Evidências de comandos, relatórios, hashes, snapshots e capturas ficaram em `/tmp/portfolio-stage5-yznm6vi_/`, fora do repositório. Não houve uso de banco de desenvolvimento/produção, mudança de CORS ou integração DEMO ao login, alteração de infraestrutura, commit, push ou deploy.
 
@@ -504,6 +504,23 @@ Avisos preexistentes: dependência `closeOptions` do SearchableSelect, chunk OS 
 Limitações: HTTP local não certifica TLS, cookie Secure, DNS, proxy ou domínios publicados. O E2E existente contém apenas o smoke raiz; a suíte principal cobre os contratos integrados. Os frontends continuam sem runner versionado. O ambiente privado de desenvolvimento não é configuração de publicação; as URLs do smoke foram fornecidas ao processo, sem alterar esses arquivos. Painéis, hooks e proteção integral das automações permanecem não verificados. Nenhum push, deploy, migration ou alteração de produção foi realizado.
 
 Evidências temporárias: `/tmp/portfolio-7b-main-tests.log`, snapshots `/tmp/portfolio-7b-before.json` e `/tmp/portfolio-7b-after-main.json`, relatório/capturas em `/tmp/portfolio-7b-browser/`. A documentação foi renderizada localmente para revisão; nenhum runner, captura, cache ou relatório temporário integra o commit.
+
+### Limpeza após publicação — Etapa 8
+
+Validação em 14/10/2026, na `main`, sobre `4e1db94`, após a publicação confirmada pelo responsável. A limpeza removeu os 101 arquivos versionados do frontend antigo: 89 tinham cópias idênticas e 12 tinham correspondentes adaptados. Assets e configurações foram conferidos mesmo sem imports diretos. Artefatos legados de frontend/backend foram removidos; os privados permaneceram ignorados e intactos durante a validação. Posteriormente, o responsável removeu os diretórios antigos completos e autorizou o commit local. Os arquivos das aplicações atuais permaneceram intactos.
+
+| Validação | Resultado e limite comprovado |
+| --- | --- |
+| Pacotes atuais | npm ci, lint e build aprovados nos três pacotes; Prisma validate aprovado. Node 22.23.1/npm 10.9.8; 89/122/517 pacotes instalados, respectivamente site/OS/API. Os 301 arquivos de runtime, assets, configs e lockfiles em apps permanecem idênticos ao HEAD; apenas READMEs internos mudaram. Sem atualização de dependências ou contratos. |
+| Backend | Scripts **24/24**, suíte principal **643/643 em 32 arquivos** e E2E **1/1**, sequenciais. As duas URLs foram fornecidas ao processo para a mesma base `portfolio_test`, identificada em `::1:5432`, antes de escrita. Runners Vitest diretos, sem migrations. |
+| Funcional local | **76 verificações** de Chrome, builds e banco com previews atuais e API real em porta própria, sem respostas simuladas. Repetidos os fluxos da Etapa 7B: site sem API, navegação/links/favicons/mobile; login, sessão, logout, primeiro acesso, perfis, Dashboard, Clientes, Funcionários, Ordens, Perfil, CSRF, DEMO EXEMPLO/VAZIO e isolamento entre identidades/Environments. DEMO continua separada do login. |
+| Integridade | Dez tabelas e constraints com digests completos iguais antes/depois; Environment **1**, contador **1**, migrations **6** e demais tabelas **0**. Checksum e conclusão das seis migrations conferidos, fixtures removidas e nenhuma conexão residual. Os seis arquivos privados locais mantêm seus hashes. |
+| Produção por leitura | GET de Home, estudo de caso, login OS, DEMO OS e raiz API retornou **200**, nos três domínios HTTPS definitivos. JavaScript, CSS e favicon de cada frontend também retornaram **200**. Bundle site contém VITE_OS_URL e não contém endpoints auth; bundle OS contém API os-api e URL do site. Hostname antigo da API ausente dos bundles. Sem autenticação, CSRF, geração DEMO ou escrita em produção. |
+| Documentação e Git | Mapa frontend consolidado em **99 arquivos relevantes** atuais, sem duplicação da SPA removida ou dependência de entradas antigas. Guias e referências operacionais atualizados; referências históricas preservadas no catálogo e no histórico de migração. Links locais, limites de imports, pacotes/lockfiles e diff-check aprovados. Documentação renderizada para revisão. Sem commit, push ou deploy. |
+
+Avisos preexistentes de SearchableSelect, chunk OS acima de 500 kB e tsconfck/vite-tsconfig-paths permanecem. HTTP local não certifica cookies Secure ou a cadeia de proxies publicada; GETs públicos não comprovam fluxos autenticados em produção. Painéis e gatilhos não foram inspecionados. O Worker antigo `portfolio`, se ainda existir, exige remoção manual posterior no Cloudflare.
+
+Evidências temporárias em `/tmp/portfolio-stage8-main-tests.log`, `/tmp/portfolio-stage8-before.json`, `/tmp/portfolio-stage8-after-main.json`, `/tmp/portfolio-stage8-browser/` e `/tmp/portfolio-stage8-production-*.json`, fora do repositório. Nenhum runner ou relatório temporário foi adicionado à árvore versionada.
 
 ### Integração pública do ambiente DEMO
 

@@ -21,11 +21,10 @@ Estas orientações definem como agentes devem alterar e documentar este reposit
 - `apps/site/frontend/`: portfólio público, sem autenticação ou API.
 - `apps/sistema-os/frontend/`: interface autenticada e DEMO separada em `/demo`.
 - `apps/sistema-os/backend/`: API NestJS, Prisma, migrations, scripts e testes do Sistema OS.
-- `frontend/`: frontend original preservado durante a modularização.
 
 Execute instalação, lint, build e testes no pacote correspondente, com seu próprio lockfile. Não existem workspaces ou bibliotecas compartilhadas. Consulte `docs/setup.md` para ambiente e comandos.
 
-Arquivos privados de ambiente não devem ser movidos, copiados, impressos ou versionados durante a reorganização. Remanescentes locais em `backend/` não são um pacote executável; o novo pacote exige configuração explícita do ambiente.
+Arquivos privados de ambiente não devem ser movidos, copiados, impressos ou versionados. Diretórios legados na raiz não são pacotes executáveis nem fontes de configuração; eventuais privados locais devem ser preservados sem uso automático pelas aplicações.
 
 Antes de testes com escrita, confirme tanto `DATABASE_URL` quanto `TEST_DATABASE_URL` em PostgreSQL local `portfolio_test`, inclusive a identidade da conexão. Os wrappers `npm test` e `npm run test:e2e` preparam migrations; use Vitest diretamente quando migrations não estiverem autorizadas e o schema aplicado já tiver sido confirmado.
 

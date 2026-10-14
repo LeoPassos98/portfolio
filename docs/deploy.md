@@ -1,157 +1,104 @@
-# Preparação da publicação da modularização
+# Publicação e operação das aplicações
 
-Este documento orienta quem vai publicar as aplicações separadas do portfólio. Registra a configuração desejada, as informações externas ainda ausentes e os procedimentos futuros de validação e reversão. As Etapas 7A e 7B preparam arquivos, validações e commit local; não autorizam publicação, push ou alteração de painéis.
+Este guia destina-se a quem mantém os três serviços publicados do repositório. Documenta diretórios, domínios, variáveis, artefatos e comandos de manutenção. A Etapa 8 é uma limpeza local: não autoriza commit, push, deploy, migrations ou mudanças de infraestrutura.
 
 ## Sumário
 
-- [Estado e limites da preparação](#estado-e-limites-da-preparação)
-- [Configuração de cada aplicação](#configuração-de-cada-aplicação)
-- [Cloudflare: inventário manual](#cloudflare-inventário-manual)
-- [Northflank: inventário manual](#northflank-inventário-manual)
-- [Pipeline da main: informações obrigatórias](#pipeline-da-main-informações-obrigatórias)
-- [Referências antigas e arquivos privados](#referências-antigas-e-arquivos-privados)
-- [Sequência futura de publicação](#sequência-futura-de-publicação)
-- [Reversão mínima](#reversão-mínima)
-- [Evidências e limitações locais](#evidências-e-limitações-locais)
+- [Estado publicado e limites](#estado-publicado-e-limites)
+- [Frontends no Cloudflare](#frontends-no-cloudflare)
+- [Backend e PostgreSQL no Northflank](#backend-e-postgresql-no-northflank)
+- [Scripts operacionais](#scripts-operacionais)
+- [Verificação e manutenção](#verificação-e-manutenção)
+- [Reversão](#reversão)
+- [Histórico da migração](#histórico-da-migração)
 
-## Estado e limites da preparação
+## Estado publicado e limites
 
-Cada aplicação instala dependências e compila no próprio diretório, com package e lockfile locais. Não existem workspaces, biblioteca compartilhada ou ferramenta adicional de monorepo.
+O responsável confirmou a publicação da modularização com referência em `4e1db94` e o acesso aos dois frontends. Os três domínios responderam às consultas de leitura da Etapa 8; os resultados concretos estão em [Testes e validações](testing.md). Os painéis não foram inspecionados nesta etapa, portanto os valores abaixo representam a configuração exigida pelo código, sem certificar filtros, secrets ou estado atual de gatilhos externos.
 
-Os Workers versionados são `portfolio-site` e `portfolio-sistema-os`, diferentes do original `portfolio`. Vite, scripts npm, Wrangler, NestJS e Prisma já utilizam caminhos relativos ao pacote; foram preservados. A data de compatibilidade Wrangler permanece `2026-09-16`, com assets em `./dist/` e `not_found_handling: single-page-application`.
-
-Os arquivos `.env.production.example` dos dois frontends são exemplos públicos, não ambientes carregados pelo Vite. `.env.example` permanece local; nenhum arquivo privado foi copiado ou alterado. As variáveis devem ser fornecidas explicitamente ao build. Não foram adicionadas rotas/domínios no Wrangler: os vínculos serão feitos no painel após aprovação. O carregamento e a prioridade dos ambientes seguem a [documentação do Vite](https://vite.dev/guide/env-and-mode).
-
-O responsável informou na Etapa 7B que desativou manualmente o gatilho `Git push` do workflow Northflank e os builds automáticos do Worker original `portfolio` no Cloudflare. Os painéis não foram consultados nesta revisão; essas informações não comprovam a desativação de outros gatilhos, hooks, Jobs, agendamentos ou promoções automáticas.
-
-O pipeline conhecido contém build de `portfolio-backend-build`, execução do Job `portfolio-migrate` por `npm run migrate:prod` e release para `portfolio-api`. O contexto atual Northflank ainda é `/backend`; o root atual Cloudflare é `/frontend`. A branch aprovada permanece `main`, sem criação de outra branch.
-
-**Não enviar mudanças estruturais à main antes de inspecionar e proteger todos os gatilhos e operações posteriores.** A separação de diretórios, sozinha, não torna os pipelines independentes. Nenhuma configuração externa foi alterada nas Etapas 7A ou 7B.
-
-## Configuração de cada aplicação
-
-| Aplicação | Diretório no Git | Identidade | Domínio final |
+| Aplicação | Diretório do pacote | Identidade conhecida | Domínio publicado |
 | --- | --- | --- | --- |
-| Site | `apps/site/frontend/` | Worker `portfolio-site` | `https://leonardopassos.com` |
-| Frontend OS | `apps/sistema-os/frontend/` | Worker `portfolio-sistema-os` | `https://os.leonardopassos.com` |
-| Backend OS | `apps/sistema-os/backend/` | Serviço `portfolio-api`, informado pelo responsável | `https://os-api.leonardopassos.com` |
+| Site | `apps/site/frontend/` | Wrangler `portfolio-site` | https://leonardopassos.com |
+| Frontend OS | `apps/sistema-os/frontend/` | Wrangler `portfolio-sistema-os` | https://os.leonardopassos.com |
+| API OS | `apps/sistema-os/backend/` | Serviço `portfolio-api` | https://os-api.leonardopassos.com |
 
-| Processo | Variáveis públicas previstas |
-| --- | --- |
-| Build site | `VITE_OS_URL=https://os.leonardopassos.com`; nenhuma API necessária. |
-| Build frontend OS | `VITE_API_URL=https://os-api.leonardopassos.com`; `VITE_SITE_URL=https://leonardopassos.com`. |
-| Runtime API | `FRONTEND_ORIGIN=https://os.leonardopassos.com`; `NODE_ENV=production`; preservar `PORT` e `SESSION_MAX_AGE_MS` efetivos. |
+Cada aplicação tem package, lockfile, ambiente e build próprios; não existem workspaces, biblioteca compartilhada ou imports entre aplicações. PostgreSQL permanece separado no Northflank. O site funciona sem API ou autenticação; o OS mantém DEMO em `/demo`, separada do login.
 
-No site e no frontend OS, os comandos continuam `npm ci`, `npm run lint` e `npm run build`. Os READMEs locais mostram os comandos com variáveis de produção explícitas. Um build aprovado sem verificar as variáveis do painel não garante que a URL correta foi incorporada; conferir o artefato antes da promoção. Cada artefato fica em seu próprio `dist/`; variáveis VITE fazem parte do JavaScript público e não devem receber segredos.
+O Worker antigo **`portfolio` ainda depende de remoção manual no Cloudflare, caso continue existindo**. Antes de excluí-lo, conferir que os domínios/rotas ativos pertencem aos Workers atuais e que há artefatos de reversão adequados. Nenhum Worker ou serviço foi excluído nesta limpeza.
 
-No backend, use `npm ci`, `npm run lint`, `npm run prisma:validate` e `npm run build` a partir do pacote. Validate/generate não aplicam migrations nem precisam consultar o PostgreSQL. A conexão fornecida ao build deve ser uma URL válida e não concede autorização para operações no banco.
-
-## Cloudflare: inventário manual
-
-Configurar dois projetos de Workers Builds independentes, depois da aprovação operacional. Os valores abaixo são desejados; não confirmam a existência ou o estado de recursos na conta.
+## Frontends no Cloudflare
 
 | Campo | Site | Frontend OS |
 | --- | --- | --- |
-| Repositório | `LeoPassos98/portfolio` | `LeoPassos98/portfolio` |
-| Worker correspondente ao Wrangler | `portfolio-site` | `portfolio-sistema-os` |
+| Repositório / branch | `LeoPassos98/portfolio`, `main` | `LeoPassos98/portfolio`, `main` |
 | Root directory | `apps/site/frontend` | `apps/sistema-os/frontend` |
 | Build command | `npm ci --include=dev && npm run build` | `npm ci --include=dev && npm run build` |
-| Deploy command futuro | `npx wrangler deploy --config wrangler.jsonc` | `npx wrangler deploy --config wrangler.jsonc` |
-| Assets/fallback versionados | `./dist/`, SPA | `./dist/`, SPA |
+| Deploy command | `npx wrangler deploy --config wrangler.jsonc` | `npx wrangler deploy --config wrangler.jsonc` |
+| Artefato | `dist/` local do pacote | `dist/` local do pacote |
 | Variáveis de build | `VITE_OS_URL=https://os.leonardopassos.com` | `VITE_API_URL=https://os-api.leonardopassos.com`, `VITE_SITE_URL=https://leonardopassos.com` |
-| Custom Domain futuro | `leonardopassos.com` | `os.leonardopassos.com` |
-| Watch paths desejados | `apps/site/frontend/**` | `apps/sistema-os/frontend/**` |
-| Branch e gatilhos | `main`; conferir e manter automação protegida até o corte aprovado | `main`; mesma exigência, com gatilho independente |
+| Domínio | `leonardopassos.com` | `os.leonardopassos.com` |
+| Filtros a conferir | `apps/site/frontend/**` | `apps/sistema-os/frontend/**` |
 
-Manter as dependências de build/deploy instaladas mesmo se NODE_ENV estiver definido; por isso o comando do painel explicita `--include=dev`.
+Os comandos da tabela são procedimentos de publicação e exigem autorização; não foram executados na Etapa 8. A instalação inclui dependências de build/deploy mesmo com NODE_ENV de produção. As variáveis VITE são públicas e incorporadas ao JavaScript: fornecê-las somente no runtime do Worker não muda o bundle. `.env.production.example` não é carregado automaticamente pelo Vite e nunca deve conter secrets.
 
-Fornecer VITE em **Build variables**, não apenas em variáveis runtime do Worker. Confirmar conta, permissões de publicação, versão Node/npm, identidade Worker, branch de produção, comportamento de previews/PRs e sintaxe efetiva dos filtros no painel. O Root directory define a execução do build; o arquivo Wrangler precisa corresponder ao Worker selecionado. [Referência de Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/).
+Cada Wrangler usa assets em `./dist/`, compatibilidade `2026-09-16` e `not_found_handling: single-page-application`. O fallback serve index com HTTP 200; o site mostra página não encontrada, enquanto o OS resolve guards/login pelo Router. Cada aplicação possui fonte, estilos, assets e favicon próprios.
 
-Para o host da API, conferir no DNS Cloudflare o registro `os-api` e o destino/validação indicado pelo Northflank. Tipo, conteúdo do registro, proxy DNS e TTL dependem das instruções efetivas do painel e ainda não foram identificados; não inventar IP ou target. Nos frontends, conferir os registros e certificados associados aos Custom Domains, evitando vínculos/rotas conflitantes.
+Builds/previews/PRs, hooks e filtros efetivos precisam ser conferidos no painel antes de enviar mudanças estruturais. A remoção do frontend antigo não deve reativar ou republicar o Worker legado. Não ampliar o CORS da API para permitir hosts de preview.
 
-Registrar o vínculo atual de cada domínio e suas rotas antes de transferi-los. Se `leonardopassos.com` estiver associado ao Worker original, preservar `portfolio` e sua versão para reversão e transferir o domínio de forma controlada. Nomes locais distintos não comprovam que os novos nomes estejam livres na conta.
+## Backend e PostgreSQL no Northflank
 
-Confirmar DNS/TLS, acesso direto, refresh e assets após o vínculo. O fallback SPA serve index com HTTP 200; o site mostra 404 visual, enquanto o OS resolve guards e login no Router. Previews em outros hosts não são a origem HTTPS autorizada da API e não devem ampliar o CORS de produção. [Referência de SPA](https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/).
+O pipeline conhecido, informado pelo responsável, contém `portfolio-backend-build`, Job `portfolio-migrate` com `npm run migrate:prod` e release para `portfolio-api`. O grafo completo, condições e automações atuais não foram consultados nesta revisão.
 
-## Northflank: inventário manual
-
-Manter o addon PostgreSQL existente, seus dados, migrations e vínculos de credenciais. Nenhum recurso, secret ou Job foi criado nesta preparação.
-
-| Item | Configuração desejada ou verificação necessária |
+| Item | Contrato operacional |
 | --- | --- |
-| Build conhecido | Inspecionar `portfolio-backend-build`: repositório/SHA, branch `main`, contexto atual `/backend` e comandos efetivos. |
-| Job e release conhecidos | Inspecionar `portfolio-migrate` (`npm run migrate:prod`) e release para `portfolio-api`; conferir imagem/SHA, cwd, vínculos de secrets e proteção contra execução automática. |
-| Build context do pacote | `/apps/sistema-os/backend` se o build consumir somente o pacote. Se o contexto continuar `/`, configurar o working directory/comandos para `apps/sistema-os/backend`; não acrescentar esse prefixo novamente dentro de um contexto já reduzido. |
-| Mecanismo de build | Confirmar Dockerfile, buildpack ou comandos externos usados hoje. Não há Dockerfile, workflow ou definição Northflank versionada para comprovar esse mecanismo. |
-| Instalação/build | `npm ci --include=dev` com dependências de build; `npm run build` executa Prisma generate pelo prebuild e compila NestJS. Conferir Node/npm, scripts nativos Argon2 e política allowScripts da imagem. |
-| Artefatos | Verificar `dist/main.js`, `dist/bootstrap-admin.js`, `dist/demo-cleanup.js`, `dist/generated/prisma/`, dependências runtime e bibliotecas nativas. Não servir apenas dist sem suas dependências. |
-| Runtime | Working directory deve conter package e dist; comando `npm run start:prod`, equivalente a `node dist/main`. Preservar porta interna e configuração de ingress; `GET /` é um candidato de smoke, sem substituir o healthcheck efetivo a confirmar. |
-| Domínio | Vincular `os-api.leonardopassos.com` ao serviço API, confirmar DNS/TLS e ausência de redirect/desafio em OPTIONS. Registrar domínio anterior para reversão. |
-| Ambiente público runtime | `NODE_ENV=production`, `FRONTEND_ORIGIN=https://os.leonardopassos.com`, porta/duração de sessão existentes. Origem exata, sem barra final ou lista. |
-| Secrets runtime | Preservar DATABASE_URL, SESSION_SECRET e DEMO_IP_HMAC_SECRET gerenciados; confirmar vínculo ao PostgreSQL existente sem revelar valores. Não colocar TEST_DATABASE_URL ou MIGRATION_DATABASE_URL no runtime normal. |
-| Proxy | Confirmar cadeia de proxies e X-Forwarded-Proto do hop confiável, coerentes com trust proxy=1 existente. Cookie continua Secure em produção, HttpOnly, Lax, path `/`, sem Domain. |
-| Filtros/automação | Conferir triggers do pipeline, build service, deploy service, Jobs e hooks. Desejar monitoramento independente de `apps/sistema-os/backend/**`; regras de build isoladas podem não restringir o trigger global do pipeline. |
+| Build context | `/apps/sistema-os/backend` quando o contexto é restrito ao pacote; se o contexto for `/`, usar working directory/comandos em `apps/sistema-os/backend`. Não duplicar o prefixo. |
+| Instalação e build | `npm ci --include=dev`, `npm run prisma:validate` e `npm run build`; prebuild gera Prisma Client sem aplicar migrations. |
+| Artefatos | `dist/main.js`, `dist/bootstrap-admin.js`, `dist/demo-cleanup.js`, `dist/generated/prisma/` e dependências runtime, incluindo Argon2 nativo. |
+| Runtime | Package/dist disponíveis no diretório de trabalho; `npm run start:prod`, equivalente a `node dist/main`. Preservar porta e ingress efetivos. |
+| Ambiente | `NODE_ENV=production`, `FRONTEND_ORIGIN=https://os.leonardopassos.com`, `PORT` e `SESSION_MAX_AGE_MS` efetivos. |
+| Secrets runtime | `DATABASE_URL`, `SESSION_SECRET` e `DEMO_IP_HMAC_SECRET` gerenciados; preservar vínculos ao PostgreSQL existente. |
+| Migration Job | Mesmo SHA/imagem da API; script, `prisma.config.ts`, schema, migrations/lock e Prisma CLI instalado. `MIGRATION_DATABASE_URL` exclusivamente no processo administrativo. |
+| Filtros e gatilhos | Conferir pipeline, build, Jobs, release, hooks e agendamentos; monitoramento independente do pacote backend. |
 
-O contexto reduzido exclui arquivos fora do pacote; se o build atual depender da raiz, isso precisa ser resolvido nos comandos/configurações do painel antes de publicar. Os caminhos propostos não comprovam o working directory absoluto da imagem, que depende do mecanismo de build. [Referência de contexto e path rules](https://northflank.com/docs/v1/application/build/build-code-from-a-git-repository).
+O mecanismo real de imagem, contexto absoluto e healthcheck depende do painel: não há Dockerfile ou definição declarativa Northflank versionada. O PostgreSQL, seus dados e secrets não são recriados por mudanças de diretório. A limpeza não altera schema nem requer migration.
 
-### Prisma e operações administrativas
+Sessão, CSRF e autorização permanecem no NestJS. Cookie é HttpOnly, Secure em produção, SameSite=Lax, path `/` e sem Domain. OS e API usam origens distintas no mesmo site HTTPS. Conferir proxy e X-Forwarded-Proto de acordo com o trust proxy existente; não alterar contratos para compensar configuração externa incorreta.
 
-| Comando existente | Caminhos e condições |
+## Scripts operacionais
+
+Execute os comandos abaixo somente no backend e com autorização para a operação e o banco correspondente.
+
+| Comando | Finalidade e limites |
 | --- | --- |
-| `prisma:validate` / `prisma:generate` | Executados no pacote; `prisma.config.ts` usa `prisma/schema.prisma` e `prisma/migrations`. Generate cria `src/generated/prisma/`; NestJS o compila para dist. |
-| `migrate:prod` | Executa `scripts/migrate-production.mjs`; calcula cwd do pacote por import.meta.url e exige exclusivamente MIGRATION_DATABASE_URL, destinada ao processo administrativo. Disponibilizar config, schema, seis migrations/lock e Prisma CLI instalado pelo lockfile. |
-| `demo:cleanup` | Executa `dist/demo-cleanup.js`, após build, com DATABASE_URL runtime. Conferir se existe Job manual/agendado, imagem/SHA, secrets e política de execução. Não criar cron nem disparar cleanup por causa da mudança estrutural. |
-| `bootstrap:admin` | Compila e executa `dist/bootstrap-admin.js`; exclusivo de banco novo sem usuários. Não incluir na migração do banco existente ou startup. |
-| `deploy` | Script Nest/Mau existente; não é o procedimento de publicação Northflank e não foi executado. |
-| `test` / `test:e2e` | Acionam preparação/migrations de teste. Não incluí-los em build/startup com credenciais de produção; qualquer suíte com escrita exige isolamento comprovado em portfolio_test. |
+| `prisma:validate` / `prisma:generate` | Validam schema ou geram Client; não aplicam migrations. Caminhos relativos em `prisma.config.ts`. |
+| `migrate:prod` | Script calcula cwd pelo `import.meta.url` e exige `MIGRATION_DATABASE_URL`; sem fallback runtime. Aplica apenas migrations versionadas com Prisma CLI do lockfile. |
+| `demo:cleanup` | Executa `dist/demo-cleanup.js` após build com conexão runtime; pode excluir DEMOs expiradas conforme as regras existentes. |
+| `bootstrap:admin` | Compila e cria o primeiro Administrador somente em banco novo sem usuários; não incluir no startup ou migração do banco existente. |
+| `deploy` | Script Nest/Mau existente, sem relação com o procedimento Northflank descrito aqui. |
+| `test` / `test:e2e` | Wrappers preparam migrations de teste; somente `portfolio_test` local e comprovado. Não usar em build/startup com credenciais de produção. |
 
-Mover diretórios não altera schema e não exige migration. O Job `portfolio-migrate` informado pelo responsável precisa ter comando, credencial, imagem e proteção de execução conferidos antes do push. Não confiar que a ausência de SQL novo torne essa etapa inofensiva. Uma execução futura aprovada exige o mesmo SHA/artefato e dependências CLI disponíveis; falha deve impedir promoção. Não podar Prisma CLI da imagem que alimenta esse Job nem permitir download implícito de outra versão.
+Quando o banco de testes já estiver validado e migrations não forem autorizadas, use os runners Vitest diretos do [catálogo de testes](testing.md#executar-agora). Nunca distribuir secrets ao frontend, expor URIs nos logs ou carregar arquivos privados dos diretórios legados.
 
-## Pipeline da main: informações obrigatórias
+## Verificação e manutenção
 
-Informados pelo responsável: branch `main`, gatilho `Git push` desativado, build `portfolio-backend-build`, Job `portfolio-migrate` com `npm run migrate:prod` e release para `portfolio-api`. O estado efetivo dos recursos, o grafo completo e outros mecanismos de automação dependem de evidência do painel/exportação do pipeline e logs de uma execução anterior. Antes de qualquer push estrutural, registrar:
+Na Etapa 8, as consultas de produção limitam-se a GET de páginas, assets e raiz da API, sem autenticar, obter CSRF, gerar DEMOs ou modificar dados. A consulta de disponibilidade não comprova sessões ou regras de negócio em produção; os fluxos com escrita são validados localmente com API real em `portfolio_test`.
 
-1. Grafo completo, ordem, paralelismo, dependências, condições de sucesso/falha, retries, hooks e aprovações.
-2. Comando, contexto, cwd, branch/SHA e variáveis vinculadas de cada etapa; verificar referências a `backend/`, raiz Git e dependências externas ao pacote.
-3. Destino dos artefatos da etapa de build: serviços/Jobs que os consomem, promoção automática, versões/imagens fixadas e vínculo ao serviço/API/PostgreSQL existentes.
-4. Existência de migrations, seeds, bootstrap, cleanup, testes com preparação ou operações de reset; identificar script exato e classe de credencial sem extrair secrets.
-5. Trigger do pipeline e de cada recurso: push, merge, PR, filtro de caminho, agendamento, hooks e execução independente fora do pipeline.
-6. Mecanismo comprovado para impedir promoção/operações de banco durante o primeiro push; considerar builds já enfileirados e acionamentos concorrentes. Skip flags em mensagens não são proteção suficiente sem conferir seu alcance.
-7. Como cancelar execução, fixar/restaurar uma imagem já publicada e recuperar a configuração anterior sem recompilar a raiz antiga contra caminhos novos.
+Antes de uma publicação futura autorizada, conferir filtros/gatilhos, commit/SHA, variáveis incorporadas ao bundle e artefatos de reversão. Alteração somente no site não deve promover API/OS; alteração somente no OS não deve republicar site ou disparar manutenção do banco. Um Job de migration, quando autorizado por alteração de schema, deve concluir antes da promoção da API.
 
-Sem essas informações, um push na main pode falhar em paths antigos, promover imagem inadequada, executar o Job de migration ou republicar o Worker original por algum mecanismo ainda ativo. A desativação informada de dois gatilhos não comprova o bloqueio integral do pipeline e de seus recursos. Os três pacotes precisam de triggers/artifacts independentes na infraestrutura, além da separação local.
+Depois de uma publicação autorizada, validar HTTPS, assets, refresh de rotas, navegação externa, origem CORS e preflight sem redirects. Testes autenticados ou DEMO em produção exigem conta/ambiente e escopo explicitamente autorizados.
 
-## Referências antigas e arquivos privados
+## Reversão
 
-O domínio aprovado da API passou a ser `os-api.leonardopassos.com`. As três referências operacionais do guia de setup ao domínio `api.leonardopassos.com` foram atualizadas. O domínio anterior permanece em `cors.options.spec.ts` como origem não autorizada: é um caso negativo de CORS, não um endpoint ativo. Registros das etapas anteriores continuam históricos.
+1. Pausar/cancelar automações e promoções afetadas para evitar que builds pendentes sobrescrevam o rollback.
+2. Restaurar a versão anterior conhecida do Worker afetado e seus vínculos de domínio/rotas.
+3. No Northflank, promover a imagem anterior conhecida, preservando PostgreSQL e restaurando configurações compatíveis de origem/ingress e vínculos de secrets.
+4. Restaurar bundles frontend com URLs compatíveis; variáveis VITE não alteram artefatos já publicados.
+5. Validar disponibilidade e os fluxos autorizados. A limpeza estrutural não requer rollback SQL, reset ou restauração destrutiva de dados.
 
-Os exemplos locais usam portas 5174/5175/3000; os novos valores de produção estão registrados em exemplos públicos e comandos explícitos, sem carga automática ou mudança dos defaults locais. O frontend original e seu Wrangler permanecem intactos. Referências `frontend/` nessa aplicação são intencionais; não devem ser usadas como root dos novos Workers. Referências `backend/` para arquivos privados, artefatos legados e validações anteriores não são comandos do pacote atual.
+A reversão exige autorização e artefatos existentes; não depender do Worker antigo `portfolio` após sua remoção manual. Um revert/push também pode disparar pipeline e precisa ser avaliado como publicação.
 
-Os privados em `backend/.env` e `backend/.env.test` não são descobertos pelo NestJS/Prisma/Vitest no novo diretório. O painel deve fornecer os valores runtime já gerenciados; não copiar os arquivos antigos para o deploy. SHADOW_DATABASE_URL é de desenvolvimento/migration local, não do startup HTTP. Exemplos públicos não substituem secrets ou a confirmação da base conectada. Nunca distribuir secrets ao frontend ou incluí-los em URLs.
+## Histórico da migração
 
-## Sequência futura de publicação
+Antes da publicação, o contexto Northflank era `/backend` e o root Cloudflare era `/frontend`. Na Etapa 7B, o responsável informou que desativou o gatilho Git push do workflow e os builds automáticos do Worker original. Esses registros são históricos e não comprovam o estado atual das automações.
 
-Esta sequência depende de aprovação posterior; nenhuma ação abaixo foi executada nas Etapas 7A ou 7B.
-
-1. **Conferir e proteger todas as automações antes do push.** Obter as informações do pipeline, bloquear promoções/operações de banco e validar a proteção. Registrar versão do Worker original, imagem/SHA atual da API, domínios/rotas, variáveis públicas e vínculos de secrets. Confirmar backup recuperável do PostgreSQL existente.
-2. Após autorização explícita, disponibilizar o commit na `main` com gatilhos comprovadamente protegidos. Configurar roots e filtros independentes; produzir artefatos dos três pacotes do mesmo SHA aprovado. Confirmar o plano de reversão antes do primeiro corte.
-3. Publicar a API no serviço existente com os caminhos corretos, preservando addon/secrets; vincular `os-api.leonardopassos.com`, configurar a origem OS e validar HTTPS, healthcheck e preflight. Não aplicar migrations pela mudança de diretório.
-4. Publicar `portfolio-sistema-os` com os valores de build aprovados, vincular `os.leonardopassos.com` e validar login/logout, sessão, CSRF, primeiro acesso, autorização, ordens e DEMO conforme cobertura existente. Não executar fixtures destrutivas em produção; usar conta/ambiente operacional autorizado e distinguir smoke de testes completos em portfolio_test.
-5. Publicar `portfolio-site` e transferir o domínio público somente depois de OS/API funcionarem. Validar Home/estudo de caso, assets, refresh, mobile, links e ausência de chamadas de sessão/API no site.
-6. Reabilitar automações individualmente somente após validar pipeline e filtros. Mudança somente no site não deve promover backend/OS; mudança somente no OS não deve republicar site ou disparar manutenção do banco. Conservar recursos/artefatos anteriores durante o período de observação.
-
-A origem única pode interromper temporariamente o frontend antigo, conforme decisão aprovada. Se o hostname da API mudar, o cookie exclusivo do host anterior não acompanha o novo endereço: o navegador precisará autenticar novamente. Não ampliar CORS ou Domain do cookie para contornar o corte.
-
-## Reversão mínima
-
-1. Pausar/cancelar as automações e promoções afetadas antes de restaurar qualquer versão; impedir que um build pendente sobrescreva o rollback.
-2. No Cloudflare, restaurar a versão anterior do Worker afetado e o vínculo original de domínio/rotas. No primeiro deploy de um Worker novo, pode não haver versão anterior: para o site, restaurar o vínculo ao Worker original preservado; para o OS, restaurar o vínculo anterior documentado ou retirar o novo corte.
-3. No Northflank, promover a imagem anterior conhecida sem rebuild, restaurando conjuntamente a configuração pública/ingress/FRONTEND_ORIGIN anterior e os vínculos de secrets. Se o mecanismo de pin/rollback não estiver confirmado, não publicar.
-4. Restaurar URLs de API/site/OS nos artefatos frontend correspondentes e seus domínios. Um valor VITE não muda um bundle já publicado: restaurar o artefato compatível ou reconstruir conscientemente sob automações protegidas.
-5. Validar HTTPS, preflight, login/logout, sessão e site após a reversão. Manter PostgreSQL, schema e migrations; esta etapa não requer rollback SQL, reset ou restauração destrutiva do banco. Caso uma operação desconhecida já tenha alterado schema/dados, interromper o fluxo e investigar antes de qualquer restauração.
-
-Não usar revert/push na main como primeira resposta sem proteger o pipeline: isso também pode disparar o mesmo fluxo inadequado. A reversão é operacional por aplicação, com artefatos anteriores e configuração compatível.
-
-## Evidências e limitações locais
-
-O catálogo [Testes e validações](testing.md) registra resultados e avisos das etapas locais. Configuração versionada e emulação local comprovam nomes, caminhos, build e fallback; não comprovam disponibilidade dos nomes na conta, domínio publicado, permissões, TLS, proxy ou comportamento do pipeline externo. O plano de publicação depende de conferência operacional dos painéis e de aprovação explícita após o commit local da Etapa 7B.
+A modularização publicada tem referência em `4e1db94`; a Etapa 8 remove a SPA antiga da árvore versionada. Referências aos caminhos antigos no catálogo de validações são históricas. `api.leonardopassos.com` permanece no teste de CORS como origem não autorizada, sem uso operacional. Após a validação, o responsável removeu os diretórios legados completos; os pacotes em `apps/` não dependem deles.

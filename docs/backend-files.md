@@ -6,7 +6,7 @@ Dentro de cada família, os arquivos seguem a ordem de criação. Quando surgira
 
 Destina-se a pessoas e agentes que precisam localizar responsabilidades no backend sem depender do histórico da implementação.
 
-A API reside em `apps/sistema-os/backend/`, com instalação e build próprios. A mudança de diretório preserva a organização interna e as responsabilidades; os arquivos privados e gerados remanescentes em `backend/` não pertencem ao mapa.
+A API publicada em `https://os-api.leonardopassos.com` reside em `apps/sistema-os/backend/`, com instalação e build próprios. Prisma, migrations, PostgreSQL e scripts operacionais mantêm suas responsabilidades. Remanescentes privados locais dos diretórios legados não pertencem ao mapa nem são dependências do pacote.
 
 As descrições representam a responsabilidade atual de cada arquivo. Este mapa não substitui o histórico do Git.
 

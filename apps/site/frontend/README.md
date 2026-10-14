@@ -2,7 +2,7 @@
 
 Esta aplicação apresenta Leonardo Passos e os estudos de caso dos projetos. Este guia destina-se a quem vai executar, desenvolver ou preparar o build do site.
 
-O site contém a Home em `/`, o estudo de caso em `/projetos/sistema-os` e um fallback público para endereços desconhecidos. Ele funciona sem autenticação, API, consulta de sessão ou geração DEMO; os acessos ao Sistema OS são links externos.
+Publicado em `https://leonardopassos.com`, o site contém a Home em `/`, o estudo de caso em `/projetos/sistema-os` e um fallback público para endereços desconhecidos. Ele funciona sem autenticação, API, consulta de sessão ou geração DEMO; os acessos ao Sistema OS são links externos.
 
 ## Executar localmente
 
@@ -37,8 +37,8 @@ VITE_OS_URL=https://os.leonardopassos.com npm run build
 
 O pacote `portfolio-site-frontend` instala suas dependências e gera seu próprio `dist/`, sem workspace ou imports dos outros frontends. `wrangler.jsonc` mantém a identidade local `portfolio-site` e o fallback de SPA. O fallback visual de página não encontrada não configura status HTTP 404 no serviço de assets.
 
-Nenhum deploy, domínio ou gatilho externo foi alterado na Etapa 3. A publicação exige conferir e proteger as configurações externas antes de qualquer push estrutural.
+A publicação usa o Worker correspondente `portfolio-site`, com root `apps/site/frontend` e artefato `dist/`. No pacote, o comando de deploy é `npx wrangler deploy --config wrangler.jsonc`, exclusivamente após autorização. A manutenção não depende dos arquivos do frontend OS ou backend.
 
 Consulte [a configuração geral](../../../docs/setup.md), [o mapa frontend](../../../docs/frontend-files.md) e [o catálogo de testes](../../../docs/testing.md).
 
-O inventário de painéis, os bloqueios do pipeline da `main`, a sequência futura de publicação e a reversão estão em [Preparação local do deploy](../../../docs/deploy.md). Esta preparação não publica os Workers nem configura seus domínios.
+Diretórios, variáveis, comandos e reversão estão em [Publicação e operação](../../../docs/deploy.md). O Worker antigo `portfolio`, caso continue existindo, depende de remoção manual no Cloudflare. Esta limpeza não altera serviços ou domínios.

@@ -12,7 +12,7 @@ Destina-se a pessoas e agentes que precisam executar o projeto localmente ou man
   - [Variáveis de ambiente](#variáveis-de-ambiente)
   - [Deploy do frontend](#deploy-do-frontend)
   - [Aplicações frontend independentes](#aplicações-frontend-independentes)
-  - [Backend reorganizado e configurações externas](#backend-reorganizado-e-configurações-externas)
+  - [Backend e publicação independente](#backend-e-publicação-independente)
   - [Banco, Prisma e migrations](#banco-prisma-e-migrations)
   - [Migrations de produção](#migrations-de-produção)
   - [Bootstrap do primeiro Administrador](#bootstrap-do-primeiro-administrador)
@@ -35,7 +35,7 @@ Destina-se a pessoas e agentes que precisam executar o projeto localmente ou man
 | PostgreSQL               | Persistir o domínio, as sessões e executar migrations. |
 | Usuário PostgreSQL local | Criar as bases indicadas nas URLs de ambiente.         |
 
-O frontend original usa, por padrão, `http://localhost:5173`; os READMEs dos novos frontends indicam site em `http://localhost:5174` e Sistema OS em `http://localhost:5175`. O backend usa `http://localhost:3000`. Ajuste as variáveis de ambiente se esses endereços não estiverem disponíveis.
+As portas locais de referência são site em `http://localhost:5174`, Sistema OS em `http://localhost:5175` e API em `http://localhost:3000`. Ajuste as variáveis correspondentes se usar outras portas; os frontends devem ter origens distintas.
 
 ## Preparar um clone existente
 
@@ -64,7 +64,7 @@ cp apps/site/frontend/.env.example apps/site/frontend/.env
 
 `apps/sistema-os/backend/.env` contém as credenciais de banco, o segredo de sessão e o segredo HMAC da origem DEMO; `apps/sistema-os/backend/.env.test` contém somente `TEST_DATABASE_URL`; nenhum dos dois deve ser versionado. `apps/sistema-os/frontend/.env` define `VITE_API_URL` e `VITE_SITE_URL`; `apps/site/frontend/.env` define somente `VITE_OS_URL`. Todos os valores `VITE_*` são públicos e incorporados ao build.
 
-Na reorganização local, os arquivos privados existentes em `backend/` permanecem no local antigo. O novo pacote não os descobre automaticamente: configure as variáveis no processo ou crie uma configuração local própria a partir dos exemplos. Não copie os arquivos privados para a nova árvore.
+Configure cada pacote a partir de seus exemplos ou de variáveis injetadas no processo. Eventuais privados legados preservados localmente não são carregados pelas aplicações; não os copie, mova ou versione.
 
 ### 3. Preparar o PostgreSQL
 
@@ -106,6 +106,11 @@ cd apps/sistema-os/frontend
 npm run dev -- --port 5175 --strictPort
 ```
 
+```bash
+cd apps/site/frontend
+npm run dev -- --port 5174 --strictPort
+```
+
 O backend expõe a Swagger UI em `http://localhost:3000/api/docs`. Para escolher as verificações após uma alteração, consulte [Testes e validações](testing.md).
 
 ## Configuração importante
@@ -141,15 +146,13 @@ Criação e expiração da DEMO são lidas por epoch, e `provisionedAt` é grava
 
 ### Deploy do frontend
 
-A seção abaixo descreve o frontend original preservado; a publicação dos dois novos Workers está em [Preparação local do deploy](deploy.md). O painel do Worker original não foi reconfigurado.
+Os frontends publicados são Static Assets em Workers distintos: site em `https://leonardopassos.com` e Sistema OS em `https://os.leonardopassos.com`. Cada `wrangler.jsonc` usa o `dist/` local e fallback SPA; site tem fallback visual público e OS resolve login/guards pelo Router.
 
-O frontend é publicado como Static Assets no Cloudflare Workers. O Workers Builds deve usar `frontend/` como diretório de trabalho, executar `npm run build` e publicar com `npx wrangler deploy`.
-
-`frontend/wrangler.jsonc` publica `dist/` e usa o fallback de SPA, para que acessos diretos a rotas do React Router, como `/login` e `/dashboard`, recebam `index.html`. Configure `VITE_API_URL` como variável de ambiente do deploy; não a versione no arquivo Wrangler.
+Execute instalação, build e o comando autorizado de deploy dentro de `apps/site/frontend/` ou `apps/sistema-os/frontend/`. As variáveis VITE devem ser fornecidas ao build. Os roots, identidades, comandos e cuidados operacionais estão em [Publicação e operação](deploy.md). O Worker antigo `portfolio`, se ainda existir, depende de remoção manual no Cloudflare.
 
 ### Aplicações frontend independentes
 
-A modularização preserva somente `frontend/` como aplicação original na raiz e reúne a API em `apps/sistema-os/backend/` e cria instalações, configurações e artefatos locais próprios em `apps/`, sem workspace npm, biblioteca compartilhada ou ferramenta adicional de monorepo. O site contém somente o portfólio público; o frontend Sistema OS contém autenticação, áreas internas e a geração DEMO separada do login.
+Os três pacotes residem em `apps/`, com instalações, configurações e artefatos próprios, sem workspace npm, biblioteca compartilhada ou ferramenta adicional de monorepo. O site contém somente o portfólio público; o frontend Sistema OS contém autenticação, áreas internas e a geração DEMO separada do login.
 
 | Diretório | Pacote npm | Identidade local do Worker |
 | --- | --- | --- |
@@ -178,11 +181,11 @@ VITE_API_URL=https://os-api.leonardopassos.com \
 VITE_SITE_URL=https://leonardopassos.com npm run build
 ```
 
-O `.gitignore` permite somente esses dois novos exemplos públicos e ignora `.wrangler/`, gerado pelo emulador local. Nenhum `.env` privado foi copiado ou alterado. O inventário exato dos painéis e o risco do pipeline da `main` estão em [Preparação local do deploy](deploy.md).
+O `.gitignore` preserva os exemplos públicos e ignora privados, builds e `.wrangler/`. A publicação independente e os limites de operação estão em [Publicação e operação](deploy.md).
 
-Os READMEs de [site](../apps/site/frontend/README.md) e [Sistema OS](../apps/sistema-os/frontend/README.md) indicam portas distintas por argumentos do Vite. A configuração Vite copiada mantém seus defaults.
+Os READMEs de [site](../apps/site/frontend/README.md) e [Sistema OS](../apps/sistema-os/frontend/README.md) indicam portas distintas por argumentos do Vite. Vite recebe essas portas por argumentos, sem configuração global compartilhada.
 
-Somente arquivos versionados do frontend original foram copiados na Etapa 2. Dependências, builds, caches e ambientes privados não participaram da cópia; `.env.example` continua disponível em cada pacote.
+A separação publicada tem referência em `4e1db94`. Na Etapa 8, os 101 arquivos versionados do frontend original foram removidos após conferir seus correspondentes, incluindo assets e configurações. Os privados legados foram preservados durante a validação; posteriormente, o responsável removeu os diretórios antigos completos. `.env.example` permanece em cada pacote atual.
 
 No site, `VITE_OS_URL` define o destino externo do Sistema OS; o exemplo usa `http://localhost:5175`, e a ausência da variável usa `https://os.leonardopassos.com`. O cabeçalho abre `/login`, e os CTAs de demonstração abrem `/demo` no outro frontend. A variável é pública e incorporada ao build. Para definir explicitamente o destino de produção, execute no diretório do site:
 
@@ -198,24 +201,13 @@ No Sistema OS, `VITE_SITE_URL` define os links externos ao portfólio; o exemplo
 VITE_SITE_URL=https://leonardopassos.com npm run build
 ```
 
-Os nomes Wrangler são distintos de `portfolio`, mas nenhum Worker, domínio, gatilho ou configuração externa foi criado ou alterado. A publicação futura exige conferir e proteger os gatilhos de deploy antes de qualquer push estrutural. A integração DEMO ao login permanece para uma etapa posterior à modularização.
+Os Workers correspondentes são `portfolio-site` e `portfolio-sistema-os`. A publicação foi confirmada pelo responsável; esta limpeza local não altera Workers, domínios ou gatilhos. A integração DEMO ao login permanece fora do escopo.
 
-### Backend reorganizado e configurações externas
+### Backend e publicação independente
 
-A API usa um pacote independente em `apps/sistema-os/backend/`. Execute nele `npm ci`, `npm run prisma:validate`, `npm run lint` e `npm run build`; o build regenera `src/generated/prisma/` e produz `dist/`. Schema, seis migrations, `migration_lock.toml`, dependências e lockfile permanecem idênticos.
+A API publicada em `https://os-api.leonardopassos.com` usa `apps/sistema-os/backend/`. Instalação, validate, generate, lint, build, testes e scripts operacionais são relativos a esse pacote; não dependem dos diretórios antigos da raiz. O build gera `src/generated/prisma/` e os entrypoints em `dist/`, sem aplicar migrations.
 
-NestJS, TypeScript, Prisma e Vitest já usam caminhos relativos ao pacote. Os scripts administrativos, cleanup e migrations também continuam relativos: a mudança necessária é o diretório de trabalho de quem os executa. O `.gitignore` da raiz mantém o Prisma Client gerado legado em `backend/src/generated/prisma/` ignorado, pois esses artefatos locais não foram movidos. O pacote novo tem seu próprio ignore relativo. Não foi adicionada configuração de monorepo nem redirecionamento ao diretório antigo.
-
-O repositório não permite confirmar as configurações efetivas dos painéis. Nenhuma configuração externa foi alterada nesta etapa. Antes de qualquer push estrutural, confira e proteja:
-
-| Plataforma | Configuração a conferir no painel | Valor ou ação para a migração futura |
-| --- | --- | --- |
-| Northflank API | Branch, gatilhos, build context, diretório do pacote, instalação e build | Usar `apps/sistema-os/backend/` para `npm ci` e `npm run build`; manter o deploy automático protegido até a validação. Se o painel usar a raiz Git como contexto, ajustar o subdiretório correspondente. |
-| Northflank API | Working directory runtime, start, portas, healthcheck e artefato | Executar `npm run start:prod` no pacote/imagem que contém `dist/main.js`; preservar porta, rotas e variáveis runtime existentes. |
-| Northflank Job | Contexto de build, working directory, dependências e ordem dos Jobs | Migration e comandos administrativos/cleanup devem usar o novo pacote ou sua imagem; `migrate:prod` permanece separado do startup e condicionado à aprovação operacional. |
-| Northflank PostgreSQL | Addon, secrets runtime/admin, rede e variáveis vinculadas | Preservar conexões e credenciais; verificar os vínculos sem imprimir URIs ou transferir secrets entre processos. |
-| Cloudflare Workers Builds | Branches, gatilhos e filtros de caminhos dos Workers original/site/OS | Evitar publicação automática durante a mudança estrutural; confirmar se uma alteração backend dispara rebuild frontend. Não há mudança nos diretórios ou configurações locais dos Workers nesta etapa. |
-| Ambos | Domínios, DNS e configurações de cookies/CORS | Sem mudança nesta etapa; conferir os valores existentes antes da etapa específica de domínios/CORS. |
+O PostgreSQL permanece separado no Northflank. Os caminhos exigidos pelo código são contexto `/apps/sistema-os/backend` ou comandos com working directory equivalente, runtime com package/dist e Job de migration com script, schema, SQLs e Prisma CLI do mesmo artefato. O pipeline conhecido contém `portfolio-backend-build`, `portfolio-migrate` e release de `portfolio-api`; consulte [Publicação e operação](deploy.md) antes de qualquer ação externa.
 
 ### Banco, Prisma e migrations
 
@@ -245,7 +237,7 @@ Use `npx prisma migrate dev --name <nome-da-migration>` somente ao criar uma mig
 
 ### Migrations de produção
 
-A configuração prevista separa credenciais da API e da manutenção do schema. O responsável informou na Etapa 7B os nomes `portfolio-api` e `portfolio-migrate`, com build, migration e release nessa ordem. Os recursos e seus vínculos de secrets ainda precisam ser conferidos no painel; o estado das automações está em [Preparação da publicação](deploy.md#estado-e-limites-da-preparação).
+A configuração separa credenciais da API e da manutenção do schema. O responsável informou na Etapa 7B os nomes `portfolio-api` e `portfolio-migrate`, com build, migration e release nessa ordem. Os recursos e seus vínculos de secrets ainda precisam ser conferidos no painel; o estado das automações está em [Publicação e operação](deploy.md#estado-publicado-e-limites).
 
 | Processo | Variável | Conexão |
 | -------- | -------- | ------- |
@@ -330,7 +322,7 @@ CORS controla quais origens podem ler respostas no navegador. Com a origem está
 
 ### Comunicação entre os domínios
 
-A arquitetura final exige somente uma `FRONTEND_ORIGIN`. A migração admite indisponibilidade temporária, portanto o valor antigo pode ser substituído pelo novo, sem lista de origens ou mudança no código CORS.
+A arquitetura publicada utiliza uma única `FRONTEND_ORIGIN`, correspondente ao frontend OS, sem lista de origens ou alteração no código CORS.
 
 | Aplicação | Endereço final | Configuração pública |
 | --- | --- | --- |
@@ -344,20 +336,20 @@ OS e API são origens diferentes, mas pertencem ao mesmo site: usam HTTPS e comp
 
 O Axios do OS mantém `withCredentials: true`, token CSRF em memória, envio de `X-CSRF-Token` nas mutações e uma única recuperação de token obsoleto. A API mantém credenciais habilitadas, origem explícita e preflight com `Content-Type`/`X-CSRF-Token`, sem wildcard. Cookie HttpOnly, Secure em produção, path `/`, expiração fixa, rotação e revogação PostgreSQL permanecem iguais. [Referência de CORS com credenciais e preflight](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS).
 
-Na publicação futura, ajuste e confira no Northflank:
+Na manutenção da publicação, confira no Northflank:
 
 | Configuração | Ação necessária |
 | --- | --- |
-| Ambiente da API | Substituir `FRONTEND_ORIGIN` pela origem HTTPS do OS, sem manter o site público ou a origem antiga; manter `NODE_ENV=production`. Reiniciar/publicar a API para carregar o novo ambiente. |
-| Domínio e TLS | Vincular `os-api.leonardopassos.com`, confirmar DNS/certificado e acesso HTTPS direto aos endpoints, sem redirecionamento no preflight. Nenhum vínculo foi configurado nesta etapa. |
+| Ambiente da API | Usar `FRONTEND_ORIGIN=https://os.leonardopassos.com` e `NODE_ENV=production`. Mudanças de ambiente exigem reinício/publicação autorizados. |
+| Domínio e TLS | Preservar `os-api.leonardopassos.com` e conferir certificado/acesso HTTPS direto, sem redirecionamento no preflight. |
 | Proxy e cookie | Confirmar a cadeia real de proxies e `X-Forwarded-Proto` do hop confiável, conforme `trust proxy=1` existente. Verificar a emissão e o retorno de cookie Secure/HttpOnly/Lax sem Domain no host da API. |
 | Sessão e banco | Preservar secrets e conexão runtime atuais, store PostgreSQL e duração da sessão. Não substituir credenciais da API pelas do Job de migration. Conferir a ausência de URI administrativa no runtime. |
 | Segurança HTTP | Confirmar `OPTIONS` 204, origem exata, credenciais e headers permitidos sem desafio/redirecionamento no edge; login, CSRF, refresh, logout e origem pública bloqueada no navegador. |
-| Deploy | Manter os gatilhos protegidos enquanto diretórios/imagem são ajustados conforme a Etapa 5. A troca da origem pode interromper temporariamente o frontend antigo, conforme a decisão aprovada. |
+| Deploy | Conferir gatilhos, filtros e imagem/SHA de cada recurso antes de enviar mudanças estruturais. O estado atual das automações não foi inspecionado nesta limpeza. |
 
 As configurações efetivas de domínio, TLS, proxy, secrets e gatilhos permanecem externas e não verificadas pelo repositório. O teste local usa HTTP e portas diferentes de `localhost`; ele comprova CORS, credenciais, sessão e CSRF, mas não certifica HTTPS, cookies Secure ou a cadeia de proxies publicada.
 
-Os arquivos privados continuam em `backend/.env` e `backend/.env.test`, sem cópia ou alteração. O primeiro contém `DATABASE_URL`, `SHADOW_DATABASE_URL`, `SESSION_SECRET`, `DEMO_IP_HMAC_SECRET`, `FRONTEND_ORIGIN`, `NODE_ENV` e `PORT`; o segundo contém `TEST_DATABASE_URL`. NestJS, Prisma e o setup Vitest procuram ambientes no diretório do novo pacote; não há descoberta automática desses arquivos antigos. Para desenvolvimento, configure o processo explicitamente ou preencha os exemplos locais; para produção, use as variáveis/secrets do painel. Na validação desta etapa, somente a conexão de testes foi lida do arquivo antigo e injetada no processo, após comprovar isolamento local em `portfolio_test`; os segredos de sessão/HMAC foram sintéticos. Nenhum valor privado foi registrado.
+O ambiente é local a cada pacote. Configure variáveis de desenvolvimento/teste a partir dos exemplos; produção usa os secrets dos painéis. Eventuais privados dos diretórios antigos permanecem ignorados e não são descobertos pelo NestJS, Prisma ou Vitest. As validações da limpeza usam conexão local de teste injetada no processo e segredos de sessão/HMAC sintéticos, sem alterar arquivos privados.
 
 ### Documentação HTTP, CEP e logs
 
@@ -373,7 +365,7 @@ Logs e respostas sanitizadas não incluem segredos, credenciais, URLs completas 
 
 ## Tecnologias configuradas
 
-Esta seção registra comandos usados ao adicionar tecnologias ao projeto.
+Esta seção registra comandos históricos de adoção das tecnologias. Os comandos com `frontend` ou `backend` na raiz antecedem a modularização e não descrevem o ambiente executável atual em `apps/`.
 
 Não os execute novamente apenas para preparar um clone existente; para isso, use `npm ci` na seção inicial.
 

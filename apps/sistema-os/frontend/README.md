@@ -2,7 +2,7 @@
 
 Esta aplicação concentra autenticação, primeiro acesso, Dashboard, Clientes, Funcionários, Ordens de Serviço, Perfil e demonstração do Sistema OS. Este guia destina-se a quem vai executar ou desenvolver o frontend.
 
-A raiz `/` e endereços desconhecidos encaminham para `/login`. O login resolve sessões válidas para Dashboard ou Primeiro Acesso. A geração DEMO permanece em `/demo`, separada do login; sua integração futura não faz parte da Etapa 4.
+Publicado em `https://os.leonardopassos.com`, o frontend usa a API `https://os-api.leonardopassos.com`. A raiz `/` e endereços desconhecidos encaminham para `/login`. O login resolve sessões válidas para Dashboard ou Primeiro Acesso. A geração DEMO permanece em `/demo`, separada do login. A integração DEMO ao login não faz parte da limpeza estrutural.
 
 ## Executar localmente
 
@@ -36,8 +36,8 @@ VITE_SITE_URL=https://leonardopassos.com npm run build
 
 Axios com credenciais, CSRF, TanStack Query, providers e guards de sessão permanecem locais ao pacote. A interface não substitui a autorização do NestJS. Qualquer teste com escrita no PostgreSQL exige confirmação prévia de `portfolio_test` e limpeza das fixtures próprias; migrations e produção não fazem parte da validação desta etapa.
 
-O pacote `portfolio-sistema-os-frontend` possui seu próprio lockfile e `dist/`; `wrangler.jsonc` mantém a identidade local `portfolio-sistema-os` e o fallback de SPA. Nenhum domínio, Worker ou gatilho externo foi alterado. A publicação futura depende de conferir e proteger a configuração operacional antes de qualquer push estrutural.
+O pacote `portfolio-sistema-os-frontend` possui seu próprio lockfile e `dist/`; `wrangler.jsonc` mantém a identidade local `portfolio-sistema-os` e o fallback de SPA. A publicação usa root `apps/sistema-os/frontend` e artefato `dist/`. O comando `npx wrangler deploy --config wrangler.jsonc` é executado no pacote somente após autorização; confira gatilhos e filtros antes de enviar mudanças estruturais.
 
 Consulte [a configuração geral](../../../docs/setup.md), [o mapa frontend](../../../docs/frontend-files.md) e [o catálogo de testes](../../../docs/testing.md).
 
-O inventário de painéis, os bloqueios do pipeline da `main`, a sequência futura de publicação e a reversão estão em [Preparação local do deploy](../../../docs/deploy.md). Esta preparação não publica os Workers nem configura seus domínios.
+Diretórios, variáveis, comandos e reversão estão em [Publicação e operação](../../../docs/deploy.md). O Worker antigo `portfolio`, caso continue existindo, depende de remoção manual no Cloudflare. Esta limpeza não altera serviços ou domínios.
