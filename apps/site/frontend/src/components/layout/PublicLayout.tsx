@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
-import horizontalColorLogo from "../../assets/brand/logo-horizontal-color-o.svg";
-import horizontalLightLogo from "../../assets/brand/logo-horizontal-light-o.svg";
+import horizontalColorLogo from "../../assets/brand/logo_name.svg";
+import horizontalLightLogo from "../../assets/brand/logo_name_all_white.svg";
 import { osLoginUrl } from "../../shared/lib/osLinks";
 
 type PublicLayoutProps = {

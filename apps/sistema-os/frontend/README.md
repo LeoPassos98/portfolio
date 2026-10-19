@@ -48,6 +48,8 @@ Axios com credenciais, CSRF, TanStack Query, providers e guards de sessão perma
 
 O pacote `portfolio-sistema-os-frontend` possui seu próprio lockfile e `dist/`; `wrangler.jsonc` mantém a identidade local `portfolio-sistema-os` e o fallback de SPA. A publicação usa root `apps/sistema-os/frontend` e artefato `dist/`. O comando `npx wrangler deploy --config wrangler.jsonc` é executado no pacote somente após autorização; confira gatilhos e filtros antes de enviar mudanças estruturais.
 
+O favicon fica em `public/favicon.svg`, referenciado por `/favicon.svg`. As variantes autorais `src/assets/brand/logo-symbol-white.svg` e `logo-horizontal-white.svg` ficam preservadas para uso gráfico futuro; o componente `AppBrand` continua usando a marca em HTML. Esses SVGs não contêm scripts ou metadados do editor.
+
 Consulte [a configuração geral](../../../docs/setup.md), [o mapa frontend](../../../docs/frontend-files.md) e [o catálogo de testes](../../../docs/testing.md).
 
 Diretórios, variáveis, comandos e reversão estão em [Publicação e operação](../../../docs/deploy.md). O Worker antigo `portfolio`, caso continue existindo, depende de remoção manual no Cloudflare. Esta limpeza não altera serviços ou domínios.

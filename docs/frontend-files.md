@@ -63,13 +63,13 @@ Diretórios: `apps/site/frontend/`, `apps/site/frontend/src/`, `apps/sistema-os/
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
 | 1 | `apps/site/frontend/README.md` | Execução do portfólio público, links configuráveis para o OS e build sem API. |
-| 2 | `apps/site/frontend/index.html` | Documento público, metadados e favicon preservados. |
+| 2 | `apps/site/frontend/index.html` | Documento público e metadados; referencia o favicon próprio em /favicon.svg. |
 | 3 | `apps/site/frontend/src/main.tsx` | Monta React, BrowserRouter, fonte e CSS, sem providers de sessão, Query ou notificações. |
 | 4 | `apps/site/frontend/src/App.tsx` | Home e estudo de caso; rotas desconhecidas retornam a / com replace no histórico, sem página de erro ou acesso ao login OS. |
 | 5 | `apps/site/frontend/vite.config.ts` | Plugins React e Tailwind e build independente do site. |
 | 6 | `apps/site/frontend/wrangler.jsonc` | Static Assets locais e fallback SPA com a identidade portfolio-site. |
 | 7 | `apps/sistema-os/frontend/README.md` | Execução do Sistema OS, variáveis da API/portfólio e validações locais. |
-| 8 | `apps/sistema-os/frontend/index.html` | Documento e metadados do Sistema OS, com favicon preservado. |
+| 8 | `apps/sistema-os/frontend/index.html` | Documento e metadados do Sistema OS; referencia o favicon próprio em /favicon.svg. |
 | 9 | `apps/sistema-os/frontend/src/main.tsx` | Carrega fonte/CSS e monta App com providers de Query, sessão, notificações e Router. |
 | 10 | `apps/sistema-os/frontend/src/App.tsx` | Login único com painel DEMO, primeiro acesso e áreas internas; raiz e fallback geral passam pelo login, sem rota /demo. |
 | 11 | `apps/sistema-os/frontend/vite.config.ts` | Configura desenvolvimento e build com os plugins de React e Tailwind CSS. |
@@ -161,7 +161,7 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Marca, seções e rodapé públicos; acesso externo ao login do OS sem consulta de sessão. |
+| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Marca colorida no cabeçalho e branca no rodapé, seções públicas e acesso externo ao login do OS sem consulta de sessão. |
 | 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo; permite ampliar apenas o login no desktop para acomodar o painel DEMO ao lado do formulário. |
 | 3 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo. |
 | 4 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
