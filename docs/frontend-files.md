@@ -162,7 +162,7 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
 | 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Marca, seções e rodapé públicos; acesso externo ao login do OS sem consulta de sessão. |
-| 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo. |
+| 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo; permite ampliar apenas o login no desktop para acomodar o painel DEMO ao lado do formulário. |
 | 3 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo. |
 | 4 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
 

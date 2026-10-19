@@ -93,7 +93,7 @@ function DemoAccessPanel({
       {access ? (
         <div className="mt-5 space-y-5">
           <p role="status" className="text-foreground text-sm font-medium">
-            Seu acesso está pronto. Preencha o formulário acima e clique em
+            Seu acesso está pronto. Preencha o formulário de login e clique em
             Entrar para ativar a demonstração.
           </p>
           <dl className="space-y-4">

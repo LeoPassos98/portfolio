@@ -6,6 +6,8 @@ Publicado em `https://os.leonardopassos.com`, o frontend usa a API `https://os-a
 
 A mesma página `/login` atende contas permanentes e demonstrativas. Seu painel permite escolher EXEMPLO/VAZIO, gerar credenciais temporárias e usar **Preencher login**. O visitante ainda precisa clicar em **Entrar**: preencher não autentica.
 
+Em telas a partir de 1024 px, o formulário de login e o painel DEMO ficam lado a lado. Em telas menores, ficam empilhados. A tela de primeiro acesso mantém a largura compacta.
+
 Não existe rota frontend `/demo`; esse endereço recebe o mesmo fallback de qualquer rota desconhecida.
 
 A integração segue a [revisão aprovada de UI](https://app.notion.com/p/3c51e6e3a46e81b9a072dcac1ede4942) e o [planejamento de telas e fluxo](https://app.notion.com/p/3c21e6e3a46e81ab9151f93798c63789), que adotam um login único com geração DEMO na mesma página.

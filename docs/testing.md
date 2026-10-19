@@ -542,6 +542,8 @@ Avisos preexistentes: dependência closeOptions no SearchableSelect, chunk OS ac
 
 Evidências em `/tmp/portfolio-stage9-backend-tests.log`, snapshots `/tmp/portfolio-stage9-before.json` e `/tmp/portfolio-stage9-after-main.json`, relatório/capturas em `/tmp/portfolio-stage9-browser/`. Capturas ocultam credenciais; logs e relatório não registram seus valores. Nenhum artefato temporário foi adicionado ao repositório.
 
+Ajuste gráfico posterior sobre `1b6d4e5`: login e painel DEMO lado a lado a partir de 1024 px, empilhados abaixo desse limite. Lint/build do frontend OS aprovados. Chrome local validou larguras de 1440, 1024, 1023, 768, 375 e 320 px, alinhamento, ausência de overflow, erros de campos obrigatórios e ordem de foco por Tab; capturas desktop/mobile revisadas. Esta verificação se limita ao layout e usa uma resposta local sintética de sessão não autenticada, sem API real, geração DEMO ou escrita no banco; não substitui o smoke integrado acima. Evidências temporárias em `/tmp/portfolio-login-layout-report.json` e `/tmp/portfolio-login-layout-{1440,375}.png`.
+
 ### Integração pública do ambiente DEMO
 
 Validação do frontend em 05/10/2026, sobre o bloco local iniciado no HEAD `69f40fe8669e9ee340108b462f350e1267478581`. Chrome headless controlado por CDP e API HTTP sintética em loopback, com credenciais fictícias e sem acessar backend, banco ou produção. O script de inspeção e as capturas ficaram em `/tmp`, sem adicionar runner ou dependências ao projeto.
