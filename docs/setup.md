@@ -146,7 +146,7 @@ Criação e expiração da DEMO são lidas por epoch, e `provisionedAt` é grava
 
 ### Deploy do frontend
 
-Os frontends publicados são Static Assets em Workers distintos: site em `https://leonardopassos.com` e Sistema OS em `https://os.leonardopassos.com`. Cada `wrangler.jsonc` usa o `dist/` local e fallback SPA; site tem fallback visual público e OS resolve login/guards pelo Router.
+Os frontends publicados são Static Assets em Workers distintos: site em `https://leonardopassos.com` e Sistema OS em `https://os.leonardopassos.com`. Cada `wrangler.jsonc` usa o `dist/` local e fallback SPA; site encaminha rotas desconhecidas para a Home e OS resolve login/guards pelo Router.
 
 Execute instalação, build e o comando autorizado de deploy dentro de `apps/site/frontend/` ou `apps/sistema-os/frontend/`. As variáveis VITE devem ser fornecidas ao build. Os roots, identidades, comandos e cuidados operacionais estão em [Publicação e operação](deploy.md). O Worker antigo `portfolio`, se ainda existir, depende de remoção manual no Cloudflare.
 
@@ -193,7 +193,7 @@ No site, `VITE_OS_URL` define o destino externo do Sistema OS; o exemplo usa `ht
 VITE_OS_URL=https://os.leonardopassos.com npm run build
 ```
 
-O site compila e funciona sem `VITE_API_URL`, API ou providers de sessão. O Sistema OS exige `VITE_API_URL` e mantém Axios com credenciais, CSRF, providers e guards; `/` e rotas desconhecidas passam pelo login, que resolve sessões ativas para Dashboard ou Primeiro Acesso. O fallback público do site exibe página não encontrada; o fallback SPA de assets continua servindo `index.html`, sem configurar status HTTP 404.
+O site compila e funciona sem `VITE_API_URL`, API ou providers de sessão. O Sistema OS exige `VITE_API_URL` e mantém Axios com credenciais, CSRF, providers e guards; `/` e rotas desconhecidas passam pelo login, que resolve sessões ativas para Dashboard ou Primeiro Acesso. O Router do site encaminha endereços desconhecidos para `/`, substituindo a entrada inválida no histórico; o fallback SPA de assets continua servindo `index.html`, sem configurar status HTTP 404 ou 3xx.
 
 No Sistema OS, `VITE_SITE_URL` define os links externos ao portfólio; o exemplo usa `http://localhost:5174`, e a ausência da variável usa `https://leonardopassos.com`. A marca das telas de autenticação aponta para o site; o painel DEMO faz parte da mesma página de login, sem layout ou rota pública adicionais. Depois de configurar a URL da API, é possível definir explicitamente o destino do portfólio no diretório do frontend OS:
 

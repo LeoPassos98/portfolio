@@ -2,7 +2,7 @@
 
 Esta aplicação apresenta Leonardo Passos e os estudos de caso dos projetos. Este guia destina-se a quem vai executar, desenvolver ou preparar o build do site.
 
-Publicado em `https://leonardopassos.com`, o site contém a Home em `/`, o estudo de caso em `/projetos/sistema-os` e um fallback público para endereços desconhecidos. Ele funciona sem autenticação, API, consulta de sessão ou geração DEMO; os acessos ao Sistema OS são links externos.
+Publicado em `https://leonardopassos.com`, o site contém a Home em `/`, o estudo de caso em `/projetos/sistema-os` e encaminha endereços desconhecidos para `/`, substituindo a entrada inválida no histórico. Ele funciona sem autenticação, API, consulta de sessão ou geração DEMO; os acessos ao Sistema OS são links externos.
 
 ## Executar localmente
 
@@ -35,7 +35,7 @@ Para definir explicitamente o destino de produção:
 VITE_OS_URL=https://os.leonardopassos.com npm run build
 ```
 
-O pacote `portfolio-site-frontend` instala suas dependências e gera seu próprio `dist/`, sem workspace ou imports dos outros frontends. `wrangler.jsonc` mantém a identidade local `portfolio-site` e o fallback de SPA. O fallback visual de página não encontrada não configura status HTTP 404 no serviço de assets.
+O pacote `portfolio-site-frontend` instala suas dependências e gera seu próprio `dist/`, sem workspace ou imports dos outros frontends. `wrangler.jsonc` mantém a identidade local `portfolio-site` e o fallback de SPA. O Router encaminha rotas desconhecidas para a Home; esse redirecionamento ocorre no navegador, sem configurar status HTTP 404 ou 3xx no serviço de assets.
 
 A publicação usa o Worker correspondente `portfolio-site`, com root `apps/site/frontend` e artefato `dist/`. No pacote, o comando de deploy é `npx wrangler deploy --config wrangler.jsonc`, exclusivamente após autorização. A manutenção não depende dos arquivos do frontend OS ou backend.
 

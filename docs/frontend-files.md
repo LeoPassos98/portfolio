@@ -65,7 +65,7 @@ Diretórios: `apps/site/frontend/`, `apps/site/frontend/src/`, `apps/sistema-os/
 | 1 | `apps/site/frontend/README.md` | Execução do portfólio público, links configuráveis para o OS e build sem API. |
 | 2 | `apps/site/frontend/index.html` | Documento público, metadados e favicon preservados. |
 | 3 | `apps/site/frontend/src/main.tsx` | Monta React, BrowserRouter, fonte e CSS, sem providers de sessão, Query ou notificações. |
-| 4 | `apps/site/frontend/src/App.tsx` | Home, estudo de caso e fallback público de página não encontrada, sem redirecionar para login. |
+| 4 | `apps/site/frontend/src/App.tsx` | Home e estudo de caso; rotas desconhecidas retornam a / com replace no histórico, sem página de erro ou acesso ao login OS. |
 | 5 | `apps/site/frontend/vite.config.ts` | Plugins React e Tailwind e build independente do site. |
 | 6 | `apps/site/frontend/wrangler.jsonc` | Static Assets locais e fallback SPA com a identidade portfolio-site. |
 | 7 | `apps/sistema-os/frontend/README.md` | Execução do Sistema OS, variáveis da API/portfólio e validações locais. |

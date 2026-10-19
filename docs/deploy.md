@@ -41,7 +41,7 @@ O Worker antigo **`portfolio` ainda depende de remoção manual no Cloudflare, c
 
 Os comandos da tabela são procedimentos de publicação e exigem autorização; não foram executados na Etapa 8. A instalação inclui dependências de build/deploy mesmo com NODE_ENV de produção. As variáveis VITE são públicas e incorporadas ao JavaScript: fornecê-las somente no runtime do Worker não muda o bundle. `.env.production.example` não é carregado automaticamente pelo Vite e nunca deve conter secrets.
 
-Cada Wrangler usa assets em `./dist/`, compatibilidade `2026-09-16` e `not_found_handling: single-page-application`. O fallback serve index com HTTP 200; o site mostra página não encontrada, enquanto o OS resolve guards/login pelo Router. Cada aplicação possui fonte, estilos, assets e favicon próprios.
+Cada Wrangler usa assets em `./dist/`, compatibilidade `2026-09-16` e `not_found_handling: single-page-application`. O fallback serve index com HTTP 200; o Router do site encaminha endereços desconhecidos para `/` com replace no histórico, enquanto o OS resolve guards/login pelo Router. Cada aplicação possui fonte, estilos, assets e favicon próprios.
 
 Builds/previews/PRs, hooks e filtros efetivos precisam ser conferidos no painel antes de enviar mudanças estruturais. A remoção do frontend antigo não deve reativar ou republicar o Worker legado. Não ampliar o CORS da API para permitir hosts de preview.
 
