@@ -8,7 +8,6 @@ import { ClientCreatePage } from './features/clients/pages/ClientCreatePage'
 import { ClientEditPage } from './features/clients/pages/ClientEditPage'
 import { ClientsPage } from './features/clients/pages/ClientsPage'
 import { DashboardPage } from './features/dashboard/pages/DashboardPage'
-import { DemoAccessPage } from './features/demo/pages/DemoAccessPage'
 import { EmployeeCreatePage } from './features/employees/pages/EmployeeCreatePage'
 import { EmployeeEditPage } from './features/employees/pages/EmployeeEditPage'
 import { EmployeeProfilePage } from './features/employees/pages/EmployeeProfilePage'
@@ -37,7 +36,6 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/demo" element={<DemoAccessPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/first-access" element={<FirstAccessPage />} />
       <Route element={<ProtectedRoute />}>

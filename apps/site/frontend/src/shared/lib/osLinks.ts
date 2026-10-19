@@ -3,4 +3,3 @@ const osUrl = (
 ).replace(/\/+$/, '')
 
 export const osLoginUrl = `${osUrl}/login`
-export const osDemoUrl = `${osUrl}/demo`

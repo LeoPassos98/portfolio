@@ -15,7 +15,7 @@ cp .env.example .env.local
 npm run dev -- --port 5174 --strictPort
 ```
 
-`VITE_OS_URL` define a URL base absoluta do frontend Sistema OS. O exemplo aponta para `http://localhost:5175`; ajuste esse endereço para o ambiente de desenvolvimento utilizado. O cabeçalho aponta para `/login`, e os CTAs “Testar aplicação” apontam para `/demo` na outra aplicação. Credenciais não são transportadas nesses links.
+`VITE_OS_URL` define a URL base absoluta do frontend Sistema OS. O exemplo aponta para `http://localhost:5175`; ajuste esse endereço para o ambiente de desenvolvimento utilizado. O cabeçalho e todos os CTAs “Testar aplicação” apontam para `/login` no Sistema OS. Nessa página, o visitante pode gerar credenciais DEMO e preencher o formulário antes de clicar em Entrar. Credenciais não são transportadas nesses links.
 
 Sem `VITE_OS_URL`, o site usa `https://os.leonardopassos.com`. A variável é pública e incorporada ao build pelo Vite; mudar seu valor exige gerar outro build. `VITE_API_URL` não é necessária e não participa da aplicação.
 

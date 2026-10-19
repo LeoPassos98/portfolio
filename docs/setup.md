@@ -152,7 +152,7 @@ Execute instalação, build e o comando autorizado de deploy dentro de `apps/sit
 
 ### Aplicações frontend independentes
 
-Os três pacotes residem em `apps/`, com instalações, configurações e artefatos próprios, sem workspace npm, biblioteca compartilhada ou ferramenta adicional de monorepo. O site contém somente o portfólio público; o frontend Sistema OS contém autenticação, áreas internas e a geração DEMO separada do login.
+Os três pacotes residem em `apps/`, com instalações, configurações e artefatos próprios, sem workspace npm, biblioteca compartilhada ou ferramenta adicional de monorepo. O site contém somente o portfólio público; o frontend Sistema OS contém autenticação, áreas internas e a geração DEMO integrada ao login.
 
 | Diretório | Pacote npm | Identidade local do Worker |
 | --- | --- | --- |
@@ -187,7 +187,7 @@ Os READMEs de [site](../apps/site/frontend/README.md) e [Sistema OS](../apps/sis
 
 A separação publicada tem referência em `4e1db94`. Na Etapa 8, os 101 arquivos versionados do frontend original foram removidos após conferir seus correspondentes, incluindo assets e configurações. Os privados legados foram preservados durante a validação; posteriormente, o responsável removeu os diretórios antigos completos. `.env.example` permanece em cada pacote atual.
 
-No site, `VITE_OS_URL` define o destino externo do Sistema OS; o exemplo usa `http://localhost:5175`, e a ausência da variável usa `https://os.leonardopassos.com`. O cabeçalho abre `/login`, e os CTAs de demonstração abrem `/demo` no outro frontend. A variável é pública e incorporada ao build. Para definir explicitamente o destino de produção, execute no diretório do site:
+No site, `VITE_OS_URL` define o destino externo do Sistema OS; o exemplo usa `http://localhost:5175`, e a ausência da variável usa `https://os.leonardopassos.com`. O cabeçalho abre `/login`, e os CTAs de demonstração também abrem `/login` no outro frontend. A variável é pública e incorporada ao build. Para definir explicitamente o destino de produção, execute no diretório do site:
 
 ```bash
 VITE_OS_URL=https://os.leonardopassos.com npm run build
@@ -195,13 +195,15 @@ VITE_OS_URL=https://os.leonardopassos.com npm run build
 
 O site compila e funciona sem `VITE_API_URL`, API ou providers de sessão. O Sistema OS exige `VITE_API_URL` e mantém Axios com credenciais, CSRF, providers e guards; `/` e rotas desconhecidas passam pelo login, que resolve sessões ativas para Dashboard ou Primeiro Acesso. O fallback público do site exibe página não encontrada; o fallback SPA de assets continua servindo `index.html`, sem configurar status HTTP 404.
 
-No Sistema OS, `VITE_SITE_URL` define os links externos ao portfólio; o exemplo usa `http://localhost:5174`, e a ausência da variável usa `https://leonardopassos.com`. A marca das telas de autenticação aponta para o site; a DEMO usa um layout visitante próprio com login interno e estudo de caso externo. Depois de configurar a URL da API, é possível definir explicitamente o destino do portfólio no diretório do frontend OS:
+No Sistema OS, `VITE_SITE_URL` define os links externos ao portfólio; o exemplo usa `http://localhost:5174`, e a ausência da variável usa `https://leonardopassos.com`. A marca das telas de autenticação aponta para o site; o painel DEMO faz parte da mesma página de login, sem layout ou rota pública adicionais. Depois de configurar a URL da API, é possível definir explicitamente o destino do portfólio no diretório do frontend OS:
 
 ```bash
 VITE_SITE_URL=https://leonardopassos.com npm run build
 ```
 
-Os Workers correspondentes são `portfolio-site` e `portfolio-sistema-os`. A publicação foi confirmada pelo responsável; esta limpeza local não altera Workers, domínios ou gatilhos. A integração DEMO ao login permanece fora do escopo.
+Os Workers correspondentes são `portfolio-site` e `portfolio-sistema-os`. A publicação foi confirmada pelo responsável; esta limpeza local não altera Workers, domínios ou gatilhos.
+
+O `/login` é a entrada única, com geração via `POST /demo/access`, exibição de credenciais/prazos e preenchimento por React Hook Form. Gerar ou preencher não autentica: o usuário confirma em Entrar. A rota frontend `/demo` foi removida; o fallback geral de rotas desconhecidas permanece. Credenciais ficam apenas em memória e desaparecem no refresh, sem URLs, history state, armazenamento ou logs.
 
 ### Backend e publicação independente
 

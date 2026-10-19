@@ -22,7 +22,7 @@ O responsável confirmou a publicação da modularização com referência em `4
 | Frontend OS | `apps/sistema-os/frontend/` | Wrangler `portfolio-sistema-os` | https://os.leonardopassos.com |
 | API OS | `apps/sistema-os/backend/` | Serviço `portfolio-api` | https://os-api.leonardopassos.com |
 
-Cada aplicação tem package, lockfile, ambiente e build próprios; não existem workspaces, biblioteca compartilhada ou imports entre aplicações. PostgreSQL permanece separado no Northflank. O site funciona sem API ou autenticação; o OS mantém DEMO em `/demo`, separada do login.
+Cada aplicação tem package, lockfile, ambiente e build próprios; não existem workspaces, biblioteca compartilhada ou imports entre aplicações. PostgreSQL permanece separado no Northflank. O site funciona sem API ou autenticação; o OS concentra autenticação e geração DEMO em `/login`. A rota frontend `/demo` foi removida, sem tratamento especial no Router; `POST /demo/access` permanece no backend. Os links do site apontam diretamente para `/login`.
 
 O Worker antigo **`portfolio` ainda depende de remoção manual no Cloudflare, caso continue existindo**. Antes de excluí-lo, conferir que os domínios/rotas ativos pertencem aos Workers atuais e que há artefatos de reversão adequados. Nenhum Worker ou serviço foi excluído nesta limpeza.
 

@@ -2,7 +2,13 @@
 
 Esta aplicação concentra autenticação, primeiro acesso, Dashboard, Clientes, Funcionários, Ordens de Serviço, Perfil e demonstração do Sistema OS. Este guia destina-se a quem vai executar ou desenvolver o frontend.
 
-Publicado em `https://os.leonardopassos.com`, o frontend usa a API `https://os-api.leonardopassos.com`. A raiz `/` e endereços desconhecidos encaminham para `/login`. O login resolve sessões válidas para Dashboard ou Primeiro Acesso. A geração DEMO permanece em `/demo`, separada do login. A integração DEMO ao login não faz parte da limpeza estrutural.
+Publicado em `https://os.leonardopassos.com`, o frontend usa a API `https://os-api.leonardopassos.com`. A raiz `/` e endereços desconhecidos encaminham para `/login`. O login resolve sessões válidas para Dashboard ou Primeiro Acesso.
+
+A mesma página `/login` atende contas permanentes e demonstrativas. Seu painel permite escolher EXEMPLO/VAZIO, gerar credenciais temporárias e usar **Preencher login**. O visitante ainda precisa clicar em **Entrar**: preencher não autentica.
+
+Não existe rota frontend `/demo`; esse endereço recebe o mesmo fallback de qualquer rota desconhecida.
+
+A integração segue a [revisão aprovada de UI](https://app.notion.com/p/3c51e6e3a46e81b9a072dcac1ede4942) e o [planejamento de telas e fluxo](https://app.notion.com/p/3c21e6e3a46e81ab9151f93798c63789), que adotam um login único com geração DEMO na mesma página.
 
 ## Executar localmente
 
@@ -17,7 +23,9 @@ npm run dev -- --port 5175 --strictPort
 
 Configure `VITE_API_URL` para a API local autorizada. O CORS desse ambiente precisa permitir a origem do frontend; o exemplo usa `http://localhost:3000` para a API. O backend está em `apps/sistema-os/backend/`, com ambiente e comandos descritos no [guia de configuração](../../../docs/setup.md).
 
-`VITE_SITE_URL` configura a URL base absoluta do portfólio. O exemplo usa `http://localhost:5174`; sem a variável, o padrão é `https://leonardopassos.com`. A marca das telas de autenticação retorna ao portfólio por um link externo. O layout visitante da DEMO possui login interno e acesso externo ao portfólio; “Conhecer o projeto” abre `/projetos/sistema-os` no site. Não há credenciais nesses links.
+`VITE_SITE_URL` configura a URL base absoluta do portfólio. O exemplo usa `http://localhost:5174`; sem a variável, o padrão é `https://leonardopassos.com`. A marca das telas de autenticação retorna ao portfólio por um link externo. O layout visitante antigo foi removido. Não há credenciais em links, navigation state, URLs ou armazenamento do navegador; os valores gerados ficam apenas no estado React e nos campos do formulário e desaparecem ao recarregar a página.
+
+O gerador continua chamando `POST /demo/access` pelo cliente Axios/CSRF existente, com `tutorialEnabled: false`. Exibe login, senha temporária, prazo de ativação e validade; mantém loading, bloqueio de duplicidade, cópia e mensagens de limites/erros. React Hook Form preenche os campos normais e devolve foco ao e-mail. Sessões ativas mantêm os redirecionamentos anteriores e não acessam o gerador.
 
 ## Validar e preparar o build
 

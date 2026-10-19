@@ -20,7 +20,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Estilos e tema          | Estilos globais e tokens visuais                                                  | 2 |
 | Componentes UI          | Elementos reutilizáveis da interface                                              | 7 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           | 8 |
-| Layouts                 | Estruturas compartilhadas de páginas                                              | 5 |
+| Layouts                 | Estruturas compartilhadas de páginas                                              | 4 |
 | Área pública            | Portfólio profissional e apresentação pública dos projetos                        | 2 |
 | Ambiente DEMO           | Geração pública de credenciais temporárias e continuação explícita para o login   | 3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
@@ -31,7 +31,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       | 5 |
 | Navegação entre aplicações | Links externos configuráveis entre portfólio e Sistema OS | 2 |
 
-Total: **99 arquivos relevantes**, contados uma vez por pacote e família.
+Total: **98 arquivos relevantes**, contados uma vez por pacote e família.
 
 ## Sumário
 
@@ -71,7 +71,7 @@ Diretórios: `apps/site/frontend/`, `apps/site/frontend/src/`, `apps/sistema-os/
 | 7 | `apps/sistema-os/frontend/README.md` | Execução do Sistema OS, variáveis da API/portfólio e validações locais. |
 | 8 | `apps/sistema-os/frontend/index.html` | Documento e metadados do Sistema OS, com favicon preservado. |
 | 9 | `apps/sistema-os/frontend/src/main.tsx` | Carrega fonte/CSS e monta App com providers de Query, sessão, notificações e Router. |
-| 10 | `apps/sistema-os/frontend/src/App.tsx` | Rotas de autenticação, primeiro acesso, DEMO e áreas internas; raiz e fallback passam pelo login. |
+| 10 | `apps/sistema-os/frontend/src/App.tsx` | Login único com painel DEMO, primeiro acesso e áreas internas; raiz e fallback geral passam pelo login, sem rota /demo. |
 | 11 | `apps/sistema-os/frontend/vite.config.ts` | Configura desenvolvimento e build com os plugins de React e Tailwind CSS. |
 | 12 | `apps/sistema-os/frontend/wrangler.jsonc` | Publica o dist local como Static Assets do Worker portfolio-sistema-os, com fallback de SPA. |
 | 13 | `apps/site/frontend/.env.production.example` | URL pública do OS para o build de produção do site, sem carga automática pelo Vite ou segredo. |
@@ -165,7 +165,6 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 | 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo. |
 | 3 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo. |
 | 4 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
-| 5 | `apps/sistema-os/frontend/src/components/layout/VisitorLayout.tsx` | Estrutura a DEMO com marca OS, login interno, acesso externo ao portfólio e conteúdo responsivo. |
 
 ---
 
@@ -177,22 +176,22 @@ Diretórios: `apps/site/frontend/src/features/public/pages/`
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Apresentação profissional, projetos e contato; CTA externo para a DEMO do OS. |
-| 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso do Sistema OS, título do documento e dois CTAs externos de demonstração. |
+| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Apresentação profissional, projetos e contato; CTA externo para o login único do OS. |
+| 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso do Sistema OS, título do documento e dois CTAs para o login único, com geração DEMO. |
 
 ---
 
 ## Ambiente DEMO
 
-Oferece a entrada pública da demonstração em `/demo`, com escolha de dados e geração pontual por estado React local, sem login automático.
+Oferece geração de credenciais temporárias dentro do `/login`, com EXEMPLO/VAZIO, prazos, cópia e preenchimento explícito do formulário, sem login automático. Não há página ou rota frontend `/demo`; o endpoint backend `/demo/access` permanece.
 
-Diretórios: `apps/sistema-os/frontend/src/features/demo/api/`, `apps/sistema-os/frontend/src/features/demo/lib/`, `apps/sistema-os/frontend/src/features/demo/pages/`
+Diretórios: `apps/sistema-os/frontend/src/features/demo/api/`, `apps/sistema-os/frontend/src/features/demo/lib/`, `apps/sistema-os/frontend/src/features/demo/components/`
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
 | 1 | `apps/sistema-os/frontend/src/features/demo/api/demoApi.ts` | Define `DemoDataMode` e a resposta de credenciais e prazos. Envia `POST /demo/access` pela instância `apiClient`, sempre com `tutorialEnabled: false`, reutilizando os interceptors de CSRF existentes. |
 | 2 | `apps/sistema-os/frontend/src/features/demo/lib/demoAccessError.ts` | Traduz os códigos reais de limite de pendências, ambientes ativos por origem, capacidade global e frequência de geração para mensagens públicas. Usa `details.retryAfterSeconds` ou o header `Retry-After` para informar uma espera aproximada, sem exibir mensagens internas do servidor. |
-| 3 | `apps/sistema-os/frontend/src/features/demo/pages/DemoAccessPage.tsx` | Geração DEMO preservada em /demo, com layout visitante OS e estudo de caso externo. |
+| 3 | `apps/sistema-os/frontend/src/features/demo/components/DemoAccessPanel.tsx` | Gerador integrado ao login, com estado somente em memória, modos, credenciais/prazos, cópia, loading, proteção de duplicidade, erros e callback Preencher login. |
 
 ---
 
@@ -204,7 +203,7 @@ Diretórios: `apps/sistema-os/frontend/src/features/auth/pages/`, `apps/sistema-
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/sistema-os/frontend/src/features/auth/pages/LoginPage.tsx` | Implementa login acessível com React Hook Form, validação, visibilidade de senha, feedback de falha e navegação conforme a sessão real retornada pelo backend. |
+| 1 | `apps/sistema-os/frontend/src/features/auth/pages/LoginPage.tsx` | Compõe login e painel DEMO; preserva autenticação, erros e redirecionamentos. Preenche campos por React Hook Form, valida, limpa erro e foca e-mail sem enviar login ou persistir credenciais. |
 | 2 | `apps/sistema-os/frontend/src/features/auth/schemas/loginSchema.ts` | Define com Zod as regras de Login, normaliza o e-mail de login e exporta `LoginFormData`, inferido e usado por `LoginPage` com React Hook Form. |
 | 3 | `apps/sistema-os/frontend/src/features/auth/pages/FirstAccessPage.tsx` | Implementa no `AuthLayout` a definição e confirmação obrigatória da nova senha com React Hook Form e Zod. |
 | 4 | `apps/sistema-os/frontend/src/features/auth/schemas/firstAccessSchema.ts` | Define com Zod a política de nova senha e confirmação do primeiro acesso sem transformar os valores informados, exportando `FirstAccessFormData` para a tela correspondente. |
@@ -324,5 +323,5 @@ Diretórios: `apps/site/frontend/src/shared/lib/`, `apps/sistema-os/frontend/src
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/shared/lib/osLinks.ts` | Define os links de login e DEMO usando `VITE_OS_URL`, com fallback para `https://os.leonardopassos.com` e remoção de barras finais. É consumido pelo layout, pela Home e pelo estudo de caso. |
-| 2 | `apps/sistema-os/frontend/src/shared/lib/siteLinks.ts` | Define os destinos externos para o portfólio e o estudo de caso usando `VITE_SITE_URL`, com fallback para `https://leonardopassos.com` e normalização das barras finais. É consumido pelo layout de autenticação, pelo layout visitante e pela DEMO. |
+| 1 | `apps/site/frontend/src/shared/lib/osLinks.ts` | Define o link único /login usando VITE_OS_URL, com fallback para https://os.leonardopassos.com e remoção de barras finais; consumido pelo layout, Home e estudo de caso. |
+| 2 | `apps/sistema-os/frontend/src/shared/lib/siteLinks.ts` | Define o destino externo do portfólio usando VITE_SITE_URL, fallback para https://leonardopassos.com e remoção de barras finais; consumido pelo layout de autenticação. |

@@ -12,7 +12,7 @@ Os arquivos de teste são a fonte executável. Aqui estão o mapa para encontrá
 | Infraestrutura integrada     | Aplicação NestJS, Prisma/`DatabaseService` e PostgreSQL `portfolio_test`                                   |
 | Arquivos catalogados         | 32 arquivos `*.spec.ts` na suíte principal, o smoke e2e separado e 1 arquivo `*.spec.mjs` operacional isolado |
 | Frontend                     | Não possui suíte automatizada própria nem script de teste; validações de navegador estão separadas abaixo  |
-| Último resultado consolidado | Etapa 8: **643/643 testes em 32 arquivos**, **24/24 scripts** e **1/1 E2E**; smoke integrado com **76 verificações** e leitura dos três domínios publicados |
+| Último resultado consolidado | Etapa 9: **643/643 testes em 32 arquivos**, **24/24 scripts**, **1/1 E2E** e **84 verificações** do login único/DEMO com navegador e API real locais |
 | Scripts operacionais         | **24/24 testes aprovados**, sem PostgreSQL; separados da suíte principal |
 
 ## Executar agora
@@ -521,6 +521,26 @@ Validação em 14/10/2026, na `main`, sobre `4e1db94`, após a publicação conf
 Avisos preexistentes de SearchableSelect, chunk OS acima de 500 kB e tsconfck/vite-tsconfig-paths permanecem. HTTP local não certifica cookies Secure ou a cadeia de proxies publicada; GETs públicos não comprovam fluxos autenticados em produção. Painéis e gatilhos não foram inspecionados. O Worker antigo `portfolio`, se ainda existir, exige remoção manual posterior no Cloudflare.
 
 Evidências temporárias em `/tmp/portfolio-stage8-main-tests.log`, `/tmp/portfolio-stage8-before.json`, `/tmp/portfolio-stage8-after-main.json`, `/tmp/portfolio-stage8-browser/` e `/tmp/portfolio-stage8-production-*.json`, fora do repositório. Nenhum runner ou relatório temporário foi adicionado à árvore versionada.
+
+### Login único e geração DEMO integrada — Etapa 9
+
+Validação local em 19/10/2026, na `main`, sobre `bf029e8`, sem commit ou publicação. A implementação segue a revisão aprovada de [Refinamento de UI e protótipo](https://app.notion.com/p/3c51e6e3a46e81b9a072dcac1ede4942) e a atualização de [Planejamento de telas e fluxo](https://app.notion.com/p/3c21e6e3a46e81ab9151f93798c63789), consultadas no Notion. A decisão de login único tem precedência sobre o planejamento antigo de DEMO separada.
+
+| Validação | Resultado e comportamento comprovado |
+| --- | --- |
+| Instalação e build | npm ci aprovado nos dois frontends, sem mudança dos lockfiles. Lint/build aprovados nos pacotes site e OS; lint, Prisma validate e build também aprovados no backend intacto. Nenhuma dependência foi atualizada. |
+| Suítes backend | **643/643 em 32 arquivos**, **24/24 operacionais** e **1/1 E2E**. Execuções sequenciais, com DATABASE_URL e TEST_DATABASE_URL comprovadas para `portfolio_test` local em `::1:5432`, seis migrations conferidas e runners Vitest diretos, sem preparação/migrations. |
+| Smoke integrado | **84 verificações** de navegador, builds e banco em Chrome headless via CDP, previews dos dois frontends e NestJS real do pacote atual. Site validado antes de iniciar a API de teste. Não houve resposta HTTP simulada; a falha de rede foi provocada pelo bloqueio de uma requisição e o loading por atraso de seu envio real. |
+| Geração e ativação | EXEMPLO e VAZIO enviam o contrato existente de POST /demo/access. Shell permanece PENDENTE após geração; campos normais continuam vazios e sessão retorna 401. Credenciais e dois prazos são exibidos. Preencher login popula React Hook Form, devolve foco ao e-mail e não autentica; somente Entrar chama login e ativa PRONTA. EXEMPLO persiste seis clientes/oito ordens; VAZIO não cria esses cadastros. |
+| Estados e segurança | Validação de obrigatórios/e-mail, mostrar/ocultar senha, erro de rede com retry, loading e submissões duplicadas bloqueadas. Refresh remove credenciais/resultados, sem dados na URL, history state ou storage. Quarta geração na janela recebe 429 real, com mensagem e prazo de espera, sem shell adicional. Cópia apresenta feedback contextual. |
+| Autenticação e isolamento | Conta permanente usa o mesmo formulário: erro de credencial, primeiro acesso obrigatório, troca de senha, login normal, navegação, refresh da sessão e logout aprovados. Cookie HttpOnly/Lax e CSRF preservados; API administrativa retorna 403 para Funcionário. Identidade B não lê Cliente de A (404), nem exibe cache anterior sob MutationObserver. Sessões ativas são redirecionadas e não encontram o gerador. |
+| Rotas e links | /demo não tem página, import ou declaração próprios; no navegador segue o mesmo fallback geral de uma URL desconhecida. Cabeçalho e todos os CTAs do portfólio apontam para /login via VITE_OS_URL; marca OS retorna ao site via VITE_SITE_URL. Endpoint backend /demo/access permanece inalterado. |
+| Interface e teclado | Login único, sem campos de autenticação duplicados, com painel visualmente distinto. Desktop 1280 px e mobile 375 px inspecionados; credenciais, formulário e erros sem overflow. Tab percorre e-mail, senha e visibilidade; Space aciona controles; setas selecionam modo e Preencher login funciona por teclado. Primeiro acesso preserva seu layout anterior. |
+| Integridade e escopo | Contagens e digests completos das dez tabelas e definições de constraints iguais antes/depois. Environment **1**, contador **1**, migrations **6**; demais tabelas **0**, sem conexões residuais. Fixtures próprias removidas. Todo o backend, Prisma/migrations, cliente HTTP/CSRF, providers/guards de sessão, pacotes/lockfiles e três privados locais preservados por comparação com HEAD/hashes. |
+
+Avisos preexistentes: dependência closeOptions no SearchableSelect, chunk OS acima de 500 kB e recomendação do Vite sobre vite-tsconfig-paths. Os frontends continuam sem runner versionado; o smoke usa script temporário. A passagem de teclado usa eventos CDP nativos; execuções preliminares exigiram corrigir a checagem de disabled herdado do fieldset e a ativação de botão no runner, sem alteração funcional motivada por esses erros. HTTP local não certifica cookie Secure, proxies ou navegador móvel físico. Não houve teste autenticado/geração DEMO em produção, acesso a painéis, migration, alteração de secrets, commit, push ou deploy.
+
+Evidências em `/tmp/portfolio-stage9-backend-tests.log`, snapshots `/tmp/portfolio-stage9-before.json` e `/tmp/portfolio-stage9-after-main.json`, relatório/capturas em `/tmp/portfolio-stage9-browser/`. Capturas ocultam credenciais; logs e relatório não registram seus valores. Nenhum artefato temporário foi adicionado ao repositório.
 
 ### Integração pública do ambiente DEMO
 

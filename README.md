@@ -23,7 +23,7 @@ A publicação da modularização foi confirmada pelo responsável, com referên
 
 ## Documentação
 
-O site funciona sem API ou autenticação. O Sistema OS mantém frontend e backend próprios em `apps/sistema-os/`, com a DEMO separada do login. O Worker antigo `portfolio`, caso ainda exista, depende de remoção manual no Cloudflare após revisão dos vínculos e da reversão; esta limpeza não altera a infraestrutura.
+O site funciona sem API ou autenticação. O Sistema OS mantém frontend e backend próprios em `apps/sistema-os/`, com geração DEMO integrada ao `/login`, sem autenticação automática. A rota frontend `/demo` foi removida; o endpoint backend `/demo/access` permanece. O Worker antigo `portfolio`, caso ainda exista, depende de remoção manual no Cloudflare após revisão dos vínculos e da reversão; esta limpeza não altera a infraestrutura.
 
 | Documento                                            | Quando consultar                                                              |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------- |

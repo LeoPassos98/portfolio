@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { PublicLayout } from "../../../components/layout/PublicLayout";
-import { osDemoUrl } from "../../../shared/lib/osLinks";
+import { osLoginUrl } from "../../../shared/lib/osLinks";
 
 function ArrowIcon() {
   return (
@@ -44,7 +44,7 @@ function ProjectHero() {
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <a
-                href={osDemoUrl}
+                href={osLoginUrl}
                 className="bg-primary hover:bg-primary-hover rounded-ui inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 Testar aplicação
@@ -362,7 +362,7 @@ function ProjectCallToAction() {
           </p>
         </div>
         <a
-          href={osDemoUrl}
+          href={osLoginUrl}
           className="bg-surface text-foreground hover:bg-info-bg rounded-ui inline-flex shrink-0 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-foreground"
         >
           Testar aplicação

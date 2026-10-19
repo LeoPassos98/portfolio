@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
 import { PublicLayout } from "../../../components/layout/PublicLayout";
-import { osDemoUrl } from "../../../shared/lib/osLinks";
+import { osLoginUrl } from "../../../shared/lib/osLinks";
 
 function ArrowIcon() {
   return (
@@ -216,7 +216,7 @@ function ProjectsSection() {
                 <ArrowIcon />
               </Link>
               <a
-                href={osDemoUrl}
+                href={osLoginUrl}
                 className="border-neutral-bg text-foreground hover:border-primary hover:text-primary rounded-ui inline-flex items-center justify-center border px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               >
                 Testar aplicação

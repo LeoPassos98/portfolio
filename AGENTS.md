@@ -19,7 +19,7 @@ Estas orientações definem como agentes devem alterar e documentar este reposit
 ## Estrutura e limites operacionais
 
 - `apps/site/frontend/`: portfólio público, sem autenticação ou API.
-- `apps/sistema-os/frontend/`: interface autenticada e DEMO separada em `/demo`.
+- `apps/sistema-os/frontend/`: interface autenticada, com geração DEMO integrada ao `/login`; sem rota frontend `/demo`.
 - `apps/sistema-os/backend/`: API NestJS, Prisma, migrations, scripts e testes do Sistema OS.
 
 Execute instalação, lint, build e testes no pacote correspondente, com seu próprio lockfile. Não existem workspaces ou bibliotecas compartilhadas. Consulte `docs/setup.md` para ambiente e comandos.
