@@ -17,8 +17,8 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Configuração e entrada  | Metadados, inicialização, rotas, providers, build e publicação do frontend        | 14 |
 | Infraestrutura HTTP     | Cliente Axios local ao Sistema OS, ambiente e CSRF em memória                           | 1 |
 | Infraestrutura de dados | QueryClient local ao Sistema OS para cache e coordenação de server state                | 1 |
-| Estilos e tema          | Estilos globais e tokens visuais                                                  | 2 |
-| Componentes UI          | Elementos reutilizáveis da interface                                              | 7 |
+| Estilos e tema          | Estilos globais e tokens visuais                                                  | 4 |
+| Componentes UI          | Elementos reutilizáveis da interface                                              | 8 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           | 8 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              | 4 |
 | Área pública            | Portfólio profissional e apresentação pública dos projetos                        | 2 |
@@ -31,7 +31,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       | 5 |
 | Navegação entre aplicações | Links externos configuráveis entre portfólio e Sistema OS | 2 |
 
-Total: **98 arquivos relevantes**, contados uma vez por pacote e família.
+Total: **101 arquivos relevantes**, contados uma vez por pacote e família.
 
 ## Sumário
 
@@ -65,7 +65,7 @@ Diretórios: `apps/site/frontend/`, `apps/site/frontend/src/`, `apps/sistema-os/
 | 1 | `apps/site/frontend/README.md` | Execução do portfólio público, links configuráveis para o OS e build sem API. |
 | 2 | `apps/site/frontend/index.html` | Documento público e metadados; referencia o favicon próprio em /favicon.svg. |
 | 3 | `apps/site/frontend/src/main.tsx` | Monta React, BrowserRouter, fonte e CSS, sem providers de sessão, Query ou notificações. |
-| 4 | `apps/site/frontend/src/App.tsx` | Home e estudo de caso; rotas desconhecidas retornam a / com replace no histórico, sem página de erro ou acesso ao login OS. |
+| 4 | `apps/site/frontend/src/App.tsx` | Home e estudo de caso; rotas desconhecidas retornam a / com replace no histórico. |
 | 5 | `apps/site/frontend/vite.config.ts` | Plugins React e Tailwind e build independente do site. |
 | 6 | `apps/site/frontend/wrangler.jsonc` | Static Assets locais e fallback SPA com a identidade portfolio-site. |
 | 7 | `apps/sistema-os/frontend/README.md` | Execução do Sistema OS, variáveis da API/portfólio e validações locais. |
@@ -107,12 +107,14 @@ Diretórios: `apps/sistema-os/frontend/src/shared/lib/query/`
 
 Centraliza os estilos globais e os tokens visuais utilizados pela interface.
 
-Diretórios: `apps/site/frontend/src/`, `apps/sistema-os/frontend/src/`
+Diretórios: `apps/site/frontend/src/`, `apps/site/frontend/src/styles/`, `apps/sistema-os/frontend/src/`
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/index.css` | Tokens de tipografia e cores do portfólio, sem animações ou estilos de notificações. |
+| 1 | `apps/site/frontend/src/index.css` | Importa a fundação visual e os estilos públicos; mapeia utilitários semânticos e desativa a paleta padrão do Tailwind. |
 | 2 | `apps/sistema-os/frontend/src/index.css` | Importa o Tailwind CSS, define tokens de tipografia, raio e cores e mantém as animações discretas de entrada, saída e progresso das notificações, com redução de movimento para as transições. |
+| 3 | `apps/site/frontend/src/styles/tokens.css` | Fonte única dos tokens aprovados do site: cores por tema, tipografia, dimensões, espaçamento, raios, sombras e movimento. |
+| 4 | `apps/site/frontend/src/styles/site.css` | Estilos da composição pública e dos componentes UI; header/menu responsivos, foco, tipografia, cards, ações e rodapé, somente com referências de tokens. |
 
 ---
 
@@ -120,7 +122,7 @@ Diretórios: `apps/site/frontend/src/`, `apps/sistema-os/frontend/src/`
 
 Reúne elementos visuais básicos e reutilizáveis, independentes das regras de features específicas.
 
-Diretórios: `apps/sistema-os/frontend/src/components/ui/`
+Diretórios: `apps/sistema-os/frontend/src/components/ui/`, `apps/site/frontend/src/components/ui/`
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
@@ -131,6 +133,7 @@ Diretórios: `apps/sistema-os/frontend/src/components/ui/`
 | 5 | `apps/sistema-os/frontend/src/components/ui/StatusBadge.tsx` | Indicador textual compacto cujas variantes aplicam os tokens semânticos de warning, info, success, neutral e error. |
 | 6 | `apps/sistema-os/frontend/src/components/ui/Textarea.tsx` | Campo de texto longo tipado com propriedades nativas. Padroniza dimensões, foco e estado inválido para descrições e observações. |
 | 7 | `apps/sistema-os/frontend/src/components/ui/SearchableSelect.tsx` | Combobox reutilizável sem dependências externas, com busca textual, seleção explícita e lista acessível. |
+| 8 | `apps/site/frontend/src/components/ui/PortfolioUI.tsx` | Ações por link/botão com variantes e tamanhos, loading nativo, cards, badges e seta compartilhados pelas páginas públicas. |
 
 ---
 
@@ -161,7 +164,7 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Marca colorida no cabeçalho e branca no rodapé, seções públicas e acesso externo ao login do OS sem consulta de sessão. |
+| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Header com marca colorida nos dois temas, navegação central e botão de tema à direita; menu mobile por ícone com Escape, tema persistente, seção ativa, skip link e rodapé. |
 | 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo; permite ampliar apenas o login no desktop para acomodar o painel DEMO ao lado do formulário. |
 | 3 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo. |
 | 4 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
@@ -176,7 +179,7 @@ Diretórios: `apps/site/frontend/src/features/public/pages/`
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Apresentação profissional, projetos e contato; CTA externo para o login único do OS. |
+| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Home com estrutura aprovada, identidade compartilhada, cards, ações e tecnologias; mantém âncoras, conteúdo e destinos existentes. |
 | 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso do Sistema OS, título do documento e dois CTAs para o login único, com geração DEMO. |
 
 ---

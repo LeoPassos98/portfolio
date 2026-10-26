@@ -12,6 +12,7 @@ Destina-se a pessoas e agentes que precisam executar o projeto localmente ou man
   - [Variáveis de ambiente](#variáveis-de-ambiente)
   - [Deploy do frontend](#deploy-do-frontend)
   - [Aplicações frontend independentes](#aplicações-frontend-independentes)
+  - [Base visual do site](#base-visual-do-site)
   - [Backend e publicação independente](#backend-e-publicação-independente)
   - [Banco, Prisma e migrations](#banco-prisma-e-migrations)
   - [Migrations de produção](#migrations-de-produção)
@@ -204,6 +205,12 @@ VITE_SITE_URL=https://leonardopassos.com npm run build
 Os Workers correspondentes são `portfolio-site` e `portfolio-sistema-os`. A publicação foi confirmada pelo responsável; esta limpeza local não altera Workers, domínios ou gatilhos.
 
 O `/login` é a entrada única, com geração via `POST /demo/access`, exibição de credenciais/prazos e preenchimento por React Hook Form. Gerar ou preencher não autentica: o usuário confirma em Entrar. A rota frontend `/demo` foi removida; o fallback geral de rotas desconhecidas permanece. Credenciais ficam apenas em memória e desaparecem no refresh, sem URLs, history state, armazenamento ou logs.
+
+### Base visual do site
+
+A identidade aprovada está em `apps/site/frontend/src/styles/tokens.css`, importada por `src/index.css`. Os tokens semânticos `--site-*` usam escopo `.portfolio-theme` e variante `data-theme="dark"`; componentes consomem referências em vez de cores literais. `src/styles/site.css` e `src/components/ui/PortfolioUI.tsx` aplicam essa base à Home e ao estudo de caso. A paleta padrão do Tailwind fica desativada. Não há instalação adicional.
+
+A preferência de tema usa somente `localStorage` (`portfolio-theme`); o valor inicial segue o sistema quando não há escolha salva. Sem API ou banco. A página temporária Design Lab, sua rota e seus aliases foram removidos após a adoção da base. O endereço `/design-lab` segue o fallback da Home em desenvolvimento e produção. Consulte [base visual e histórico](design-lab.md).
 
 ### Backend e publicação independente
 

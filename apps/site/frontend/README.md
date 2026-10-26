@@ -15,9 +15,17 @@ cp .env.example .env.local
 npm run dev -- --port 5174 --strictPort
 ```
 
-`VITE_OS_URL` define a URL base absoluta do frontend Sistema OS. O exemplo aponta para `http://localhost:5175`; ajuste esse endereço para o ambiente de desenvolvimento utilizado. O cabeçalho e todos os CTAs “Testar aplicação” apontam para `/login` no Sistema OS. Nessa página, o visitante pode gerar credenciais DEMO e preencher o formulário antes de clicar em Entrar. Credenciais não são transportadas nesses links.
+`VITE_OS_URL` define a URL base absoluta do frontend Sistema OS. O exemplo aponta para `http://localhost:5175`; ajuste esse endereço para o ambiente de desenvolvimento utilizado. Os CTAs “Testar aplicação” nas páginas de conteúdo apontam para `/login` no Sistema OS. Nessa página, o visitante pode gerar credenciais DEMO e preencher o formulário antes de clicar em Entrar. Credenciais não são transportadas nesses links.
 
 Sem `VITE_OS_URL`, o site usa `https://os.leonardopassos.com`. A variável é pública e incorporada ao build pelo Vite; mudar seu valor exige gerar outro build. `VITE_API_URL` não é necessária e não participa da aplicação.
+
+## Base visual aprovada
+
+A Home e o estudo de caso usam a identidade aprovada no Design Lab. Cores, temas, tipografia, dimensões e movimento estão centralizados em `src/styles/tokens.css`; componentes usam referências semânticas, sem cores literais. `src/styles/site.css` organiza a apresentação e `src/components/ui/PortfolioUI.tsx` reúne ações, cards e badges reutilizáveis. A paleta padrão do Tailwind fica desativada.
+
+O botão Claro/Escuro altera o tema imediatamente e salva a preferência em `localStorage` (`portfolio-theme`). Sem preferência salva, o site segue o tema inicial do sistema. Menu mobile, foco visível, skip link e navegação entre seções estão disponíveis nos dois temas.
+
+A página temporária `/design-lab` e seus arquivos foram removidos após a adoção da base visual. O histórico das decisões permanece em [Base visual e histórico do laboratório](../../../docs/design-lab.md).
 
 ## Validar e gerar o build
 
@@ -37,7 +45,7 @@ VITE_OS_URL=https://os.leonardopassos.com npm run build
 
 O pacote `portfolio-site-frontend` instala suas dependências e gera seu próprio `dist/`, sem workspace ou imports dos outros frontends. `wrangler.jsonc` mantém a identidade local `portfolio-site` e o fallback de SPA. O Router encaminha rotas desconhecidas para a Home; esse redirecionamento ocorre no navegador, sem configurar status HTTP 404 ou 3xx no serviço de assets.
 
-A marca do cabeçalho usa `src/assets/brand/logo_name.svg`; o rodapé escuro usa `logo_name_all_white.svg`. O favicon fica em `public/favicon.svg` e é referenciado por `/favicon.svg`. Os SVGs mantêm os desenhos autorais, sem scripts ou metadados do editor.
+A marca do cabeçalho usa `src/assets/brand/logo_name.svg` nos dois temas; o rodapé usa `logo_name_all_white.svg`. O favicon fica em `public/favicon.svg` e é referenciado por `/favicon.svg`. Os SVGs mantêm os desenhos autorais, sem scripts ou metadados do editor.
 
 A publicação usa o Worker correspondente `portfolio-site`, com root `apps/site/frontend` e artefato `dist/`. No pacote, o comando de deploy é `npx wrangler deploy --config wrangler.jsonc`, exclusivamente após autorização. A manutenção não depende dos arquivos do frontend OS ou backend.
 

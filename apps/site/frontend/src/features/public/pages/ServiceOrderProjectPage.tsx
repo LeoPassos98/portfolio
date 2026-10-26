@@ -1,28 +1,19 @@
 import { useEffect } from "react";
+import {
+  ActionLink,
+  ArrowIcon,
+  Card,
+} from "../../../components/ui/PortfolioUI";
 import { PublicLayout } from "../../../components/layout/PublicLayout";
 import { osLoginUrl } from "../../../shared/lib/osLinks";
 
-function ArrowIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4">
-      <path
-        d="M4 10h12m-5-5 5 5-5 5"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function ProjectHero() {
   return (
-    <section className="bg-surface border-b border-neutral-bg px-4 py-16 sm:px-6 sm:py-24">
-      <div className="mx-auto max-w-[1180px]">
+    <section className="site-hero px-4 py-16 sm:px-6 sm:py-24">
+      <div className="mx-auto site-container">
         <a
           href="/#projetos"
-          className="text-neutral hover:text-primary rounded-ui inline-flex items-center gap-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="site-text-link inline-flex items-center gap-2 text-sm"
         >
           <span aria-hidden="true">←</span>
           Voltar aos projetos
@@ -30,38 +21,34 @@ function ProjectHero() {
 
         <div className="mt-10 grid gap-12 lg:grid-cols-[1.15fr_0.85fr] lg:items-end">
           <div>
-            <p className="text-primary text-sm font-semibold tracking-[0.2em] uppercase">
+            <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
               Estudo de caso
             </p>
-            <h1 className="text-foreground mt-5 max-w-4xl text-4xl font-bold tracking-[-0.04em] sm:text-5xl sm:leading-[1.08] lg:text-6xl">
+            <h1 className="text-heading mt-5 max-w-4xl">
               Sistema de Gestão de Ordens de Serviço
             </h1>
-            <p className="text-neutral mt-6 max-w-3xl text-lg leading-8 sm:text-xl">
-              Uma aplicação full stack criada para centralizar clientes,
-              equipe e ordens de serviço em uma operação clara, rastreável e
-              segura.
+            <p className="text-foreground mt-6 max-w-3xl text-lg leading-8 sm:text-xl">
+              Uma aplicação full stack criada para centralizar clientes, equipe
+              e ordens de serviço em uma operação clara, rastreável e segura.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <a
-                href={osLoginUrl}
-                className="bg-primary hover:bg-primary-hover rounded-ui inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-              >
+              <ActionLink href={osLoginUrl} variant="primary">
                 Testar aplicação
                 <ArrowIcon />
-              </a>
-              <a
+              </ActionLink>
+              <ActionLink
                 href="https://github.com/LeoPassos98/portfolio"
                 target="_blank"
                 rel="noreferrer"
-                className="border-neutral-bg text-foreground hover:border-primary hover:text-primary rounded-ui inline-flex items-center justify-center border px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                variant="secondary"
               >
                 Ver código no GitHub <span aria-hidden="true">↗</span>
-              </a>
+              </ActionLink>
             </div>
           </div>
 
-          <dl className="border-neutral-bg grid gap-px overflow-hidden rounded-2xl border bg-neutral-bg sm:grid-cols-3 lg:grid-cols-1">
+          <dl className="border-border grid gap-px overflow-hidden rounded-2xl border bg-border sm:grid-cols-3 lg:grid-cols-1">
             <div className="bg-surface p-5">
               <dt className="text-neutral text-xs font-semibold tracking-wider uppercase">
                 Tipo
@@ -114,32 +101,27 @@ function ProjectOverview() {
 
   return (
     <section className="px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto max-w-[1180px]">
+      <div className="mx-auto site-container">
         <div className="max-w-2xl">
-          <p className="text-primary text-sm font-semibold tracking-[0.2em] uppercase">
+          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
             Visão geral
           </p>
-          <h2 className="text-foreground mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-heading mt-4">
             O projeto começa pelo fluxo de trabalho, não pela tecnologia.
           </h2>
         </div>
 
         <div className="mt-12 grid gap-5 md:grid-cols-3">
           {topics.map((topic, index) => (
-            <article
-              key={topic.title}
-              className="border-neutral-bg rounded-2xl border bg-surface p-7"
-            >
+            <Card key={topic.title} className="p-7">
               <p className="text-primary text-sm font-bold">
                 {String(index + 1).padStart(2, "0")}
               </p>
-              <h3 className="text-foreground mt-5 text-xl font-bold">
-                {topic.title}
-              </h3>
-              <p className="text-neutral mt-3 leading-7">
+              <h3 className="text-heading mt-5">{topic.title}</h3>
+              <p className="text-foreground mt-3 leading-7">
                 {topic.description}
               </p>
-            </article>
+            </Card>
           ))}
         </div>
       </div>
@@ -164,16 +146,16 @@ function ProjectGallery() {
   ];
 
   return (
-    <section className="bg-surface border-y border-neutral-bg px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto max-w-[1180px]">
+    <section className="bg-surface border-y border-border px-4 py-20 sm:px-6 sm:py-28">
+      <div className="mx-auto site-container">
         <div className="max-w-2xl">
-          <p className="text-primary text-sm font-semibold tracking-[0.2em] uppercase">
+          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
             Produto em imagens
           </p>
-          <h2 className="text-foreground mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-heading mt-4">
             Espaço preparado para apresentar a aplicação real.
           </h2>
-          <p className="text-neutral mt-5 text-lg leading-8">
+          <p className="text-foreground mt-5 text-lg leading-8">
             As capturas serão adicionadas quando a base visual do produto
             estiver estável.
           </p>
@@ -183,26 +165,29 @@ function ProjectGallery() {
           {screens.map((screen) => (
             <figure
               key={screen.title}
-              className="border-neutral-bg overflow-hidden rounded-2xl border bg-background"
+              className="border-border overflow-hidden rounded-2xl border bg-background"
             >
-              <div className="bg-foreground aspect-[4/3] p-5">
-                <div className="flex items-center gap-1.5 border-b border-white/10 pb-4">
-                  <span className="h-2 w-2 rounded-full bg-white/30" />
-                  <span className="h-2 w-2 rounded-full bg-white/20" />
-                  <span className="h-2 w-2 rounded-full bg-white/10" />
+              <div
+                data-theme="dark"
+                className="portfolio-theme bg-background aspect-[4/3] p-5"
+              >
+                <div className="flex items-center gap-1.5 border-b border-border pb-4">
+                  <span className="h-2 w-2 rounded-full bg-control-border" />
+                  <span className="h-2 w-2 rounded-full bg-surface-raised" />
+                  <span className="h-2 w-2 rounded-full bg-surface-soft" />
                 </div>
                 <div className="mt-6 space-y-3">
-                  <span className="block h-3 w-2/5 rounded-full bg-white/20" />
-                  <span className="block h-20 rounded-xl border border-white/10 bg-white/5" />
+                  <span className="block h-3 w-2/5 rounded-full bg-surface-raised" />
+                  <span className="block h-20 rounded-xl border border-border bg-surface" />
                   <div className="grid grid-cols-2 gap-3">
-                    <span className="block h-14 rounded-lg border border-white/10 bg-white/5" />
-                    <span className="block h-14 rounded-lg border border-white/10 bg-white/5" />
+                    <span className="block h-14 rounded-lg border border-border bg-surface" />
+                    <span className="block h-14 rounded-lg border border-border bg-surface" />
                   </div>
                 </div>
               </div>
               <figcaption className="p-5">
                 <p className="text-foreground font-semibold">{screen.title}</p>
-                <p className="text-neutral mt-2 text-sm leading-6">
+                <p className="text-foreground mt-2 text-sm leading-6">
                   {screen.description}
                 </p>
                 <p className="text-primary mt-4 text-xs font-semibold tracking-wide uppercase">
@@ -242,16 +227,16 @@ function ProductScope() {
   ];
 
   return (
-    <section className="bg-surface border-y border-neutral-bg px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto grid max-w-[1180px] gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
+    <section className="bg-surface border-y border-border px-4 py-20 sm:px-6 sm:py-28">
+      <div className="mx-auto grid site-container gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
         <div>
-          <p className="text-primary text-sm font-semibold tracking-[0.2em] uppercase">
+          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
             Escopo do produto
           </p>
-          <h2 className="text-foreground mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-heading mt-4">
             Uma jornada conectada de ponta a ponta.
           </h2>
-          <p className="text-neutral mt-5 leading-7">
+          <p className="text-foreground mt-5 leading-7">
             Cada área participa do mesmo fluxo operacional e compartilha regras
             consistentes de navegação, autorização e atualização de dados.
           </p>
@@ -259,17 +244,12 @@ function ProductScope() {
 
         <div className="grid gap-5 sm:grid-cols-2">
           {capabilities.map((capability) => (
-            <article
-              key={capability.title}
-              className="border-neutral-bg rounded-xl border p-6"
-            >
-              <h3 className="text-foreground font-semibold">
-                {capability.title}
-              </h3>
-              <p className="text-neutral mt-3 text-sm leading-6">
+            <Card key={capability.title} className="p-6">
+              <h3 className="text-heading">{capability.title}</h3>
+              <p className="text-foreground mt-3 text-sm leading-6">
                 {capability.description}
               </p>
-            </article>
+            </Card>
           ))}
         </div>
       </div>
@@ -307,36 +287,34 @@ function TechnicalDecisions() {
 
   return (
     <section className="px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto max-w-[1180px]">
+      <div className="mx-auto site-container">
         <div className="max-w-3xl">
-          <p className="text-primary text-sm font-semibold tracking-[0.2em] uppercase">
+          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
             Decisões técnicas
           </p>
-          <h2 className="text-foreground mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h2 className="text-heading mt-4">
             Tecnologias apresentadas no contexto das decisões que apoiam.
           </h2>
-          <p className="text-neutral mt-5 text-lg leading-8">
+          <p className="text-foreground mt-5 text-lg leading-8">
             A stack não define o projeto sozinha. Cada ferramenta participa de
             uma responsabilidade concreta e pode evoluir conforme o produto
             exigir.
           </p>
         </div>
 
-        <div className="mt-12 divide-y divide-neutral-bg rounded-2xl border border-neutral-bg bg-surface">
+        <div className="mt-12 divide-y divide-border rounded-2xl border border-border bg-surface">
           {groups.map((group) => (
             <article
               key={group.title}
               className="grid gap-4 p-6 sm:p-8 md:grid-cols-[0.55fr_1.45fr] md:gap-10"
             >
               <div>
-                <h3 className="text-foreground text-lg font-bold">
-                  {group.title}
-                </h3>
+                <h3 className="text-heading">{group.title}</h3>
                 <p className="text-primary mt-2 text-sm font-semibold">
                   {group.technologies}
                 </p>
               </div>
-              <p className="text-neutral leading-7">{group.rationale}</p>
+              <p className="text-foreground leading-7">{group.rationale}</p>
             </article>
           ))}
         </div>
@@ -347,27 +325,25 @@ function TechnicalDecisions() {
 
 function ProjectCallToAction() {
   return (
-    <section className="bg-foreground px-4 py-20 text-white sm:px-6 sm:py-24">
-      <div className="mx-auto flex max-w-[1180px] flex-col gap-8 md:flex-row md:items-end md:justify-between">
+    <section
+      data-theme="dark"
+      className="portfolio-theme bg-background px-4 py-20 text-foreground sm:px-6 sm:py-24"
+    >
+      <div className="mx-auto flex site-container flex-col gap-8 md:flex-row md:items-end md:justify-between">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold tracking-[0.2em] text-indigo-200 uppercase">
+          <p className="text-sm font-semibold site-eyebrow text-primary uppercase">
             Explore o produto
           </p>
-          <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-            Conheça o fluxo funcionando na aplicação.
-          </h2>
-          <p className="mt-5 text-lg leading-8 text-slate-300">
+          <h2 className="mt-4">Conheça o fluxo funcionando na aplicação.</h2>
+          <p className="mt-5 text-lg leading-8 text-foreground">
             Gere um acesso temporário e explore o sistema em um ambiente
             isolado, com dados de exemplo ou começando do zero.
           </p>
         </div>
-        <a
-          href={osLoginUrl}
-          className="bg-surface text-foreground hover:bg-info-bg rounded-ui inline-flex shrink-0 items-center justify-center gap-2 px-5 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-foreground"
-        >
+        <ActionLink href={osLoginUrl} variant="secondary" className="shrink-0">
           Testar aplicação
           <ArrowIcon />
-        </a>
+        </ActionLink>
       </div>
     </section>
   );
@@ -376,8 +352,7 @@ function ProjectCallToAction() {
 function ServiceOrderProjectPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
-    document.title =
-      "Sistema de Gestão de Ordens de Serviço · Leonardo Passos";
+    document.title = "Sistema de Gestão de Ordens de Serviço · Leonardo Passos";
 
     return () => {
       document.title = "Leonardo Passos · Desenvolvedor de Software";

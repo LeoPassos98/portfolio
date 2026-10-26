@@ -1,0 +1,152 @@
+/* Approved portfolio foundation. Color values are defined only in this file. */
+:root,
+.portfolio-theme {
+  --site-brand-orange: #ff6805;
+  --site-brand-pink: #d94072;
+  --site-brand-purple: #4b2fc8;
+  --site-brand-blue: #123091;
+  --site-base-white: #ffffff;
+  --site-base-night: #0b1020;
+  --site-base-ink: #202c4c;
+  --site-base-blue-light: #91a7ff;
+  --site-bg: #e8edf4;
+  /* Approximate color balance, blended across the full width without flat bands. */
+  --site-gradient-support: linear-gradient(
+    90deg,
+    var(--site-brand-orange) 0%,
+    var(--site-brand-pink) 33%,
+    var(--site-brand-blue) 100%
+  );
+  --site-surface: var(--site-base-white);
+  --site-surface-raised: #dce4ef;
+  --site-surface-soft: #f1f5f9;
+  --site-text: #111827;
+  --site-muted: #526176;
+  --site-primary: var(--site-brand-blue);
+  --site-button-primary: var(--site-base-ink);
+  --site-button-primary-hover: #2d406e;
+  --site-heading: var(--site-base-ink);
+  --site-primary-hover: #0d2470;
+  --site-on-primary: var(--site-base-white);
+  --site-border: #e2e8f0;
+  --site-control-border: #718096;
+  --site-success: #166534;
+  --site-success-bg: #f0fdf4;
+  --site-error: #991b1b;
+  --site-error-bg: #fef2f2;
+  --site-warning: #854d0e;
+  --site-warning-bg: #fefce8;
+  --site-info-bg: #eef2ff;
+  --site-logo-surface: var(--site-base-white);
+  --site-logo-inverse-surface: var(--site-base-night);
+  --site-overlay: #0b102099;
+  --site-elevation-edge: color-mix(
+    in srgb,
+    var(--site-border) 65%,
+    transparent
+  );
+  --site-shadow-color: #0b102012;
+  --site-shadow-raised-color: #0b10201f;
+  --site-shadow:
+    0 0 0 var(--site-border-width) var(--site-elevation-edge),
+    0 4px 16px var(--site-shadow-color);
+  --site-shadow-raised:
+    0 0 0 var(--site-border-width) var(--site-elevation-edge),
+    0 12px 32px var(--site-shadow-raised-color);
+  --site-font: "IBM Plex Sans Variable", sans-serif;
+  --site-font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --site-text-xs: 0.75rem;
+  --site-text-sm: 0.875rem;
+  --site-text-base: 1rem;
+  --site-text-lg: 1.125rem;
+  --site-text-xl: 1.5rem;
+  --site-text-2xl: 2rem;
+  --site-leading: 1.65;
+  --site-leading-heading: 1.15;
+  --site-tracking-heading: -0.035em;
+  --site-tracking-label: 0.12em;
+  --site-weight-medium: 500;
+  --site-weight-semibold: 600;
+  --site-space-1: 0.25rem;
+  --site-space-2: 0.5rem;
+  --site-space-3: 0.75rem;
+  --site-space-4: 1rem;
+  --site-space-5: 1.5rem;
+  --site-space-6: 2rem;
+  --site-space-7: 3rem;
+  --site-space-8: 4rem;
+  --site-radius-sm: 0.375rem;
+  --site-radius-control: 0.625rem;
+  --site-radius-card: 1rem;
+  --site-radius-pill: 999px;
+  --site-border-width: 1px;
+  --site-focus-width: 3px;
+  --site-focus-offset: 3px;
+  --site-control-sm: 2.25rem;
+  --site-control-md: 2.75rem;
+  --site-control-lg: 3.25rem;
+  --site-disabled-opacity: 0.5;
+  --site-duration: 160ms;
+  --site-duration-loading: 900ms;
+  --site-easing: cubic-bezier(0.2, 0, 0, 1);
+  --site-width-reading: 42rem;
+  --site-width-content: 1180px;
+  --site-content-gutter: var(--site-space-5);
+  --site-header-height: 5rem;
+  --site-header-border-width: 2px;
+  --site-header-border-color: color-mix(in srgb, var(--site-text) 12%, transparent);
+  --site-header-border-highlight: color-mix(in srgb, var(--site-base-white) 90%, transparent);
+  --site-header-border-shade: color-mix(in srgb, var(--site-base-ink) 18%, transparent);
+  --site-header-border-lighting: linear-gradient(
+    to bottom,
+    var(--site-header-border-highlight),
+    var(--site-header-border-color) 50%,
+    var(--site-header-border-shade)
+  );
+  --site-header-surface: color-mix(
+    in srgb,
+    var(--site-surface) 55%,
+    transparent
+  );
+  --site-header-shadow: inset 0 1px 0 color-mix(in srgb, var(--site-text) 4%, transparent);
+  --site-anchor-offset: 7rem;
+  --site-preview-height: 10rem;
+  --site-logo-width: 10rem;
+  --site-width-tooltip: 18rem;
+  --site-layer-header: 10;
+  --site-layer-toast: 20;
+  color-scheme: light;
+}
+
+.portfolio-theme[data-theme="dark"] {
+  --site-bg: var(--site-base-night);
+  --site-surface: #151c2e;
+  --site-surface-raised: #293650;
+  --site-surface-soft: #1c263c;
+  --site-text: #f8fafc;
+  --site-muted: #adb9cd;
+  --site-primary: var(--site-base-blue-light);
+  --site-heading: #c6d2ff;
+  --site-button-primary: var(--site-base-blue-light);
+  --site-button-primary-hover: #b6c5ff;
+  --site-primary-hover: var(--site-button-primary-hover);
+  --site-on-primary: var(--site-base-night);
+  --site-border: #2a344c;
+  --site-control-border: #7889a6;
+  --site-success: #86efac;
+  --site-success-bg: #152e27;
+  --site-error: #fca5a5;
+  --site-error-bg: #361f2b;
+  --site-warning: #fde68a;
+  --site-warning-bg: #332c20;
+  --site-info-bg: var(--site-base-ink);
+  --site-header-border-color: color-mix(in srgb, var(--site-text) 8%, transparent);
+  --site-header-border-highlight: color-mix(in srgb, var(--site-base-white) 20%, transparent);
+  --site-header-border-shade: color-mix(in srgb, var(--site-base-night) 70%, transparent);
+  --site-shadow-color: #00000030;
+  --site-shadow-raised-color: #00000050;
+  color-scheme: dark;
+}
+
+/* Compact below 48rem; public wide compositions use 64rem. CSS variables
+   cannot be used inside media-query conditions. */

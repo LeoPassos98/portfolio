@@ -1,27 +1,26 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
+@import "./styles/site.css";
 
-@theme {
-  --font-sans: "IBM Plex Sans Variable", sans-serif;
-  --radius-ui: 0.5rem;
-
-  --color-primary: #4F46E5;
-  --color-primary-hover: #4338CA;
-  --color-foreground: #0F172A;
-  --color-background: #F8FAFC;
-  --color-surface: #FFFFFF;
-
-  --color-success-bg: #F0FDF4;
-  --color-success: #166534;
-
-  --color-warning-bg: #FFFBEB;
-  --color-warning: #92400E;
-
-  --color-error-bg: #FEF2F2;
-  --color-error: #991B1B;
-
-  --color-info-bg: #EFF6FF;
-  --color-info: #1E40AF;
-
-  --color-neutral-bg: #F1F5F9;
-  --color-neutral: #475569;
+/* Utilities resolve inside each theme scope. Raw Tailwind colors are disabled. */
+@theme inline {
+  --color-*: initial;
+  --spacing: var(--site-space-1);
+  --font-sans: var(--site-font);
+  --radius-ui: var(--site-radius-control);
+  --radius-sm: var(--site-radius-sm);
+  --radius-xl: var(--site-radius-control);
+  --radius-2xl: var(--site-radius-card);
+  --color-background: var(--site-bg);
+  --color-surface: var(--site-surface);
+  --color-surface-soft: var(--site-surface-soft);
+  --color-surface-raised: var(--site-surface-raised);
+  --color-foreground: var(--site-text);
+  --color-heading: var(--site-heading);
+  --color-neutral: var(--site-muted);
+  --color-border: var(--site-border);
+  --color-control-border: var(--site-control-border);
+  --color-primary: var(--site-primary);
+  --color-primary-hover: var(--site-primary-hover);
+  --color-info-bg: var(--site-info-bg);
 }
