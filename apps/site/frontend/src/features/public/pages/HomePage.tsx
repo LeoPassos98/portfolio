@@ -303,10 +303,28 @@ function AboutSection() {
 }
 
 function ContactSection() {
-  const pendingContacts = [
-    { label: "E-mail", value: "Endereço profissional" },
-    { label: "LinkedIn", value: "Perfil profissional" },
-    { label: "WhatsApp", value: "Número profissional" },
+  const contacts = [
+    {
+      label: "E-mail",
+      value: "contato@leonardopassos.com",
+      href: "mailto:contato@leonardopassos.com",
+      action: "Enviar e-mail",
+      external: false,
+    },
+    {
+      label: "LinkedIn",
+      value: "in/devLeonardoPassos",
+      href: "https://www.linkedin.com/in/devLeonardoPassos",
+      action: "Abrir perfil",
+      external: true,
+    },
+    {
+      label: "WhatsApp",
+      value: "+55 31 99591-7334",
+      href: "https://wa.me/5531995917334",
+      action: "Conversar no WhatsApp",
+      external: true,
+    },
   ];
 
   return (
@@ -331,19 +349,23 @@ function ContactSection() {
         </div>
 
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {pendingContacts.map((contact) => (
-            <div
+          {contacts.map((contact) => (
+            <a
               key={contact.label}
-              className="rounded-xl border border-border bg-surface p-5"
+              href={contact.href}
+              target={contact.external ? "_blank" : undefined}
+              rel={contact.external ? "noreferrer" : undefined}
+              className="rounded-xl border border-border bg-surface p-5 transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <p className="text-sm font-semibold text-foreground">
                 {contact.label}
               </p>
               <p className="mt-2 text-sm text-neutral">{contact.value}</p>
               <p className="mt-5 text-xs font-medium text-primary">
-                Link a adicionar
+                {contact.action}
+                {contact.external && <span aria-hidden="true"> ↗</span>}
               </p>
-            </div>
+            </a>
           ))}
 
           <a

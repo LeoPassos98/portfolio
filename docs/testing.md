@@ -366,6 +366,14 @@ Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseServ
 
 Estas validações não correspondem a arquivos `.spec.ts`; registram evidências operacionais que complementam a cobertura automatizada.
 
+### Contatos públicos do portfólio
+
+Validação local em 26/10/2026 após substituir os contatos provisórios em `apps/site/frontend/src/features/public/pages/HomePage.tsx`. Os cards permitem enviar e-mail para `contato@leonardopassos.com`, abrir o LinkedIn `devLeonardoPassos` e iniciar uma conversa pelo WhatsApp `+55 31 99591-7334`; o GitHub foi preservado.
+
+Lint, build e diff-check aprovados. **13 verificações de navegador aprovadas** no preview de produção: quatro canais clicáveis, destinos e textos corretos, links externos em nova aba com `noreferrer`, ausência de placeholders de contato, navegação por Tab com foco visível e ausência de overflow em 320/390/1440 px nos dois temas. Capturas mobile e desktop revisadas; nenhuma exceção JavaScript.
+
+Infraestrutura: Chrome headless via CDP e Vite preview em loopback na porta 4187. Runner, relatório e capturas temporários em `/tmp/portfolio-contact-check/`. Os serviços externos não foram abertos; envio e recebimento de mensagens não foram verificados. Sem teste permanente, dependência, commit, push ou deploy.
+
 ### Laboratório de design — Etapa 10
 
 **Etapa encerrada:** a página temporária e seus 12 arquivos foram removidos após a adoção da base visual. Os resultados abaixo são históricos; os caminhos e runners citados descrevem as versões verificadas naquele momento. Os tokens e componentes públicos continuam no site.
