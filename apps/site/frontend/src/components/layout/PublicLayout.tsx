@@ -63,6 +63,7 @@ function initialTheme(): Theme {
 
 function PublicLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const minimalHeader = pathname === "/";
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("");
@@ -150,7 +151,7 @@ function PublicLayout({ children }: { children: ReactNode }) {
 
   return (
     <div
-      className="portfolio-theme public-site"
+      className={`portfolio-theme public-site${minimalHeader ? " public-site--home" : ""}`}
       data-theme={theme}
       id="portfolio-top"
       onKeyDown={(event) => {
@@ -164,30 +165,36 @@ function PublicLayout({ children }: { children: ReactNode }) {
         Pular para o conteúdo
       </a>
       <header className="site-header">
-        <div className="site-container site-header-frame">
+        <div
+          className={`site-container site-header-frame${minimalHeader ? " site-header-frame--minimal" : ""}`}
+        >
           <div className="site-header-brand-group">
             <Link
               to="/"
               aria-label="Leonardo Passos · início"
               className="site-brand"
             >
-              <img src={colorLogo} alt="" />
+              <img src={minimalHeader && theme === "dark" ? whiteLogo : colorLogo} alt="" />
             </Link>
-            <Button
-              ref={menuButton}
-              className="site-menu-button"
-              variant="tertiary"
-              aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
-              aria-expanded={menuOpen}
-              aria-controls="site-mobile-nav"
-              onClick={() => setMenuOpen(!menuOpen)}
-            >
-              <MenuIcon open={menuOpen} />
-            </Button>
+            {!minimalHeader && (
+              <Button
+                ref={menuButton}
+                className="site-menu-button"
+                variant="tertiary"
+                aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
+                aria-expanded={menuOpen}
+                aria-controls="site-mobile-nav"
+                onClick={() => setMenuOpen(!menuOpen)}
+              >
+                <MenuIcon open={menuOpen} />
+              </Button>
+            )}
           </div>
-          <nav className="site-desktop-nav" aria-label="Navegação principal">
-            {navLinks()}
-          </nav>
+          {!minimalHeader && (
+            <nav className="site-desktop-nav" aria-label="Navegação principal">
+              {navLinks()}
+            </nav>
+          )}
           <div className="site-header-actions">
             <Button
               className="site-theme-button"
@@ -204,15 +211,17 @@ function PublicLayout({ children }: { children: ReactNode }) {
               <ThemeIcon dark={theme === "dark"} />
             </Button>
           </div>
-          <nav
-            ref={menu}
-            id="site-mobile-nav"
-            className="site-mobile-nav"
-            hidden={!menuOpen}
-            aria-label="Navegação mobile"
-          >
-            {navLinks()}
-          </nav>
+          {!minimalHeader && (
+            <nav
+              ref={menu}
+              id="site-mobile-nav"
+              className="site-mobile-nav"
+              hidden={!menuOpen}
+              aria-label="Navegação mobile"
+            >
+              {navLinks()}
+            </nav>
+          )}
         </div>
       </header>
       <main id="conteudo" tabIndex={-1}>
@@ -229,7 +238,7 @@ function PublicLayout({ children }: { children: ReactNode }) {
               >
                 <img src={whiteLogo} alt="" />
               </Link>
-              <p>Desenvolvedor full stack · Produtos web completos</p>
+              <p>Desenvolvedor de Software · Produtos web completos</p>
             </div>
             <nav aria-label="Navegação do rodapé">{navLinks()}</nav>
             <a

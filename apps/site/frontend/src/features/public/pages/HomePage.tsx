@@ -7,6 +7,7 @@ import {
 } from "../../../components/ui/PortfolioUI";
 import { PublicLayout } from "../../../components/layout/PublicLayout";
 import { osLoginUrl } from "../../../shared/lib/osLinks";
+import { HomeScrollBackground } from "../components/HomeScrollBackground";
 
 function ProjectPreview() {
   return (
@@ -61,58 +62,26 @@ function ProjectPreview() {
 
 function HeroSection() {
   return (
-    <section className="site-hero relative overflow-hidden">
-      <div className="mx-auto grid site-container gap-14 px-4 sm:px-6 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
-        <div>
-          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-            Leonardo Passos · Desenvolvedor full stack
-          </p>
-          <h1 className="text-heading mt-5 max-w-3xl">
-            Construo aplicações web completas, do frontend ao banco de dados.
-          </h1>
-          <p className="text-foreground mt-6 max-w-2xl text-lg leading-8 sm:text-xl">
-            Transformo processos complexos em sistemas claros, confiáveis e
-            fáceis de manter.
-          </p>
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <ActionLink href="#projetos" variant="primary">
-              Conhecer projetos
-              <ArrowIcon />
-            </ActionLink>
-            <ActionLink href="#contato" variant="secondary">
-              Entrar em contato
-            </ActionLink>
-          </div>
-        </div>
-
-        <div className="relative mx-auto w-full max-w-md lg:mx-0 lg:justify-self-end">
-          <div className="bg-surface-raised absolute -inset-5 -rotate-2 rounded-2xl" />
-          <div className="border-border relative overflow-hidden rounded-2xl border bg-surface p-6 site-shadow-raised sm:p-8">
-            <div
-              data-theme="dark"
-              className="portfolio-theme bg-background flex aspect-[4/3] items-center justify-center rounded-xl"
-            >
-              <div className="text-center">
-                <span className="mx-auto flex h-20 w-20 items-center justify-center rounded-full border border-border bg-surface-soft text-2xl font-bold text-foreground">
-                  LP
-                </span>
-                <p className="mt-4 text-xs font-semibold site-eyebrow text-neutral uppercase">
-                  Foto profissional
-                </p>
-              </div>
-            </div>
-            <div className="mt-6">
-              <p className="text-primary text-sm font-semibold">
-                Leonardo Passos
-              </p>
-              <h2 className="text-heading mt-2">
-                Frontend, API e dados em uma solução completa.
-              </h2>
-              <p className="text-foreground mt-3 text-sm leading-6">
-                Frontend · Backend · APIs · Banco de dados
-              </p>
-            </div>
-          </div>
+    <section className="site-hero home-hero" aria-labelledby="home-hero-title">
+      <div className="site-container home-hero-content">
+        <p className="home-hero-identity site-eyebrow">
+          LEONARDO PASSOS · DESENVOLVEDOR DE SOFTWARE
+        </p>
+        <h1 id="home-hero-title">
+          Soluções de software pensadas do problema à implementação.
+        </h1>
+        <p className="home-hero-description">
+          Transformo necessidades em aplicações funcionais, com atenção à
+          arquitetura, à experiência do usuário e à qualidade técnica.
+        </p>
+        <div className="home-hero-actions">
+          <ActionLink href="#projetos" variant="primary" size="lg">
+            Explorar projetos
+            <ArrowIcon />
+          </ActionLink>
+          <ActionLink href="#contato" variant="secondary" size="lg">
+            Entrar em contato
+          </ActionLink>
         </div>
       </div>
     </section>
@@ -286,7 +255,7 @@ function AboutSection() {
         </div>
         <div className="text-foreground space-y-5 text-lg leading-8">
           <p>
-            Sou Leonardo Passos, desenvolvedor full stack. Desenvolvo aplicações
+            Sou Leonardo Passos, desenvolvedor de software. Desenvolvo aplicações
             web de ponta a ponta, conectando interface, regras de negócio, APIs
             e dados.
           </p>
@@ -399,7 +368,8 @@ function HomePage() {
 
   return (
     <PublicLayout>
-      <div className="w-full">
+      <div className="home-page w-full">
+        <HomeScrollBackground />
         <HeroSection />
         <ProjectsSection />
         <WorkingPrinciplesSection />
