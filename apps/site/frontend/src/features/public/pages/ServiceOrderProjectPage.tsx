@@ -1,11 +1,13 @@
 import { useEffect } from "react";
-import {
-  ActionLink,
-  ArrowIcon,
-  Card,
-} from "../../../components/ui/PortfolioUI";
+import { ActionLink, ArrowIcon } from "../../../components/ui/PortfolioUI";
 import { PublicLayout } from "../../../components/layout/PublicLayout";
 import { osLoginUrl } from "../../../shared/lib/osLinks";
+import loginScreenshot from "../../../assets/projects/sistema-os/login-demo-desktop.webp";
+import dashboardScreenshot from "../../../assets/projects/sistema-os/dashboard-desktop.webp";
+import ordersScreenshot from "../../../assets/projects/sistema-os/ordens-servico-desktop.webp";
+import orderHistoryScreenshot from "../../../assets/projects/sistema-os/ordem-historico-desktop.webp";
+import clientsScreenshot from "../../../assets/projects/sistema-os/clientes-desktop.webp";
+import mobileClientsScreenshot from "../../../assets/projects/sistema-os/clientes-mobile.webp";
 
 function ProjectHero() {
   return (
@@ -28,8 +30,8 @@ function ProjectHero() {
               Sistema de Gestão de Ordens de Serviço
             </h1>
             <p className="text-foreground mt-6 max-w-3xl text-lg leading-8 sm:text-xl">
-              Uma aplicação full stack criada para centralizar clientes, equipe
-              e ordens de serviço em uma operação clara, rastreável e segura.
+              Um projeto autoral para centralizar clientes, funcionários e ordens
+              de serviço, desenvolvido a partir de um cenário simulado.
             </p>
 
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
@@ -54,7 +56,7 @@ function ProjectHero() {
                 Tipo
               </dt>
               <dd className="text-foreground mt-2 font-semibold">
-                Aplicação web full stack
+                Projeto autoral full stack
               </dd>
             </div>
             <div className="bg-surface p-5">
@@ -67,10 +69,10 @@ function ProjectHero() {
             </div>
             <div className="bg-surface p-5">
               <dt className="text-neutral text-xs font-semibold tracking-wider uppercase">
-                Estado
+                Contexto
               </dt>
               <dd className="text-foreground mt-2 font-semibold">
-                Em evolução contínua
+                Cenário simulado
               </dd>
             </div>
           </dl>
@@ -80,243 +82,371 @@ function ProjectHero() {
   );
 }
 
-function ProjectOverview() {
-  const topics = [
-    {
-      title: "Problema",
-      description:
-        "Informações operacionais dispersas dificultam acompanhar clientes, responsáveis e o andamento de cada serviço.",
-    },
-    {
-      title: "Solução",
-      description:
-        "Uma experiência única para registrar, consultar e atualizar a operação com regras claras em todas as etapas.",
-    },
-    {
-      title: "Meu papel",
-      description:
-        "Concepção do produto e implementação completa da interface, API, persistência, segurança e validações.",
-    },
-  ];
+type ProjectScreen = {
+  image: string;
+  title: string;
+  alt: string;
+  description: string;
+  width: number;
+  height: number;
+};
+
+const projectScreens = {
+  mobile: {
+    image: mobileClientsScreenshot,
+    title: "Clientes no celular",
+    alt: "Consulta de clientes em um celular, com busca, filtro de status e cartões de clientes fictícios.",
+    description: "A consulta de clientes se adapta a cartões em telas menores.",
+    width: 390,
+    height: 844,
+  },
+  login: {
+    image: loginScreenshot,
+    title: "Login e acesso DEMO",
+    alt: "Login ao lado do gerador DEMO, com opções de dados de exemplo e ambiente vazio.",
+    description: "Login e geração de acesso temporário na mesma página.",
+    width: 1440,
+    height: 900,
+  },
+  history: {
+    image: orderHistoryScreenshot,
+    title: "Detalhes e histórico",
+    alt: "Serviço concluído com resumo operacional e versão anterior preservada, incluindo autor e responsável.",
+    description: "O histórico apresenta uma versão anterior da ordem de serviço.",
+    width: 1440,
+    height: 900,
+  },
+  dashboard: {
+    image: dashboardScreenshot,
+    title: "Visão operacional",
+    alt: "Dashboard da DEMO com indicadores de clientes, funcionários, ordens em aberto e desempenho.",
+    description: "Situação atual da operação e desempenho do período selecionado.",
+    width: 1440,
+    height: 900,
+  },
+  orders: {
+    image: ordersScreenshot,
+    title: "Ordens de serviço",
+    alt: "Listagem de ordens com cliente, status, responsável, data, valor, filtros e paginação.",
+    description: "Busca e filtros de status, responsável e período na listagem.",
+    width: 1440,
+    height: 900,
+  },
+  clients: {
+    image: clientsScreenshot,
+    title: "Gerenciamento de clientes",
+    alt: "Tabela de clientes fictícios ativos, com contatos, busca e acesso ao cadastro.",
+    description: "Clientes, contatos e situação cadastral reunidos em uma consulta.",
+    width: 1440,
+    height: 900,
+  },
+} satisfies Record<string, ProjectScreen>;
+
+function ProjectScreenshot({ screen }: { screen: ProjectScreen }) {
+  const portrait = screen.height > screen.width;
 
   return (
-    <section className="px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto site-container">
-        <div className="max-w-2xl">
-          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-            Visão geral
+    <a
+      href={screen.image}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`Ampliar imagem: ${screen.title} (nova aba)`}
+      className="group block overflow-hidden rounded-2xl border border-border bg-background hover:border-primary focus-visible:outline-offset-[-4px]"
+    >
+      <figure
+        className={
+          portrait
+            ? "grid grid-cols-[6rem_minmax(0,1fr)] items-center gap-4 p-4 sm:grid-cols-[8rem_minmax(0,1fr)] sm:gap-6 sm:p-6"
+            : undefined
+        }
+      >
+        <img
+          src={screen.image}
+          alt={screen.alt}
+          width={screen.width}
+          height={screen.height}
+          loading="lazy"
+          decoding="async"
+          className="block h-auto w-full"
+        />
+        <figcaption className={portrait ? "min-w-0" : "p-5"}>
+          <p className="text-heading font-semibold">{screen.title}</p>
+          <p className="text-foreground mt-2 text-sm leading-6">
+            {screen.description}
           </p>
-          <h2 className="text-heading mt-4">
-            O projeto começa pelo fluxo de trabalho, não pela tecnologia.
-          </h2>
-        </div>
+          <span className="text-primary mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-semibold group-hover:underline">
+            Ampliar imagem
+            <span aria-hidden="true">↗</span>
+          </span>
+        </figcaption>
+      </figure>
+    </a>
+  );
+}
 
-        <div className="mt-12 grid gap-5 md:grid-cols-3">
-          {topics.map((topic, index) => (
-            <Card key={topic.title} className="p-7">
-              <p className="text-primary text-sm font-bold">
-                {String(index + 1).padStart(2, "0")}
-              </p>
-              <h3 className="text-heading mt-5">{topic.title}</h3>
-              <p className="text-foreground mt-3 leading-7">
-                {topic.description}
-              </p>
-            </Card>
-          ))}
+function ProjectOverview() {
+  return (
+    <section aria-labelledby="project-context-title">
+      <div className="mx-auto site-container">
+        <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
+          Contexto e abordagem
+        </p>
+        <h2 id="project-context-title" className="text-heading mt-4 max-w-2xl">
+          Organizar a operação antes de escolher a tecnologia.
+        </h2>
+
+        <div className="mt-8 grid gap-8 md:grid-cols-2 md:gap-12">
+          <div>
+            <h3 className="text-heading">O problema do cenário</h3>
+            <p className="text-foreground mt-4 leading-7">
+              Em um cenário simulado de uma pequena empresa prestadora de
+              serviços, informações sobre clientes, funcionários e serviços
+              ficam dispersas entre planilhas, mensagens e anotações.
+            </p>
+            <p className="text-foreground mt-3 leading-7">
+              O objetivo foi centralizar essas informações, organizar o
+              trabalho e oferecer uma experiência simples para seus usuários.
+            </p>
+          </div>
+          <div>
+            <h3 className="text-heading">Minha abordagem</h3>
+            <p className="text-foreground mt-4 leading-7">
+              Comecei pelo levantamento e pela organização das necessidades.
+              Elas foram transformadas em requisitos funcionais e não
+              funcionais, regras de negócio, modelos de dados e fluxos de
+              navegação.
+            </p>
+            <p className="text-foreground mt-3 leading-7">
+              A separação entre administradores e funcionários se traduziu em
+              permissões na API; o acesso de visitantes, em ambientes isolados.
+              Essas regras orientaram a implementação e os cenários de teste.
+            </p>
+          </div>
         </div>
       </div>
     </section>
   );
 }
 
-function ProjectGallery() {
-  const screens = [
+function ProjectChallenges() {
+  const challenges = [
     {
-      title: "Visão operacional",
-      description: "Dashboard e indicadores principais do sistema.",
+      id: "experiencia-do-usuario",
+      title: "Experiência do usuário",
+      problem:
+        "Oferecer funcionalidades administrativas sem tornar os fluxos de navegação e operação desnecessariamente complexos.",
+      decision:
+        "Organizar as telas por responsabilidades, apresentar ações conforme as permissões e utilizar feedbacks claros para orientar o usuário.",
+      example:
+        "Na consulta de clientes, busca e filtro de status permanecem visíveis no celular, enquanto os registros são apresentados em cartões.",
+      screen: projectScreens.mobile,
     },
     {
-      title: "Ordens de serviço",
-      description: "Listagem, estados e acompanhamento do trabalho.",
+      id: "seguranca-e-controle-de-acesso",
+      title: "Segurança e controle de acesso",
+      problem:
+        "Permitir que funcionários e administradores utilizem o mesmo sistema, respeitando diferentes níveis de permissão.",
+      decision:
+        "Implementar autenticação por sessões persistidas no PostgreSQL, proteção CSRF e autorização no backend, utilizando o NestJS.",
+      reasoning:
+        "O acesso precisa poder ser encerrado quando uma conta é inativada ou muda de perfil. A persistência das sessões permite revogá-las no servidor. A API também verifica o perfil nas operações restritas: ocultar uma ação na interface não basta para impedir uma requisição sem permissão.",
+      references: [
+        {
+          label: "Sessões no PostgreSQL",
+          path: "auth/session/session-store.service.ts",
+        },
+        {
+          label: "Proteção CSRF",
+          path: "auth/guards/csrf.guard.ts",
+        },
+        {
+          label: "Autorização por perfil",
+          path: "auth/guards/role.guard.ts",
+        },
+      ],
     },
     {
-      title: "Clientes e equipe",
-      description: "Cadastros que sustentam o fluxo operacional.",
+      id: "demonstracao-segura",
+      title: "Demonstração segura",
+      problem:
+        "Permitir que visitantes experimentem funcionalidades reais sem interferir nos ambientes de outros usuários.",
+      decision:
+        "Criar ambientes demonstrativos isolados e temporários, com dados de exemplo ou vazios, expiração e limites de utilização.",
+      reasoning:
+        "Para permitir alterações reais durante o teste, cada acesso DEMO recebe seu próprio ambiente. O backend identifica esse ambiente pela conta autenticada e restringe as consultas e alterações a ele. Assim, o visitante pode explorar cadastros e ordens sem acessar os registros de outra demonstração; a expiração e os limites controlam o uso dos recursos.",
+      example:
+        "A geração de acesso DEMO foi integrada à página de login, permitindo experimentar o sistema sem criar um segundo fluxo de autenticação.",
+      screen: projectScreens.login,
+    },
+    {
+      id: "historico-e-integridade",
+      title: "Histórico e integridade",
+      problem:
+        "Preservar a rastreabilidade das alterações realizadas nas ordens de serviço.",
+      decision:
+        "Implementar histórico de versões por snapshots, regras de transição de estados e validações de integridade no banco de dados.",
+      screen: projectScreens.history,
     },
   ];
 
   return (
-    <section className="bg-surface border-y border-border px-4 py-20 sm:px-6 sm:py-28">
+    <section
+      id="desafios"
+      aria-labelledby="project-challenges-title"
+      className="border-y border-border bg-surface"
+    >
       <div className="mx-auto site-container">
-        <div className="max-w-2xl">
-          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-            Produto em imagens
-          </p>
-          <h2 className="text-heading mt-4">
-            Espaço preparado para apresentar a aplicação real.
-          </h2>
-          <p className="text-foreground mt-5 text-lg leading-8">
-            As capturas serão adicionadas quando a base visual do produto
-            estiver estável.
-          </p>
-        </div>
+        <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
+          Desafios e decisões
+        </p>
+        <h2 id="project-challenges-title" className="text-heading mt-4 max-w-2xl">
+          As decisões por trás da aplicação.
+        </h2>
+        <p className="text-foreground mt-4 max-w-2xl leading-7">
+          Quatro desafios orientaram a experiência de uso e a arquitetura.
+          As capturas mostram a aplicação real, com dados fictícios da DEMO.
+        </p>
 
-        <div className="mt-12 grid gap-6 lg:grid-cols-3">
-          {screens.map((screen) => (
-            <figure
-              key={screen.title}
-              className="border-border overflow-hidden rounded-2xl border bg-background"
+        <div className="mt-10 divide-y divide-border">
+          {challenges.map((challenge, index) => (
+            <article
+              key={challenge.id}
+              id={challenge.id}
+              aria-labelledby={`${challenge.id}-title`}
+              className="scroll-mt-28 py-8 first:pt-0 last:pb-0"
             >
               <div
-                data-theme="dark"
-                className="portfolio-theme bg-background aspect-[4/3] p-5"
+                className={
+                  challenge.screen
+                    ? "grid items-start gap-6 lg:grid-cols-2 lg:gap-12"
+                    : undefined
+                }
               >
-                <div className="flex items-center gap-1.5 border-b border-border pb-4">
-                  <span className="h-2 w-2 rounded-full bg-control-border" />
-                  <span className="h-2 w-2 rounded-full bg-surface-raised" />
-                  <span className="h-2 w-2 rounded-full bg-surface-soft" />
+                <div>
+                  <p className="text-primary text-xs font-semibold site-eyebrow uppercase">
+                    Desafio {String(index + 1).padStart(2, "0")}
+                  </p>
+                  <h3 id={`${challenge.id}-title`} className="text-heading mt-3">
+                    {challenge.title}
+                  </h3>
+                  <dl
+                    className={
+                      challenge.screen
+                        ? "mt-5 grid gap-5"
+                        : "mt-5 grid gap-5 md:grid-cols-2 md:gap-12"
+                    }
+                  >
+                    <div>
+                      <dt className="text-foreground font-semibold">Problema</dt>
+                      <dd className="text-foreground mt-2 leading-7">
+                        {challenge.problem}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-foreground font-semibold">Decisão</dt>
+                      <dd className="text-foreground mt-2 leading-7">
+                        {challenge.decision}
+                      </dd>
+                    </div>
+                  </dl>
+                  {challenge.reasoning && (
+                    <p className="text-foreground mt-5 max-w-3xl leading-7">
+                      {challenge.reasoning}
+                    </p>
+                  )}
+                  {challenge.example && (
+                    <p className="text-foreground mt-5 text-sm leading-6">
+                      {challenge.example}
+                    </p>
+                  )}
+                  {challenge.references && (
+                    <aside
+                      aria-labelledby="security-references-title"
+                      className="mt-6 rounded-xl border border-border bg-background p-5"
+                    >
+                      <h4 id="security-references-title" className="text-heading">
+                        Evidências no código
+                      </h4>
+                      <ul className="mt-3 grid gap-3 sm:grid-cols-3">
+                        {challenge.references.map((reference) => (
+                          <li key={reference.path}>
+                            <a
+                              href={`https://github.com/LeoPassos98/portfolio/blob/main/apps/sistema-os/backend/src/${reference.path}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={`Ver código: ${reference.label} (nova aba)`}
+                              className="site-text-link inline-flex min-h-11 items-center gap-2 text-sm leading-6"
+                            >
+                              {reference.label}
+                              <span aria-hidden="true">↗</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </aside>
+                  )}
                 </div>
-                <div className="mt-6 space-y-3">
-                  <span className="block h-3 w-2/5 rounded-full bg-surface-raised" />
-                  <span className="block h-20 rounded-xl border border-border bg-surface" />
-                  <div className="grid grid-cols-2 gap-3">
-                    <span className="block h-14 rounded-lg border border-border bg-surface" />
-                    <span className="block h-14 rounded-lg border border-border bg-surface" />
-                  </div>
-                </div>
+                {challenge.screen && (
+                  <ProjectScreenshot screen={challenge.screen} />
+                )}
               </div>
-              <figcaption className="p-5">
-                <p className="text-foreground font-semibold">{screen.title}</p>
-                <p className="text-foreground mt-2 text-sm leading-6">
-                  {screen.description}
-                </p>
-                <p className="text-primary mt-4 text-xs font-semibold tracking-wide uppercase">
-                  Captura a adicionar
-                </p>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ProductScope() {
-  const capabilities = [
-    {
-      title: "Visão operacional",
-      description:
-        "Dashboards apresentam situação, volume e desempenho de acordo com o perfil da sessão.",
-    },
-    {
-      title: "Clientes e equipe",
-      description:
-        "Cadastros, perfis e estados de acesso mantêm as pessoas da operação organizadas.",
-    },
-    {
-      title: "Ordens de serviço",
-      description:
-        "Criação, acompanhamento, histórico e transições de estado representam o ciclo real do serviço.",
-    },
-    {
-      title: "Acesso e segurança",
-      description:
-        "Sessões, perfis, primeiro acesso e isolamento de ambientes protegem dados e ações sensíveis.",
-    },
-  ];
-
-  return (
-    <section className="bg-surface border-y border-border px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto grid site-container gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
-        <div>
-          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-            Escopo do produto
-          </p>
-          <h2 className="text-heading mt-4">
-            Uma jornada conectada de ponta a ponta.
-          </h2>
-          <p className="text-foreground mt-5 leading-7">
-            Cada área participa do mesmo fluxo operacional e compartilha regras
-            consistentes de navegação, autorização e atualização de dados.
-          </p>
-        </div>
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          {capabilities.map((capability) => (
-            <Card key={capability.title} className="p-6">
-              <h3 className="text-heading">{capability.title}</h3>
-              <p className="text-foreground mt-3 text-sm leading-6">
-                {capability.description}
-              </p>
-            </Card>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TechnicalDecisions() {
-  const groups = [
-    {
-      title: "Interface",
-      technologies: "React, TypeScript e Tailwind CSS",
-      rationale:
-        "Componentes tipados e uma linguagem visual consistente sustentam fluxos claros em diferentes tamanhos de tela.",
-    },
-    {
-      title: "Aplicação e dados",
-      technologies: "NestJS, Prisma e PostgreSQL",
-      rationale:
-        "Contratos explícitos, regras centralizadas e persistência relacional protegem a coerência da operação.",
-    },
-    {
-      title: "Publicação",
-      technologies: "Cloudflare Workers e Northflank",
-      rationale:
-        "A interface é publicada como assets estáticos, enquanto a API NestJS opera em um serviço separado.",
-    },
-    {
-      title: "Qualidade",
-      technologies: "Vitest e validações de navegador",
-      rationale:
-        "Testes automatizados e verificações de fluxo reduzem regressões nas regras que sustentam o produto.",
-    },
-  ];
-
-  return (
-    <section className="px-4 py-20 sm:px-6 sm:py-28">
-      <div className="mx-auto site-container">
-        <div className="max-w-3xl">
-          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-            Decisões técnicas
-          </p>
-          <h2 className="text-heading mt-4">
-            Tecnologias apresentadas no contexto das decisões que apoiam.
-          </h2>
-          <p className="text-foreground mt-5 text-lg leading-8">
-            A stack não define o projeto sozinha. Cada ferramenta participa de
-            uma responsabilidade concreta e pode evoluir conforme o produto
-            exigir.
-          </p>
-        </div>
-
-        <div className="mt-12 divide-y divide-border rounded-2xl border border-border bg-surface">
-          {groups.map((group) => (
-            <article
-              key={group.title}
-              className="grid gap-4 p-6 sm:p-8 md:grid-cols-[0.55fr_1.45fr] md:gap-10"
-            >
-              <div>
-                <h3 className="text-heading">{group.title}</h3>
-                <p className="text-primary mt-2 text-sm font-semibold">
-                  {group.technologies}
-                </p>
-              </div>
-              <p className="text-foreground leading-7">{group.rationale}</p>
             </article>
           ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProjectResult() {
+  const capabilities = [
+    "Clientes, funcionários e ordens de serviço reunidos para consultar as informações operacionais em um só lugar.",
+    "Dashboards, busca e filtros para localizar registros e acompanhar a situação dos serviços.",
+    "Perfis e permissões para separar ações administrativas das atividades dos funcionários, com controle na API.",
+    "Histórico de versões para consultar o estado anterior de uma ordem e identificar o autor da alteração.",
+    "DEMO isolada para experimentar o produto com dados fictícios ou começar com um ambiente vazio.",
+  ];
+
+  return (
+    <section id="resultado" aria-labelledby="project-result-title">
+      <div className="mx-auto site-container">
+        <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
+          <div>
+            <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
+              Resultado
+            </p>
+            <h2 id="project-result-title" className="text-heading mt-4">
+              Uma aplicação web funcional.
+            </h2>
+            <p className="text-foreground mt-4 leading-7">
+              Capacidades implementadas para atender às necessidades do cenário
+              simulado:
+            </p>
+            <ul className="text-foreground mt-6 space-y-3">
+              {capabilities.map((capability) => (
+                <li key={capability} className="flex gap-3 leading-7">
+                  <span aria-hidden="true" className="text-primary font-bold">
+                    ✓
+                  </span>
+                  {capability}
+                </li>
+              ))}
+            </ul>
+            <p className="text-foreground mt-6 text-sm leading-6">
+              React, TypeScript, NestJS, Prisma e PostgreSQL, com infraestrutura
+              distribuída entre Cloudflare e Northflank.
+            </p>
+            <p className="text-foreground mt-3 text-sm leading-6">
+              A validação técnica inclui testes automatizados de revogação de
+              sessões, permissões e isolamento entre ambientes, além de
+              verificações dos fluxos no navegador.
+            </p>
+          </div>
+          <ProjectScreenshot screen={projectScreens.dashboard} />
+        </div>
+        <div className="mt-6 grid gap-6 md:grid-cols-2">
+          <ProjectScreenshot screen={projectScreens.orders} />
+          <ProjectScreenshot screen={projectScreens.clients} />
         </div>
       </div>
     </section>
@@ -340,7 +470,7 @@ function ProjectCallToAction() {
             isolado, com dados de exemplo ou começando do zero.
           </p>
         </div>
-        <ActionLink href={osLoginUrl} variant="secondary" className="shrink-0">
+        <ActionLink href={osLoginUrl} variant="primary" className="shrink-0">
           Testar aplicação
           <ArrowIcon />
         </ActionLink>
@@ -364,9 +494,8 @@ function ServiceOrderProjectPage() {
       <article className="w-full">
         <ProjectHero />
         <ProjectOverview />
-        <ProjectGallery />
-        <ProductScope />
-        <TechnicalDecisions />
+        <ProjectChallenges />
+        <ProjectResult />
         <ProjectCallToAction />
       </article>
     </PublicLayout>
