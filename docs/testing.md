@@ -366,6 +366,70 @@ Infraestrutura: Vitest, aplicação NestJS real, Supertest, Prisma/`DatabaseServ
 
 Estas validações não correspondem a arquivos `.spec.ts`; registram evidências operacionais que complementam a cobertura automatizada.
 
+### Estudo de caso do Sistema OS — conteúdo e capturas reais
+
+Validação em 27/10/2026, sobre `973c35a`, de `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx`. A página apresenta contexto autoral simulado, abordagem, quatro desafios com problema e decisão, resultado funcional e acesso à demonstração. O conteúdo segue o [estudo de caso aprovado no Notion](https://app.notion.com/p/4061e6e3a46e8121819bec79b01ba1a9), consultado sem alterações; os problemas e decisões foram extraídos dessa fonte para comparação com a página no navegador. Não foram acrescentados clientes reais, resultados comerciais ou métricas de negócio.
+
+As seis capturas aparecem uma única vez: clientes mobile em Experiência do usuário; login em Demonstração segura; detalhe em Histórico e integridade; dashboard, ordens e clientes desktop no Resultado. Segurança e controle de acesso descreve sessões PostgreSQL, CSRF e autorização no backend sem atribuir a uma imagem a comprovação desses controles. Cada card oferece indicação visível de ampliação, legenda, texto alternativo e abertura do original em nova aba; preserva dimensões explícitas, carregamento adiado e decodificação assíncrona.
+
+Após revisão visual do usuário, o exemplo do Desafio 01 passou a explicar a busca, o filtro e os cartões de clientes no celular; o exemplo de autenticação foi movido para o Desafio 03, junto da captura do login. O Desafio 02 oferece referências públicas verificadas a `apps/sistema-os/backend/src/auth/session/session-store.service.ts`, `apps/sistema-os/backend/src/auth/guards/csrf.guard.ts` e `apps/sistema-os/backend/src/auth/guards/role.guard.ts`. O CTA final usa a mesma variante primária do CTA inicial. Rodapé compartilhado, apresentação e Sobre da Home adotam Desenvolvedor de Software, sem redesenho.
+
+Origem: API NestJS compilada e frontend OS local, sem respostas simuladas. Como não havia `.env.test`, foi criado um cluster PostgreSQL descartável em `/tmp/portfolio-os-screenshots/postgres`, exclusivamente em loopback na porta 45432. Antes das escritas, `DATABASE_URL` e `TEST_DATABASE_URL` foram fornecidas ao processo para a mesma base `portfolio_test`; banco, usuário, endereço, porta e diretório do cluster foram confirmados pela conexão. As seis migrations existentes foram aplicadas somente nesse cluster e seus checksums foram conferidos. Arquivos privados de ambiente foram preservados; segredos temporários ficaram apenas em memória.
+
+O fluxo real de geração EXEMPLO e login criou uma DEMO com seis clientes, três funcionários incluindo o administrador, oito ordens e dez históricos fictícios. A captura do login foi feita antes da geração, com campos vazios. Não foram gravadas credenciais nos runners, relatórios ou imagens. O detalhe usa rolagem de 105 px para enquadrar o serviço, o resumo e um snapshot completo do histórico.
+
+Assets em `apps/site/frontend/src/assets/projects/sistema-os/`:
+
+| Arquivo | Resolução | O que demonstra |
+| --- | --- | --- |
+| `login-demo-desktop.webp` | 1440 × 900 | Login e geração DEMO na mesma página, com EXEMPLO selecionado. |
+| `dashboard-desktop.webp` | 1440 × 900 | Situação atual e desempenho calculados a partir da DEMO real. |
+| `ordens-servico-desktop.webp` | 1440 × 900 | Filtros, primeira página de ordens, estados, responsáveis e valores. |
+| `ordem-historico-desktop.webp` | 1440 × 900 | Serviço concluído e versão anterior preservada com autor e responsável. |
+| `clientes-desktop.webp` | 1440 × 900 | Seis clientes fictícios ativos com busca, contatos e acesso ao cadastro. |
+| `clientes-mobile.webp` | 390 × 844 | A mesma consulta de clientes em cartões adaptados ao celular. |
+
+Os seis WebP somam **147.872 bytes**, contra 432.638 bytes dos PNG originais: redução aproximada de 66%, sem perda. ImageMagick removeu metadados e comparou os pixels de cada conversão, com zero diferenças. Não houve montagem, reconstrução de telas ou corte das imagens na galeria. Todas as capturas originais e suas apresentações na página foram revisadas visualmente.
+
+Lint, build e diff-check do site aprovados. A integração inicial passou por **64 verificações de navegador** em Chrome headless via CDP: preview de produção em 1440/390/320/768 px nos dois temas, com conferência adicional do conteúdo em desenvolvimento. Foram comprovados fidelidade à fonte aprovada, associação das seis imagens sem duplicação, carregamento sem overflow ou distorção, corpo de pelo menos 16 px e legendas de pelo menos 14 px, ampliação por Enter em nova aba, foco de 3 px e menu mobile por teclado com Escape e retorno de foco.
+
+A revisão dos quatro ajustes passou por **41 verificações focadas**, além de lint/build/diff-check: fidelidade dos oito textos de problema/decisão, alinhamento dos exemplos às capturas, três referências técnicas para arquivos reais, seis imagens sem duplicação, ausência de overflow/distorção e CTAs primários em 1440/390/320 px nos dois temas; foco visível nos links de código; apresentação profissional no rodapé das duas páginas e na Home em desktop/mobile; contatos preservados. Não houve exceção JavaScript, falha HTTP de asset, acesso externo pelo navegador ou chamada à API. Os links públicos de código foram conferidos separadamente por leitura.
+
+Refinamento de argumentação em 28/10/2026, ainda sobre `973c35a`: sessões/revogação e autorização na API, além do isolamento DEMO, receberam explicações apoiadas no código e no catálogo de testes existente. A seção de resultado conecta as cinco capacidades a usos práticos e distingue validação técnica de ganhos comerciais não medidos. Não foi encontrada comparação formal entre alternativas no histórico consultado; nenhuma foi inventada. Backend e banco não foram executados nesta tarefa.
+
+Lint, build de produção e diff-check aprovados; **62 verificações Chrome/CDP** em 1440/390/320/768 px nos dois temas conferiram os oito textos aprovados de problema/decisão, as cinco seções existentes, seis imagens únicas/carregadas/proporcionais, evidências associadas aos desafios, links técnicos, CTAs primários de pelo menos 44 px, corpo de pelo menos 16 px, ausência de overflow, foco visível e ampliação por Enter em nova aba. Nenhuma exceção JavaScript, falha de asset, chamada externa ou de API no navegador. As capturas completas e os detalhes de segurança, DEMO e resultado foram revisados visualmente.
+
+Os três links públicos de evidências retornaram HTTP 200; o conteúdo dos arquivos remotos foi comparado aos locais, sem diferenças. O build usa `https://os.leonardopassos.com/login`; o servidor de desenvolvimento foi conferido com `VITE_OS_URL=http://localhost:5175///`, normalizado para `http://localhost:5175/login`. Cinco casos executados diretamente sobre o módulo `osLinks.ts` confirmam fallback com variável ausente/vazia/em branco e normalização das URLs local/pública. O mecanismo de configuração permaneceu inalterado. O GET direto do login público retornou HTTP 403 neste ambiente; o fluxo publicado da DEMO não foi exercitado.
+
+Evidências temporárias desta revisão: `/tmp/portfolio-case-study-reasoning/report.json`, `config.json`, `links.json`, `public-login.json`, `revisao-textos.md` e `desktop-{light,dark}-full.png` / `mobile-{light,dark}-full.png`. O relatório editorial contém os textos anteriores e revisados e as fontes técnicas consultadas. Os testes do backend foram lidos como evidência já catalogada, sem afirmar nova execução. Nenhum runner ou dependência foi adicionado ao repositório.
+
+Extensão medida antes e depois deste refinamento de conteúdo, com as mesmas imagens carregadas e fontes prontas:
+
+| Viewport | Altura anterior | Altura atual | Observação |
+| --- | ---: | ---: | --- |
+| 1440 × 900 | 4802 px | 5087 px | Fundamentação junto das decisões e benefícios na seção existente de resultado. |
+| 390 × 844 | 7706 px | 8708 px | Acréscimo de texto sem novas seções; card mobile compacto e acesso à ampliação preservados. |
+
+Os valores são medidas locais da apresentação da página, não resultados do negócio simulado. Capturas completas em claro/escuro, desktop/mobile e detalhes de leitura foram revisados e disponibilizados para aprovação visual. No primeiro refinamento, os hashes de 250 arquivos permaneceram idênticos. Na revisão seguinte, somente a apresentação profissional da Home mudou entre esses arquivos; as seis imagens, estilos/tokens, histórico do Design Lab e fontes autorais do Sistema OS continuam idênticos.
+
+Após as capturas, a API foi encerrada e somente a DEMO da tarefa, seus dependentes, sessão e tentativa de geração foram removidos. Contagens e digests das dez tabelas voltaram ao estado anterior à geração, incluindo PRINCIPAL e migrations; o cluster temporário foi encerrado. Produção e bancos existentes não foram usados. Não houve alteração funcional no Sistema OS, mudança na base visual/Design Lab, dependência nova, commit, push ou deploy.
+
+Evidências temporárias de geração em `/tmp/portfolio-os-screenshots/`: PNG originais e relatórios `capture-report.json`, `validation-report.json` e `cleanup-report.json`. Refinamento em `/tmp/portfolio-case-study/`: fonte aprovada extraída em `approved-content.json`, baselines, `validate.mjs` e `validation-report.json`. Revisão dos quatro ajustes em `/tmp/portfolio-case-study-adjustments/`: `check.mjs`, `report.json`, detalhes de segurança/CTA e capturas completas `desktop-{light,dark}-full.png` e `mobile-{light,dark}-full.png`. Os runners não integram a suíte permanente. O refinamento executou somente o site, sem iniciar API ou banco e sem modificar o Notion. Limitações: capturas estáticas em Chrome com viewports emulados; Firefox, Safari e dispositivo físico não foram verificados.
+
+### Home — Header, Hero e fundo controlado pela rolagem
+
+Validação local em 28/10/2026, sobre `973c35a`, sem commit, push ou deploy. O Header minimalista mantém marca e controle de tema; o Hero centralizado preserva exatamente os três textos solicitados e os botões para `#projetos` e `#contato`. A geometria decorativa anterior do Hero foi substituída pelo fundo animado da Home inteira, sem alterar o conteúdo das demais seções.
+
+O fundo é fixo, centralizado e limitado a `--site-width-content` (1180 px), sem ocupar as margens externas do monitor. No mobile acompanha a largura disponível. Os cards continuam sólidos; superfícies de seção e rodapé recebem transparência restrita à Home para permitir o fundo e preservar contraste. O SVG mantém sua proporção original sob uma camada suave, decorativa e sem interação.
+
+`apps/site/frontend/src/features/public/components/HomeScrollBackground.tsx` usa os assets locais `src/assets/brand/logo-scroll.svg` e `logo-scroll-frames.json`. Eles preservam a geometria e as oito trilhas da captura fornecida pelo autor; o SVG foi separado do script autônomo e dos metadados do editor. A captura contém um reinício para LP nos registros de 2971/3000 ms: esses registros foram excluídos, mantendo o último estado anterior até o final lógico de 3000 ms. O arquivo original foi preservado.
+
+Mapeamento da rolagem disponível: 0% = LP; aproximadamente 33% = logo; 67% = transição; 100% = `</>`. Matrizes e coordenadas dos contornos são interpoladas entre as amostras para suavizar o avanço; ao subir, a sequência reverte. Não há autoplay, loop ou dependência nova. Listener passivo e requestAnimationFrame agrupam atualizações; resize/ResizeObserver recalculam o progresso. Movimento reduzido fixa LP e reage à mudança da preferência. Listeners, observer e frame pendente são removidos ao desmontar.
+
+Lint dos três componentes afetados e build do site aprovados. Conferência Chrome/CDP em desktop 1440 × 900 e mobile 390 × 844, nos dois temas e nos quatro estados da sequência: **39 verificações aprovadas**, incluindo limite horizontal igual ao container, posição fixa, ausência de overflow/script autônomo, avanço/reversão, estado final estável, movimento reduzido, botões existentes e ausência de fundo no estudo de caso. Sem erros JavaScript, falhas de assets ou chamadas externas/API. Não foram executadas suítes de backend ou testes não relacionados.
+
+Evidências temporárias em `/tmp/portfolio-scroll-background/`: `report.json`, `visual.mjs`, referências capturadas da sequência e `desktop-{light,dark}-stage-{0,1,2,3}.png` / `mobile-{light,dark}-stage-{0,1,2,3}.png`. As apresentações foram revisadas visualmente. Header, textos/seções e contatos foram preservados; o estudo de caso, o Sistema OS, os tokens e o histórico do Design Lab permanecem intactos nesta revisão. A validação técnica não representa aprovação visual do usuário. Limitações: Chrome com viewports emulados; sem validação em Safari, Firefox ou dispositivo físico.
+
 ### Contatos públicos do portfólio
 
 Validação local em 26/10/2026 após substituir os contatos provisórios em `apps/site/frontend/src/features/public/pages/HomePage.tsx`. Os cards permitem enviar e-mail para `contato@leonardopassos.com`, abrir o LinkedIn `devLeonardoPassos` e iniciar uma conversa pelo WhatsApp `+55 31 99591-7334`; o GitHub foi preservado.

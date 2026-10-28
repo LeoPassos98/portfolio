@@ -21,7 +21,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Componentes UI          | Elementos reutilizáveis da interface                                              | 8 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           | 8 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              | 4 |
-| Área pública            | Portfólio profissional e apresentação pública dos projetos                        | 2 |
+| Área pública            | Portfólio profissional e apresentação pública dos projetos                        | 3 |
 | Ambiente DEMO           | Geração pública de credenciais temporárias e continuação explícita para o login   | 3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
 | Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              | 7 |
@@ -31,7 +31,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       | 5 |
 | Navegação entre aplicações | Links externos configuráveis entre portfólio e Sistema OS | 2 |
 
-Total: **101 arquivos relevantes**, contados uma vez por pacote e família.
+Total: **102 arquivos relevantes**, contados uma vez por pacote e família.
 
 ## Sumário
 
@@ -114,7 +114,7 @@ Diretórios: `apps/site/frontend/src/`, `apps/site/frontend/src/styles/`, `apps/
 | 1 | `apps/site/frontend/src/index.css` | Importa a fundação visual e os estilos públicos; mapeia utilitários semânticos e desativa a paleta padrão do Tailwind. |
 | 2 | `apps/sistema-os/frontend/src/index.css` | Importa o Tailwind CSS, define tokens de tipografia, raio e cores e mantém as animações discretas de entrada, saída e progresso das notificações, com redução de movimento para as transições. |
 | 3 | `apps/site/frontend/src/styles/tokens.css` | Fonte única dos tokens aprovados do site: cores por tema, tipografia, dimensões, espaçamento, raios, sombras e movimento. |
-| 4 | `apps/site/frontend/src/styles/site.css` | Estilos da composição pública e dos componentes UI; header/menu responsivos, foco, tipografia, cards, ações e rodapé, somente com referências de tokens. |
+| 4 | `apps/site/frontend/src/styles/site.css` | Estilos públicos e componentes UI; Header/menu, foco, tipografia, cards, ações e rodapé. Restringe o fundo fixo da Home à largura máxima do conteúdo, com camada suave e superfícies translúcidas nas seções; preserva os estilos do estudo de caso. |
 
 ---
 
@@ -164,7 +164,7 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Header com marca colorida nos dois temas, navegação central e botão de tema à direita; menu mobile por ícone com Escape, tema persistente, seção ativa, skip link e rodapé. |
+| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Header minimalista na Home, com marca à esquerda e tema à direita; usa o logotipo branco existente no tema escuro da Home. Preserva navegação/menu no estudo de caso, tema persistente, seção ativa, skip link e rodapé. |
 | 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo; permite ampliar apenas o login no desktop para acomodar o painel DEMO ao lado do formulário. |
 | 3 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo. |
 | 4 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
@@ -175,12 +175,13 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 
 Reúne o portfólio profissional público, separado das rotas de autenticação e da aplicação autenticada.
 
-Diretórios: `apps/site/frontend/src/features/public/pages/`
+Diretórios: `apps/site/frontend/src/features/public/pages/`, `apps/site/frontend/src/features/public/components/`
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Home com estrutura aprovada, identidade compartilhada, cards, ações e tecnologias; mantém âncoras, conteúdo e destinos existentes. |
-| 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso do Sistema OS, título do documento e dois CTAs para o login único, com geração DEMO. |
+| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Hero centralizado com identificação profissional e ações para Projetos/Contato; monta o fundo animado exclusivo da Home e mantém as demais seções, cards, tecnologias e destinos existentes. |
+| 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso autoral com contexto simulado, quatro desafios aprovados no Notion, fundamentação de sessões/autorização e isolamento DEMO apoiada no código, capacidades ligadas a usos práticos e limites da validação; mantém referências técnicas, seis capturas ampliáveis e CTAs configuráveis para o login DEMO. |
+| 3 | `apps/site/frontend/src/features/public/components/HomeScrollBackground.tsx` | Exibe a geometria local do logo sem script original e interpola as amostras capturadas conforme a rolagem total, de LP até </>; respeita movimento reduzido e remove listeners, observer e frame pendente ao desmontar. |
 
 ---
 
