@@ -164,7 +164,7 @@ Diretórios: `apps/site/frontend/src/components/layout/`, `apps/sistema-os/front
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Header minimalista na Home, com marca à esquerda e tema à direita; usa o logotipo branco existente no tema escuro da Home. Preserva navegação/menu no estudo de caso, tema persistente, seção ativa, skip link e rodapé. |
+| 1 | `apps/site/frontend/src/components/layout/PublicLayout.tsx` | Header da Home com marca, contato translúcido central e tema; abaixo de 48 rem usa apenas o símbolo, altura de 56 px e margens laterais de 16 px, com variantes colorida/branca via picture. Mantém logo completo no desktop e preserva navegação/menu no estudo de caso, tema persistente, skip link e rodapé. |
 | 2 | `apps/sistema-os/frontend/src/features/auth/components/AuthLayout.tsx` | Centraliza autenticação e bootstrap, com marca apontando ao portfólio externo; permite ampliar apenas o login no desktop para acomodar o painel DEMO ao lado do formulário. |
 | 3 | `apps/sistema-os/frontend/src/components/layout/AppLayout.tsx` | Estrutura as telas internas com header, sidebar recolhível persistida e navegação filtrada pelo perfil da sessão. A identidade autenticada abre o mesmo menu de usuário no desktop e no mobile, com `Meu perfil`, separador e `Sair`, suporte a foco, teclado, Escape e clique externo. |
 | 4 | `apps/sistema-os/frontend/src/components/layout/AppBrand.tsx` | Marca OS com destinos internos via Router ou externos via href, conforme o contexto. |
@@ -179,7 +179,7 @@ Diretórios: `apps/site/frontend/src/features/public/pages/`, `apps/site/fronten
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Hero centralizado com identificação profissional e ações para Projetos/Contato; monta o fundo animado exclusivo da Home e mantém as demais seções, cards, tecnologias e destinos existentes. |
+| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Hero centralizado e seção compacta do projeto destacado, com vidro e borda compartilhados com o Header. Apresenta uma captura real do dashboard do Sistema OS à direita no desktop e entre o título e a descrição no mobile, monta o fundo animado da Home e reúne tecnologias, apresentação profissional e contatos. |
 | 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso autoral com contexto simulado, quatro desafios aprovados no Notion, fundamentação de sessões/autorização e isolamento DEMO apoiada no código, capacidades ligadas a usos práticos e limites da validação; mantém referências técnicas, seis capturas ampliáveis e CTAs configuráveis para o login DEMO. |
 | 3 | `apps/site/frontend/src/features/public/components/HomeScrollBackground.tsx` | Exibe a geometria local do logo sem script original e interpola as amostras capturadas conforme a rolagem total, de LP até </>; respeita movimento reduzido e remove listeners, observer e frame pendente ao desmontar. |
 

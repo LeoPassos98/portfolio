@@ -45,7 +45,7 @@ VITE_OS_URL=https://os.leonardopassos.com npm run build
 
 O pacote `portfolio-site-frontend` instala suas dependências e gera seu próprio `dist/`, sem workspace ou imports dos outros frontends. `wrangler.jsonc` mantém a identidade local `portfolio-site` e o fallback de SPA. O Router encaminha rotas desconhecidas para a Home; esse redirecionamento ocorre no navegador, sem configurar status HTTP 404 ou 3xx no serviço de assets.
 
-A marca do cabeçalho usa `src/assets/brand/logo_name.svg` nos dois temas; o rodapé usa `logo_name_all_white.svg`. O favicon fica em `public/favicon.svg` e é referenciado por `/favicon.svg`. Os SVGs mantêm os desenhos autorais, sem scripts ou metadados do editor.
+A marca do cabeçalho da Home usa o logo completo no desktop e apenas o símbolo abaixo de 48 rem, selecionado por `picture`: `src/assets/brand/logo_symbol.svg` no tema claro e `logo_symbol_all_white.svg` no escuro. No desktop usa `logo_name.svg` ou `logo_name_all_white.svg` conforme o tema; o estudo de caso mantém a marca colorida completa, e o rodapé usa a versão branca completa. Os símbolos preservam os cinco paths originais, sem o texto do nome. O favicon fica em `public/favicon.svg` e é referenciado por `/favicon.svg`.
 
 A publicação usa o Worker correspondente `portfolio-site`, com root `apps/site/frontend` e artefato `dist/`. No pacote, o comando de deploy é `npx wrangler deploy --config wrangler.jsonc`, exclusivamente após autorização. A manutenção não depende dos arquivos do frontend OS ou backend.
 
