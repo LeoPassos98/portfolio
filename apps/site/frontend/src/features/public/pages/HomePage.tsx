@@ -2,63 +2,12 @@ import { useEffect } from "react";
 import {
   ActionLink,
   ArrowIcon,
-  Badge,
   Card,
 } from "../../../components/ui/PortfolioUI";
 import { PublicLayout } from "../../../components/layout/PublicLayout";
 import { osLoginUrl } from "../../../shared/lib/osLinks";
 import { HomeScrollBackground } from "../components/HomeScrollBackground";
-
-function ProjectPreview() {
-  return (
-    <div
-      aria-hidden="true"
-      data-theme="dark"
-      className="portfolio-theme bg-background relative min-h-80 overflow-hidden rounded-2xl p-5 site-shadow-raised sm:p-7"
-    >
-      <div className="relative flex items-center justify-between border-b border-border pb-4">
-        <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-          <span className="text-xs font-semibold site-eyebrow text-neutral uppercase">
-            Sistema OS
-          </span>
-        </div>
-        <span className="rounded-full bg-surface-soft px-3 py-1 text-xs text-neutral">
-          Aplicação full stack
-        </span>
-      </div>
-
-      <div className="relative mt-7 grid grid-cols-2 gap-3">
-        <div className="col-span-2 rounded-xl border border-border bg-surface p-4">
-          <p className="text-xs text-neutral">Visão operacional</p>
-          <div className="mt-4 flex items-end gap-2">
-            <span className="h-7 flex-1 rounded-sm bg-primary" />
-            <span className="h-11 flex-1 rounded-sm bg-primary" />
-            <span className="h-16 flex-1 rounded-sm bg-primary" />
-            <span className="h-10 flex-1 rounded-sm bg-primary" />
-            <span className="h-20 flex-1 rounded-sm bg-primary" />
-            <span className="h-14 flex-1 rounded-sm bg-primary" />
-          </div>
-        </div>
-
-        {["Clientes", "Equipe", "Ordens", "Dashboard"].map((label) => (
-          <div
-            key={label}
-            className="rounded-xl border border-border bg-surface p-4"
-          >
-            <div className="flex items-center gap-3">
-              <span className="h-8 w-8 rounded-lg bg-surface-raised" />
-              <div className="flex-1">
-                <p className="text-xs font-medium text-foreground">{label}</p>
-                <span className="mt-2 block h-1.5 rounded-full bg-surface-soft" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+import dashboardScreenshot from "../../../assets/projects/sistema-os/dashboard-desktop.webp";
 
 function HeroSection() {
   return (
@@ -67,13 +16,16 @@ function HeroSection() {
         <p className="home-hero-identity site-eyebrow">
           LEONARDO PASSOS · DESENVOLVEDOR DE SOFTWARE
         </p>
-        <h1 id="home-hero-title">
-          Soluções de software pensadas do problema à implementação.
-        </h1>
-        <p className="home-hero-description">
-          Transformo necessidades em aplicações funcionais, com atenção à
-          arquitetura, à experiência do usuário e à qualidade técnica.
-        </p>
+        <div className="home-hero-copy">
+          <h1 id="home-hero-title">
+            Soluções em forma
+            <span className="home-hero-title-ending"> de software.</span>
+          </h1>
+          <p className="home-hero-description">
+            Projetos que combinam planejamento, arquitetura e experiência de uso.
+            Funcionais, intuitivos e bem estruturados.
+          </p>
+        </div>
         <div className="home-hero-actions">
           <ActionLink href="#projetos" variant="primary" size="lg">
             Explorar projetos
@@ -88,106 +40,81 @@ function HeroSection() {
   );
 }
 
+function ProjectScreenshot() {
+  return (
+    <div className="home-featured-screenshot w-full overflow-hidden rounded-2xl border border-border site-shadow-raised">
+      <img
+        src={dashboardScreenshot}
+        alt="Dashboard do Sistema OS com indicadores e ordens de serviço em um ambiente demonstrativo."
+        width={1440}
+        height={900}
+        loading="lazy"
+        decoding="async"
+        className="block h-auto"
+      />
+    </div>
+  );
+}
+
 function ProjectsSection() {
   return (
     <section
       id="projetos"
       aria-labelledby="projetos-title"
-      className="border-y border-border px-4 py-16 sm:px-6 sm:py-20"
+      className="home-projects border-y border-border"
     >
-      <div className="mx-auto site-container">
-        <div className="max-w-2xl">
-          <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-            Projetos selecionados
-          </p>
-          <h2 id="projetos-title" className="text-heading mt-4">
-            Trabalho que transforma complexidade em experiência útil.
-          </h2>
-          <p className="text-foreground mt-4 text-lg leading-8">
-            No projeto em destaque, React, NestJS e PostgreSQL aparecem junto
-            das decisões de arquitetura, publicação e segurança que sustentam o
-            sistema.
-          </p>
-        </div>
-
-        <Card className="mt-12 grid overflow-hidden lg:grid-cols-2">
-          <div className="flex flex-col justify-center p-7 sm:p-10 lg:p-12">
+      <div className="site-container home-projects-content">
+        <div className="home-projects-showcase">
+          <div className="home-projects-heading">
             <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
-              Projeto em destaque
+              Projetos
             </p>
-            <h3 className="text-heading mt-6">
-              Sistema de Gestão de Ordens de Serviço
-            </h3>
-            <p className="text-foreground mt-4 leading-7">
-              Aplicação full stack para centralizar clientes, equipe e ordens de
-              serviço, com fluxos administrativos e operacionais protegidos por
-              autenticação e regras de negócio reais.
-            </p>
-            <div
-              className="technology-list mt-4"
-              aria-label="Tecnologias do projeto"
-            >
-              {["React", "TypeScript", "NestJS", "PostgreSQL"].map(
-                (technology) => (
-                  <Badge key={technology}>{technology}</Badge>
-                ),
-              )}
-            </div>
-
-            <p className="text-neutral mt-7 text-xs font-semibold site-eyebrow uppercase">
-              O que este projeto demonstra
-            </p>
-            <ul className="text-foreground mt-4 space-y-3 text-sm">
-              <li className="flex gap-3">
-                <span aria-hidden="true" className="text-primary font-bold">
-                  ✓
-                </span>
-                Jornada completa entre dashboard, clientes, equipe e ordens.
-              </li>
-              <li className="flex gap-3">
-                <span aria-hidden="true" className="text-primary font-bold">
-                  ✓
-                </span>
-                Sessões seguras, autorização por perfil e isolamento de
-                ambientes.
-              </li>
-              <li className="flex gap-3">
-                <span aria-hidden="true" className="text-primary font-bold">
-                  ✓
-                </span>
-                Histórico, concorrência otimista e validações automatizadas.
-              </li>
-            </ul>
-
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <ActionLink to="/projetos/sistema-os" variant="primary">
-                Conhecer o projeto
-                <ArrowIcon />
-              </ActionLink>
-              <ActionLink href={osLoginUrl} variant="secondary">
-                Testar aplicação
-              </ActionLink>
-            </div>
+            <h2 id="projetos-title" className="text-heading mt-4">
+              Soluções que saíram do papel.
+            </h2>
           </div>
 
-          <div className="bg-info-bg flex items-center p-6 sm:p-10 lg:p-12">
-            <ProjectPreview />
-          </div>
-        </Card>
+          <Card className="home-featured-project grid lg:grid-cols-2">
+            <div className="flex flex-col p-4 sm:p-6 lg:p-8">
+              <p className="text-primary text-sm font-semibold site-eyebrow uppercase">
+                Projeto em destaque
+              </p>
+              <div className="flex flex-1 flex-col justify-center pt-4 sm:pt-5">
+                <h3 className="text-heading">
+                  Sistema de Gestão de Ordens de Serviço
+                </h3>
+                <div className="mt-4 lg:hidden">
+                  <ProjectScreenshot />
+                </div>
+                <p className="text-foreground mt-3 text-sm leading-6 sm:text-base">
+                  Aplicação full stack para centralizar clientes, equipe e ordens de
+                  serviço, com fluxos administrativos e operacionais protegidos por
+                  autenticação e regras de negócio reais.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-center gap-3">
+                  <ActionLink to="/projetos/sistema-os" variant="primary">
+                    Conhecer o projeto
+                    <ArrowIcon />
+                  </ActionLink>
+                  <ActionLink href={osLoginUrl} variant="secondary">
+                    Testar aplicação
+                  </ActionLink>
+                </div>
+              </div>
+              <ul
+                className="text-neutral mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs"
+                aria-label="Tecnologias do projeto"
+              >
+                {["React", "TypeScript", "NestJS", "PostgreSQL"].map(
+                  (technology) => <li key={technology}>{technology}</li>,
+                )}
+              </ul>
+            </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2">
-          {["Projeto 02", "Projeto 03"].map((title) => (
-            <Card key={title} className="p-6 sm:p-8">
-              <p className="text-primary text-xs font-semibold site-eyebrow uppercase">
-                Em preparação
-              </p>
-              <h3 className="text-heading mt-4">{title}</h3>
-              <p className="text-foreground mt-3 text-sm leading-6">
-                Espaço reservado para um próximo projeto, com contexto, decisões
-                técnicas e resultado apresentado.
-              </p>
-            </Card>
-          ))}
+            <div className="home-featured-preview hidden items-center p-8 lg:flex">
+              <ProjectScreenshot />
+            </div>
+          </Card>
         </div>
       </div>
     </section>

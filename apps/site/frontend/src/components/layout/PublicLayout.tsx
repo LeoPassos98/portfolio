@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import colorLogo from "../../assets/brand/logo_name.svg";
 import whiteLogo from "../../assets/brand/logo_name_all_white.svg";
-import { Button } from "../ui/PortfolioUI";
+import colorSymbol from "../../assets/brand/logo_symbol.svg";
+import whiteSymbol from "../../assets/brand/logo_symbol_all_white.svg";
+import { ActionLink, Button } from "../ui/PortfolioUI";
 
 type Theme = "light" | "dark";
 const themeKey = "portfolio-theme";
@@ -174,7 +176,17 @@ function PublicLayout({ children }: { children: ReactNode }) {
               aria-label="Leonardo Passos · início"
               className="site-brand"
             >
-              <img src={minimalHeader && theme === "dark" ? whiteLogo : colorLogo} alt="" />
+              {minimalHeader ? (
+                <picture>
+                  <source
+                    media="(width < 48rem)"
+                    srcSet={theme === "dark" ? whiteSymbol : colorSymbol}
+                  />
+                  <img src={theme === "dark" ? whiteLogo : colorLogo} alt="" />
+                </picture>
+              ) : (
+                <img src={colorLogo} alt="" />
+              )}
             </Link>
             {!minimalHeader && (
               <Button
@@ -190,6 +202,34 @@ function PublicLayout({ children }: { children: ReactNode }) {
               </Button>
             )}
           </div>
+          {minimalHeader && (
+            <ActionLink
+              href="#contato"
+              variant="tertiary"
+              className="site-header-contact"
+              aria-label="Entrar em contato"
+              title="Entrar em contato"
+              onClick={(event) => {
+                if (event.detail > 0 && matchMedia("(width < 48rem)").matches) {
+                  event.currentTarget.blur();
+                }
+              }}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+                <path d="M7 8h10M7 12h7" />
+              </svg>
+              <span className="site-header-contact-label">Entrar em contato</span>
+            </ActionLink>
+          )}
           {!minimalHeader && (
             <nav className="site-desktop-nav" aria-label="Navegação principal">
               {navLinks()}
