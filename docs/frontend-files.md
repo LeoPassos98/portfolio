@@ -21,7 +21,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Componentes UI          | Elementos reutilizáveis da interface                                              | 8 |
 | Componentes de feedback | Comunicação de estados, confirmações e proteção de alterações pendentes           | 8 |
 | Layouts                 | Estruturas compartilhadas de páginas                                              | 4 |
-| Área pública            | Portfólio profissional e apresentação pública dos projetos                        | 3 |
+| Área pública            | Portfólio profissional e apresentação pública dos projetos                        | 7 |
 | Ambiente DEMO           | Geração pública de credenciais temporárias e continuação explícita para o login   | 3 |
 | Autenticação            | Sessão real, login, primeiro acesso, contrato HTTP, validação e proteção de rotas | 12 |
 | Dashboard               | Visões reais administrativa e individual, cache, períodos e métricas              | 7 |
@@ -31,7 +31,7 @@ O mapa contém somente os arquivos atuais em `apps/`, sem imports entre frontend
 | Meu perfil              | Autoatendimento de dados pessoais e senha para qualquer usuário autenticado       | 5 |
 | Navegação entre aplicações | Links externos configuráveis entre portfólio e Sistema OS | 2 |
 
-Total: **102 arquivos relevantes**, contados uma vez por pacote e família.
+Total: **106 arquivos relevantes**, contados uma vez por pacote e família.
 
 ## Sumário
 
@@ -179,9 +179,13 @@ Diretórios: `apps/site/frontend/src/features/public/pages/`, `apps/site/fronten
 
 | Nº | Caminho completo | Responsabilidade |
 | ---: | --- | --- |
-| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Hero centralizado e seção compacta do projeto destacado, com vidro e borda compartilhados com o Header. Apresenta uma captura real do dashboard do Sistema OS à direita no desktop e entre o título e a descrição no mobile, monta o fundo animado da Home e reúne tecnologias, apresentação profissional e contatos. |
+| 1 | `apps/site/frontend/src/features/public/pages/HomePage.tsx` | Home com seções de altura mínima de tela, fundo animado e projeto destacado com captura real. “Como construo” usa quatro modais sequenciais com atividades, resultado e exemplos de necessidade, decisão e benefício. O primeiro apenas avança, os intermediários combinam retorno por seta e avanço, e o último apenas retorna. “Sistema OS” nos exemplos é um link ao estudo de caso, com destaque em hover ou foco pelo teclado. |
 | 2 | `apps/site/frontend/src/features/public/pages/ServiceOrderProjectPage.tsx` | Estudo de caso autoral com contexto simulado, quatro desafios aprovados no Notion, fundamentação de sessões/autorização e isolamento DEMO apoiada no código, capacidades ligadas a usos práticos e limites da validação; mantém referências técnicas, seis capturas ampliáveis e CTAs configuráveis para o login DEMO. |
 | 3 | `apps/site/frontend/src/features/public/components/HomeScrollBackground.tsx` | Exibe a geometria local do logo sem script original e interpola as amostras capturadas conforme a rolagem total, de LP até </>; respeita movimento reduzido e remove listeners, observer e frame pendente ao desmontar. |
+| 4 | `apps/site/frontend/src/features/public/components/RequirementsDiscoveryDetails.tsx` | Conteúdo detalhado de Levantamento preservado fora da Home: pedido simulado, cinco perguntas expansíveis e sete necessidades em checklist. Recebe callback para continuar à Análise. |
+| 5 | `apps/site/frontend/src/features/public/components/RequirementsAnalysisDetails.tsx` | Conteúdo detalhado de Análise preservado fora da Home: exemplo guiado de controle de acesso, outras seis necessidades, regras, limites e referências oficiais; recebe callback para continuar à Especificação. |
+| 6 | `apps/site/frontend/src/features/public/components/RequirementsSpecificationDetails.tsx` | Conteúdo detalhado de Especificação preservado fora da Home: exemplo de controle de acesso, requisitos RF/RNF, critérios de aceitação e condições de qualidade/integridade; recebe callback para continuar à Validação. |
+| 7 | `apps/site/frontend/src/features/public/components/RequirementsIcon.tsx` | Ícones SVG decorativos usados nos quatro resumos de “Como construo” e nos conteúdos detalhados preservados: conversa, pergunta, prancheta, proteção, documento e marcação; seguem o traço fino e arredondado do Levantamento. |
 
 ---
 

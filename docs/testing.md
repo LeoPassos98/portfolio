@@ -448,6 +448,28 @@ Confirmados limite horizontal do fundo, movimento por rolagem e preferência de 
 
 A validação técnica não representa aprovação visual do usuário. Limitações: Chrome com viewports emulados; sem validação em Safari, Firefox ou dispositivo físico. As capturas anteriores registram os estados intermediários descritos acima; a evidência final corresponde ao conteúdo e à composição revisados em 30/10/2026.
 
+### Como construo — quatro modais do processo de trabalho
+
+Validação local em 05/11/2026, no fechamento das mudanças do portfólio antes do commit. Escopo: `apps/site/frontend/src/features/public/pages/HomePage.tsx`, `apps/site/frontend/src/styles/site.css` e os componentes públicos novos catalogados no mapa frontend. A Home usa seções com altura mínima de tela, trilhas de rolagem transparentes e quatro modais que apresentam entendimento, planejamento, implementação com apoio de IA e validação. Os exemplos foram conferidos na documentação do Notion e no código, somente por leitura; o 04 distingue a regra implementada da evidência de teste e do benefício.
+
+`npm run lint`, `npm run build` e `git diff --check` aprovados. O site não possui suíte própria instalada; as verificações de interface usaram um runner temporário Chrome/CDP contra o preview do build em loopback. Foram aprovadas **24 combinações**: quatro modais em 1440 × 900, 390 × 844 e 320 × 740, nos temas claro e escuro.
+
+| Fluxo ou propriedade | Comportamento conferido |
+| --- | --- |
+| Abertura e acessibilidade por teclado | Enter e Espaço abrem os cards; o diálogo tem nome acessível e foco inicial no título. Tab/Shift+Tab não alcançam controles da página de fundo; o link do exemplo tem destaque e contorno de foco. |
+| Navegação entre etapas | O 01 apenas avança, 02 e 03 permitem retorno e avanço, e 04 tem apenas retorno. Ambos os percursos completos, 01 → 04 e 04 → 01, reiniciam foco e rolagem no novo conteúdo, sem subcards. |
+| Botões e hover | Retorno quadrado de 40 × 40 px no desktop e 44 × 44 px no mobile, com a mesma altura do avanço, ícone invertido e sem padding que desloque a seta. Hover de retorno e avanço compartilha cor, fundo, borda e sombra. |
+| Identificação do exemplo | Os quatro exemplos usam a mesma borda e ícone laranja. “Exemplo: Sistema OS” mantém o texto visível e revela o estilo de link em hover/foco; clique nativo navega para `/projetos/sistema-os`, encerra o modal e libera a rolagem. |
+| Fechamento | Escape, X e clique fora dos limites fecham o modal. Escape devolve o foco ao card acionador e restaura a rolagem da página. |
+| Layout e rolagem | Home, modais e estudo de caso sem overflow horizontal; seções respeitam a altura mínima. Conteúdo interno responde à rolagem real, mantém o cabeçalho fixo e permite alcançar as ações finais. No mobile, os controles dos modais têm pelo menos 44 px de altura; as descrições das tecnologias aparecem em linhas. |
+| Temas e execução | Alternância e persistência de claro/escuro preservadas; nenhuma exceção JavaScript foi observada. |
+
+Na revisão de contraste desta mesma seção, foram medidos 30 pares das legendas: cor nominal obtida do CSS computado e fundo real amostrado ao lado do texto, incluindo transparências. Os mínimos foram **5,756:1 no claro** e **7,614:1 no escuro**, acima de 4,5:1 para texto comum conforme o [critério de contraste da WCAG](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html). As cores de texto e fundo dessas legendas foram preservadas nos ajustes posteriores. Essa medição e a conferência de teclado não representam auditoria completa de acessibilidade.
+
+As capturas atuais foram revisadas visualmente. Os conteúdos detalhados de Levantamento, Análise e Especificação foram preservados como componentes fora da navegação da Home e passaram por lint e TypeScript; seus fluxos não integram esta conferência de navegador. Não foram executados testes do Sistema OS, backend ou banco. Também não foram alterados os pacotes, diretórios ou configurações de publicação dessas aplicações.
+
+Evidências do fechamento em `/tmp/portfolio-precommit-20261105/`: `report.json`, `validate.mjs`, `browser.mjs` e 48 capturas PNG de início/fim. A comparação editorial e as medições anteriores permanecem em `/tmp/portfolio-process-review-20261105/` e `/tmp/portfolio-process-final-20261105/`. Os runners e as capturas ficam fora do repositório. Limites: Chrome com viewports emulados, sem Safari, Firefox ou dispositivo físico; validação técnica não equivale a aprovação de novas mudanças visuais.
+
 ### Contatos públicos do portfólio
 
 Validação local em 26/10/2026 após substituir os contatos provisórios em `apps/site/frontend/src/features/public/pages/HomePage.tsx`. Os cards permitem enviar e-mail para `contato@leonardopassos.com`, abrir o LinkedIn `devLeonardoPassos` e iniciar uma conversa pelo WhatsApp `+55 31 99591-7334`; o GitHub foi preservado.
